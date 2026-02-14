@@ -8,12 +8,14 @@ export const customerStatusEnum = pgEnum("customer_status", [
 
 export const customers = pgTable("customers", {
   id: uuid("id").primaryKey().defaultRandom(),
-  telegram_id: varchar("telegram_id", { length: 255 }).notNull().unique(),
+  telegram_id: varchar("telegram_id", { length: 255 }).unique(),
   telegram_username: varchar("telegram_username", { length: 255 }),
   phone: varchar("phone", { length: 50 }),
-  email: varchar("email", { length: 255 }),
+  email: varchar("email", { length: 255 }).unique(),
+  password_hash: varchar("password_hash", { length: 255 }),
   full_name: varchar("full_name", { length: 255 }),
   company_name: varchar("company_name", { length: 255 }),
+  avatar_url: varchar("avatar_url", { length: 500 }),
   status: customerStatusEnum("status").notNull().default("active"),
   notes: text("notes"),
   created_at: timestamp("created_at").notNull().defaultNow(),
