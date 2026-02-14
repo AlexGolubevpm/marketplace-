@@ -19,5 +19,19 @@ module.exports = {
       max_memory_restart: "512M",
       watch: false,
     },
+    {
+      name: "cargo-bot",
+      cwd: "./apps/bot",
+      script: "node_modules/.bin/tsx",
+      args: "src/index.ts",
+      instances: 1,
+      exec_mode: "fork",
+      env: {
+        NODE_ENV: "production",
+      },
+      max_restarts: 10,
+      min_uptime: "5s",
+      watch: false,
+    },
   ],
 };

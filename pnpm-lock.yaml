@@ -26,6 +26,9 @@ importers:
       '@cargo/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@grammyjs/conversations':
+        specifier: ^2.1.1
+        version: 2.1.1(grammy@1.40.0)
       grammy:
         specifier: ^1.30.0
         version: 1.40.0
@@ -707,6 +710,12 @@ packages:
 
   '@floating-ui/utils@0.2.10':
     resolution: {integrity: sha512-aGTxbpbg8/b5JfU1HXSrbH3wXZuLPJcNEcZQFMxLs3oSzgtVu6nFPkbbGGUvBcUjKV2YyB9Wxxabo+HEH9tcRQ==}
+
+  '@grammyjs/conversations@2.1.1':
+    resolution: {integrity: sha512-hoxqwSkaXDeU7mzXulpk3A4Cmd6UZO3HU4aPoITX5ekSHK7ZcUEmMl7RhKKkqw3z6zVbbAShQreJoVV5/dDSLA==}
+    engines: {node: ^12.20.0 || >=14.13.1}
+    peerDependencies:
+      grammy: ^1.20.1
 
   '@grammyjs/types@3.24.0':
     resolution: {integrity: sha512-qQIEs4lN5WqUdr4aT8MeU6UFpMbGYAvcvYSW1A4OO1PABGJQHz/KLON6qvpf+5RxaNDQBxiY2k2otIhg/AG7RQ==}
@@ -2698,6 +2707,10 @@ snapshots:
       react-dom: 19.2.4(react@19.2.4)
 
   '@floating-ui/utils@0.2.10': {}
+
+  '@grammyjs/conversations@2.1.1(grammy@1.40.0)':
+    dependencies:
+      grammy: 1.40.0
 
   '@grammyjs/types@3.24.0': {}
 

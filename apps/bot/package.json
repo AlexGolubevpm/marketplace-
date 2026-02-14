@@ -12,8 +12,9 @@
   },
   "dependencies": {
     "@cargo/db": "workspace:*",
-    "@cargo/shared": "workspace:*",
     "@cargo/queue": "workspace:*",
+    "@cargo/shared": "workspace:*",
+    "@grammyjs/conversations": "^2.1.1",
     "grammy": "^1.30.0"
   },
   "devDependencies": {
