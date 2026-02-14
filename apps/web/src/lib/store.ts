@@ -1,5 +1,3 @@
-"use client";
-
 // ============================================
 // Types
 // ============================================
@@ -70,32 +68,40 @@ export interface Order {
 }
 
 // ============================================
-// ID generation
+// ID generation (lazy — safe for SSR)
 // ============================================
-let reqCounter = parseInt(localStorage.getItem("cargo_req_counter") || "0");
-let offCounter = parseInt(localStorage.getItem("cargo_off_counter") || "0");
-let ordCounter = parseInt(localStorage.getItem("cargo_ord_counter") || "0");
+function getCounter(key: string): number {
+  if (typeof window === "undefined") return 0;
+  return parseInt(localStorage.getItem(key) || "0");
+}
+
+function incCounter(key: string): number {
+  const val = getCounter(key) + 1;
+  localStorage.setItem(key, String(val));
+  return val;
+}
 
 function nextReqId(): string {
-  reqCounter++;
-  localStorage.setItem("cargo_req_counter", String(reqCounter));
-  return `REQ-2026-${String(reqCounter).padStart(4, "0")}`;
+  const n = incCounter("cargo_req_counter");
+  return `REQ-2026-${String(n).padStart(4, "0")}`;
 }
 
 function nextOffId(): string {
-  offCounter++;
-  localStorage.setItem("cargo_off_counter", String(offCounter));
-  return `OFF-2026-${String(offCounter).padStart(4, "0")}`;
+  const n = incCounter("cargo_off_counter");
+  return `OFF-2026-${String(n).padStart(4, "0")}`;
 }
 
 function nextOrdId(): string {
-  ordCounter++;
-  localStorage.setItem("cargo_ord_counter", String(ordCounter));
-  return `ORD-2026-${String(ordCounter).padStart(4, "0")}`;
+  const n = incCounter("cargo_ord_counter");
+  return `ORD-2026-${String(n).padStart(4, "0")}`;
 }
 
 function uuid(): string {
-  return crypto.randomUUID();
+  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+  });
 }
 
 // ============================================
