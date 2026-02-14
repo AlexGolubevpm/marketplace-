@@ -6,14 +6,10 @@ on:
       - main
 
 jobs:
-  # ========================================
-  # Option A: Docker-based deploy (recommended)
-  # ========================================
-  deploy-docker:
+  deploy:
     runs-on: ubuntu-latest
-    if: ${{ vars.DEPLOY_METHOD != 'pm2' }}
     steps:
-      - name: Deploy via SSH (Docker)
+      - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.DEPLOY_HOST }}
@@ -22,12 +18,13 @@ jobs:
           script: |
             set -e
 
-            PROJECT_DIR=/opt/cargo-marketplace
-            REPO_URL=https://github.com/${{ github.repository }}.git
+            PROJECT_DIR="$HOME/cargo-marketplace"
+            REPO_URL="https://github.com/${{ github.repository }}.git"
 
             # First deploy: clone
             if [ ! -d "$PROJECT_DIR/.git" ]; then
               echo ">>> First deploy: cloning..."
+              mkdir -p "$PROJECT_DIR"
               git clone "$REPO_URL" "$PROJECT_DIR"
             fi
 
@@ -37,68 +34,61 @@ jobs:
             git fetch origin
             git reset --hard origin/main
 
-            echo ">>> Building and restarting..."
-            if [ -f ".env.production" ]; then
-              docker compose -f docker-compose.prod.yml --env-file .env.production build --no-cache web
-              docker compose -f docker-compose.prod.yml --env-file .env.production up -d
+            # Check if Docker is available
+            if command -v docker &> /dev/null && docker compose version &> /dev/null; then
+              echo ">>> Docker found, using Docker deploy..."
+
+              if [ -f ".env.production" ]; then
+                # Configure nginx
+                if [ -f "deploy/nginx-no-ssl.conf" ]; then
+                  cp deploy/nginx-no-ssl.conf deploy/nginx.conf
+                  if [ -n "$APP_DOMAIN" ]; then
+                    sed -i "s/YOUR_DOMAIN.com/$APP_DOMAIN/g" deploy/nginx.conf
+                  else
+                    sed -i "s/YOUR_DOMAIN.com/_/g" deploy/nginx.conf
+                  fi
+                fi
+
+                docker compose -f docker-compose.prod.yml --env-file .env.production build --no-cache web
+                docker compose -f docker-compose.prod.yml --env-file .env.production up -d
+                echo ">>> Docker deploy complete!"
+                docker compose -f docker-compose.prod.yml ps
+              else
+                echo "WARNING: .env.production not found, creating from example..."
+                if [ -f ".env.production.example" ]; then
+                  cp .env.production.example .env.production
+                  echo "Created .env.production from example."
+                  echo "SSH into server and edit: nano $PROJECT_DIR/.env.production"
+                  echo "Then re-run this workflow or run: bash deploy/deploy.sh"
+                fi
+              fi
+
             else
-              echo "ERROR: .env.production not found!"
-              echo "SSH into server and run: cp .env.production.example .env.production && nano .env.production"
-              exit 1
+              echo ">>> Docker not found, using PM2 deploy..."
+
+              # Ensure Node.js/pnpm are in PATH
+              export NVM_DIR="$HOME/.nvm"
+              [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+              export PATH="$HOME/.local/share/pnpm:$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node/ 2>/dev/null | tail -1)/bin:$PATH"
+
+              echo ">>> Installing dependencies..."
+              pnpm install --frozen-lockfile 2>/dev/null || npm install
+
+              echo ">>> Building..."
+              pnpm build 2>/dev/null || npx turbo build
+
+              echo ">>> Restarting with PM2..."
+              if command -v pm2 &> /dev/null; then
+                if pm2 describe cargo-web > /dev/null 2>&1; then
+                  pm2 restart cargo-web
+                else
+                  pm2 start ecosystem.config.js
+                  pm2 save
+                fi
+                echo ">>> PM2 deploy complete!"
+                pm2 status
+              else
+                echo "WARNING: PM2 not found. Install with: npm install -g pm2"
+                echo "Then run: pm2 start ecosystem.config.js && pm2 save"
+              fi
             fi
-
-            echo ">>> Deploy complete!"
-            docker compose -f docker-compose.prod.yml ps
-
-  # ========================================
-  # Option B: PM2-based deploy (without Docker)
-  # ========================================
-  deploy-pm2:
-    runs-on: ubuntu-latest
-    if: ${{ vars.DEPLOY_METHOD == 'pm2' }}
-    steps:
-      - name: Deploy via SSH (PM2)
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            set -e
-
-            PROJECT_DIR=/opt/cargo-marketplace
-            REPO_URL=https://github.com/${{ github.repository }}.git
-
-            # Ensure Node.js is available
-            export NVM_DIR="$HOME/.nvm"
-            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-            export PATH="$HOME/.local/share/pnpm:$PATH"
-
-            # First deploy: clone
-            if [ ! -d "$PROJECT_DIR/.git" ]; then
-              echo ">>> First deploy: cloning..."
-              git clone "$REPO_URL" "$PROJECT_DIR"
-            fi
-
-            cd "$PROJECT_DIR"
-
-            echo ">>> Pulling latest code..."
-            git fetch origin
-            git reset --hard origin/main
-
-            echo ">>> Installing dependencies..."
-            pnpm install --frozen-lockfile
-
-            echo ">>> Building..."
-            pnpm build
-
-            echo ">>> Restarting with PM2..."
-            if pm2 describe cargo-web > /dev/null 2>&1; then
-              pm2 restart cargo-web
-            else
-              pm2 start ecosystem.config.js
-              pm2 save
-            fi
-
-            echo ">>> Deploy complete!"
-            pm2 status

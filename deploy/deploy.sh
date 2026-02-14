@@ -1,88 +1,98 @@
 #!/bin/bash
 # ============================================
 # Deploy / Update script
-# Run this to deploy or update the application
+# Run from the project root directory
 # ============================================
-# Usage: bash deploy/deploy.sh
+# Usage: cd ~/cargo-marketplace && bash deploy/deploy.sh
 
 set -e
 
-APP_DIR="/opt/cargo-marketplace"
+# Determine project directory (where this script is run from)
+APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 COMPOSE_FILE="docker-compose.prod.yml"
 ENV_FILE=".env.production"
 
 echo "========================================="
 echo "  Cargo Marketplace — Deploy"
+echo "  Directory: $APP_DIR"
 echo "========================================="
 
 cd "$APP_DIR"
 
 # Check .env.production exists
 if [ ! -f "$ENV_FILE" ]; then
-    echo "ERROR: $ENV_FILE not found!"
-    echo "Run: cp .env.production.example .env.production"
-    echo "Then edit it with your settings."
+    echo ""
+    echo "File $ENV_FILE not found!"
+    echo ""
+    echo "Creating from example..."
+    cp .env.production.example .env.production
+    echo ""
+    echo "IMPORTANT: Edit the file with your settings:"
+    echo "  nano $APP_DIR/.env.production"
+    echo ""
+    echo "Then run this script again:"
+    echo "  bash deploy/deploy.sh"
     exit 1
 fi
 
 # Load environment variables
-export $(grep -v '^#' "$ENV_FILE" | xargs)
+set -a
+source "$ENV_FILE"
+set +a
 
 # 1. Pull latest code
 echo "[1/5] Pulling latest code..."
-git pull origin main 2>/dev/null || git pull origin master 2>/dev/null || echo "Pull from current branch..."
-git pull 2>/dev/null || true
+git pull origin main 2>/dev/null || true
 
-# 2. Replace domain in nginx config
+# 2. Configure nginx
 echo "[2/5] Configuring nginx..."
-if [ -n "$APP_DOMAIN" ]; then
-    # Use no-ssl config initially, switch to ssl config after certbot
-    if [ -f "deploy/certbot/conf/live/$APP_DOMAIN/fullchain.pem" ]; then
-        cp deploy/nginx.conf deploy/nginx-active.conf
-    else
-        cp deploy/nginx-no-ssl.conf deploy/nginx-active.conf
-    fi
-    sed -i "s/YOUR_DOMAIN.com/$APP_DOMAIN/g" deploy/nginx-active.conf
-    # Use the active config
-    cp deploy/nginx-active.conf deploy/nginx.conf.bak
-    cp deploy/nginx-active.conf deploy/nginx.conf
-    echo "Nginx configured for domain: $APP_DOMAIN"
+cp deploy/nginx-no-ssl.conf deploy/nginx.conf
+if [ -n "$APP_DOMAIN" ] && [ "$APP_DOMAIN" != "" ]; then
+    sed -i "s/YOUR_DOMAIN.com/$APP_DOMAIN/g" deploy/nginx.conf
+    echo "  Nginx configured for: $APP_DOMAIN"
 else
-    cp deploy/nginx-no-ssl.conf deploy/nginx.conf
     sed -i "s/YOUR_DOMAIN.com/_/g" deploy/nginx.conf
-    echo "Nginx configured without domain (IP access)"
+    echo "  Nginx configured for IP access (no domain)"
 fi
 
-# 3. Build and start containers
-echo "[3/5] Building application..."
-docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" build --no-cache web
+# 3. Build
+echo "[3/5] Building application (this may take a few minutes)..."
+docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" build web
 
-echo "[4/5] Starting services..."
+# 4. Start
+echo "[4/5] Starting all services..."
 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d
 
-# 5. Wait for services
-echo "[5/5] Waiting for services to start..."
+# 5. Wait and check
+echo "[5/5] Waiting for services..."
 sleep 5
 
-# Check health
 echo ""
-echo "Checking services..."
+echo "========================================="
+echo "  Service Status"
+echo "========================================="
 docker compose -f "$COMPOSE_FILE" ps
+echo ""
+
+# Check if web is running
+if docker compose -f "$COMPOSE_FILE" ps web | grep -q "Up"; then
+    echo "SUCCESS: Application is running!"
+    echo ""
+    if [ -n "$APP_DOMAIN" ] && [ "$APP_DOMAIN" != "" ]; then
+        echo "Open: http://$APP_DOMAIN"
+    else
+        IP=$(hostname -I | awk '{print $1}')
+        echo "Open: http://$IP"
+    fi
+else
+    echo "WARNING: Web container may not be ready yet."
+    echo "Check logs: docker compose -f $COMPOSE_FILE logs web"
+fi
 
 echo ""
-echo "========================================="
-echo "  Deploy Complete!"
-echo "========================================="
-echo ""
-if [ -n "$APP_DOMAIN" ]; then
-    echo "Your app is available at: https://$APP_DOMAIN"
-else
-    echo "Your app is available at: http://YOUR_SERVER_IP"
-fi
-echo ""
 echo "Useful commands:"
-echo "  docker compose -f $COMPOSE_FILE logs -f web    # view app logs"
-echo "  docker compose -f $COMPOSE_FILE logs -f        # view all logs"
+echo "  docker compose -f $COMPOSE_FILE logs -f web    # app logs"
+echo "  docker compose -f $COMPOSE_FILE logs -f        # all logs"
 echo "  docker compose -f $COMPOSE_FILE restart web    # restart app"
 echo "  docker compose -f $COMPOSE_FILE down           # stop all"
 echo ""
