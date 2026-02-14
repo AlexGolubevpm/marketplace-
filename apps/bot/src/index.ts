@@ -1,10 +1,4 @@
-import { Bot, Context, session, SessionFlavor, InlineKeyboard, Keyboard } from "grammy";
-import {
-  type Conversation,
-  type ConversationFlavor,
-  conversations,
-  createConversation,
-} from "@grammyjs/conversations";
+import { Bot, Context, session, SessionFlavor, InlineKeyboard } from "grammy";
 
 // ============================================
 // Types
@@ -26,8 +20,7 @@ interface SessionData {
   requestDraft?: RequestDraft;
 }
 
-type MyContext = Context & SessionFlavor<SessionData> & ConversationFlavor;
-type MyConversation = Conversation<MyContext>;
+type MyContext = Context & SessionFlavor<SessionData>;
 
 // ============================================
 // Bot Setup
@@ -45,9 +38,6 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
 // Session
 bot.use(session({ initial: (): SessionData => ({}) }));
-
-// Conversations
-bot.use(conversations());
 
 // ============================================
 // /start command
