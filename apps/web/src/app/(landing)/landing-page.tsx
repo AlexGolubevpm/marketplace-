@@ -387,7 +387,6 @@ function Footer() {
         <div className="flex items-center gap-8 text-sm text-white/30">
           <Link href="/auth/customer" className="hover:text-white/60 transition-colors">Для клиентов</Link>
           <Link href="/auth/carrier" className="hover:text-white/60 transition-colors">Для карго</Link>
-          <Link href="/dashboard" className="hover:text-white/60 transition-colors">Админ</Link>
         </div>
         <p className="text-sm text-white/20">© 2026 Cargo Market</p>
       </div>
