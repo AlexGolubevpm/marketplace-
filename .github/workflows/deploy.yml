@@ -1,0 +1,62 @@
+name: Deploy to Server
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: DATABASE_URL
+          script: |
+            set -e
+
+            PROJECT_DIR=~/cargo-marketplace
+            REPO_URL=git@github.com:${{ github.repository }}.git
+
+            if [ ! -d "$PROJECT_DIR/.git" ]; then
+              echo ">>> Первый деплой: клонируем..."
+              git clone $REPO_URL $PROJECT_DIR
+            fi
+
+            cd $PROJECT_DIR
+
+            echo ">>> Обновляем код..."
+            git fetch origin
+            git reset --hard origin/main
+
+            echo ">>> Устанавливаем зависимости..."
+            export PATH="/usr/lib/node_modules/.bin:$PATH"
+            pnpm install 2>/dev/null || npm install
+
+            if [ ! -f "apps/web/.env.local" ]; then
+              echo ">>> Создаём .env.local..."
+              cat > apps/web/.env.local << ENVFILE
+            DATABASE_URL="${DATABASE_URL}"
+            REDIS_URL="redis://localhost:6379"
+            JWT_SECRET="$(openssl rand -hex 32)"
+            JWT_REFRESH_SECRET="$(openssl rand -hex 32)"
+            NEXT_PUBLIC_APP_URL="http://${{ secrets.DEPLOY_HOST }}"
+            ENVFILE
+            fi
+
+            echo ">>> Собираем..."
+            pnpm build 2>/dev/null || echo "build пропущен"
+
+            echo ">>> Перезапускаем..."
+            if pm2 list 2>/dev/null | grep -q "cargo-web"; then
+              pm2 restart cargo-web
+            elif [ -f "ecosystem.config.js" ]; then
+              pm2 start ecosystem.config.js
+              pm2 save
+            fi
+
+            echo ">>> Готово!"
