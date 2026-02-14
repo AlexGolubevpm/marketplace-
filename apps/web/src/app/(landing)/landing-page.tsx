@@ -86,7 +86,7 @@ function HeroSection() {
               </button>
             </Link>
             <a
-              href="https://t.me/cargo_bot"
+              href="https://t.me/cargomarketplace_bot"
               target="_blank"
               rel="noopener noreferrer"
               className="px-8 py-4 rounded-xl border border-white/10 bg-white/5 text-white font-medium text-lg hover:bg-white/10 transition-all active:scale-[0.98] backdrop-blur-sm"
