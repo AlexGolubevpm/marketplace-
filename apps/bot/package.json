@@ -1,0 +1,23 @@
+{
+  "name": "@cargo/bot",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "type-check": "tsc --noEmit",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cargo/db": "workspace:*",
+    "@cargo/shared": "workspace:*",
+    "@cargo/queue": "workspace:*",
+    "grammy": "^1.30.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}
