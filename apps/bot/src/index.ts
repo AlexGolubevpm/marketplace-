@@ -43,6 +43,44 @@ bot.use(session({ initial: (): SessionData => ({}) }));
 // /start command
 // ============================================
 bot.command("start", async (ctx) => {
+  const payload = ctx.match; // deep link parameter after ?start=
+
+  // Handle deep link login from website
+  if (payload === "login_customer") {
+    ctx.session.role = "customer";
+    const user = ctx.from!;
+    const authUrl = `${APP_URL}/auth/telegram?tg_id=${user.id}&name=${encodeURIComponent(user.first_name + (user.last_name ? " " + user.last_name : ""))}&username=${encodeURIComponent(user.username || "")}&role=customer`;
+
+    const keyboard = new InlineKeyboard()
+      .url("🌐 Войти в кабинет клиента", authUrl)
+      .row()
+      .text("📝 Создать заявку в боте", "new_request");
+
+    await ctx.reply(
+      `👋 Привет, *${ctx.from!.first_name}*\\!\n\nНажмите кнопку ниже, чтобы войти в личный кабинет:`,
+      { parse_mode: "MarkdownV2", reply_markup: keyboard }
+    );
+    return;
+  }
+
+  if (payload === "login_carrier") {
+    ctx.session.role = "carrier";
+    const user = ctx.from!;
+    const authUrl = `${APP_URL}/auth/telegram?tg_id=${user.id}&name=${encodeURIComponent(user.first_name + (user.last_name ? " " + user.last_name : ""))}&username=${encodeURIComponent(user.username || "")}&role=carrier`;
+
+    const keyboard = new InlineKeyboard()
+      .url("🌐 Войти в кабинет карго", authUrl)
+      .row()
+      .text("📋 Посмотреть заявки", "carrier_new_requests");
+
+    await ctx.reply(
+      `🚚 Привет, *${ctx.from!.first_name}*\\!\n\nНажмите кнопку ниже, чтобы войти в кабинет карго:`,
+      { parse_mode: "MarkdownV2", reply_markup: keyboard }
+    );
+    return;
+  }
+
+  // Default: role selection
   const keyboard = new InlineKeyboard()
     .text("📦 Я клиент — нужна доставка", "role_customer")
     .row()
@@ -199,6 +237,8 @@ bot.callbackQuery("submit_request", async (ctx) => {
 // --- My Requests ---
 bot.callbackQuery("my_requests", async (ctx) => {
   await ctx.answerCallbackQuery();
+  const user = ctx.from!;
+  const authUrl = `${APP_URL}/auth/telegram?tg_id=${user.id}&name=${encodeURIComponent(user.first_name + (user.last_name ? " " + user.last_name : ""))}&username=${encodeURIComponent(user.username || "")}&role=customer`;
 
   // Mock data
   const requests = [
@@ -213,7 +253,7 @@ bot.callbackQuery("my_requests", async (ctx) => {
   });
 
   const keyboard = new InlineKeyboard()
-    .url("🌐 Подробнее в кабинете", `${APP_URL}/c/requests`)
+    .url("🌐 Подробнее в кабинете", authUrl)
     .row()
     .text("◀️ Назад", "back_customer_menu");
 
@@ -226,12 +266,15 @@ bot.callbackQuery("my_requests", async (ctx) => {
 // --- Open Cabinet ---
 bot.callbackQuery("open_cabinet", async (ctx) => {
   await ctx.answerCallbackQuery();
+  const user = ctx.from!;
+  const authUrl = `${APP_URL}/auth/telegram?tg_id=${user.id}&name=${encodeURIComponent(user.first_name + (user.last_name ? " " + user.last_name : ""))}&username=${encodeURIComponent(user.username || "")}&role=customer`;
+
   const keyboard = new InlineKeyboard()
-    .url("🌐 Открыть кабинет клиента", `${APP_URL}/c/requests`)
+    .url("🌐 Войти в кабинет", authUrl)
     .row()
     .text("◀️ Назад", "back_customer_menu");
 
-  await ctx.reply("Нажмите кнопку ниже, чтобы перейти в личный кабинет:", {
+  await ctx.reply("Нажмите кнопку — вы автоматически войдёте в кабинет:", {
     reply_markup: keyboard,
   });
 });
@@ -327,12 +370,15 @@ bot.callbackQuery("carrier_my_offers", async (ctx) => {
 
 bot.callbackQuery("carrier_open_cabinet", async (ctx) => {
   await ctx.answerCallbackQuery();
+  const user = ctx.from!;
+  const authUrl = `${APP_URL}/auth/telegram?tg_id=${user.id}&name=${encodeURIComponent(user.first_name + (user.last_name ? " " + user.last_name : ""))}&username=${encodeURIComponent(user.username || "")}&role=carrier`;
+
   const keyboard = new InlineKeyboard()
-    .url("🌐 Открыть кабинет карго", `${APP_URL}/s/requests`)
+    .url("🌐 Войти в кабинет", authUrl)
     .row()
     .text("◀️ Назад", "back_carrier_menu");
 
-  await ctx.reply("Нажмите кнопку ниже, чтобы перейти в кабинет:", {
+  await ctx.reply("Нажмите кнопку — вы автоматически войдёте в кабинет:", {
     reply_markup: keyboard,
   });
 });

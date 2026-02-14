@@ -48,7 +48,7 @@ export default function CustomerAuthPage() {
 
           {/* Telegram login */}
           <a
-            href="https://t.me/cargomarketplace_bot"
+            href="https://t.me/cargomarketplace_bot?start=login_customer"
             className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[#2AABEE]/10 border border-[#2AABEE]/20 text-[#2AABEE] font-medium hover:bg-[#2AABEE]/20 transition-all"
           >
             <Send className="h-4 w-4" />
