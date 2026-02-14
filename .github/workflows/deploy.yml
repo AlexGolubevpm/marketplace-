@@ -1,4 +1,4 @@
-name: Deploy to Server
+name: Deploy to Timeweb Server
 
 on:
   push:
@@ -6,57 +6,99 @@ on:
       - main
 
 jobs:
-  deploy:
+  # ========================================
+  # Option A: Docker-based deploy (recommended)
+  # ========================================
+  deploy-docker:
     runs-on: ubuntu-latest
+    if: ${{ vars.DEPLOY_METHOD != 'pm2' }}
     steps:
-      - name: Deploy via SSH
+      - name: Deploy via SSH (Docker)
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: DATABASE_URL
           script: |
             set -e
 
-            PROJECT_DIR=~/cargo-marketplace
-            REPO_URL=git@github.com:${{ github.repository }}.git
+            PROJECT_DIR=/opt/cargo-marketplace
+            REPO_URL=https://github.com/${{ github.repository }}.git
 
+            # First deploy: clone
             if [ ! -d "$PROJECT_DIR/.git" ]; then
-              echo ">>> Первый деплой: клонируем..."
-              git clone $REPO_URL $PROJECT_DIR
+              echo ">>> First deploy: cloning..."
+              git clone "$REPO_URL" "$PROJECT_DIR"
             fi
 
-            cd $PROJECT_DIR
+            cd "$PROJECT_DIR"
 
-            echo ">>> Обновляем код..."
+            echo ">>> Pulling latest code..."
             git fetch origin
             git reset --hard origin/main
 
-            echo ">>> Устанавливаем зависимости..."
-            export PATH="/usr/lib/node_modules/.bin:$PATH"
-            pnpm install 2>/dev/null || npm install
-
-            if [ ! -f "apps/web/.env.local" ]; then
-              echo ">>> Создаём .env.local..."
-              cat > apps/web/.env.local << ENVFILE
-            DATABASE_URL="${DATABASE_URL}"
-            REDIS_URL="redis://localhost:6379"
-            JWT_SECRET="$(openssl rand -hex 32)"
-            JWT_REFRESH_SECRET="$(openssl rand -hex 32)"
-            NEXT_PUBLIC_APP_URL="http://${{ secrets.DEPLOY_HOST }}"
-            ENVFILE
+            echo ">>> Building and restarting..."
+            if [ -f ".env.production" ]; then
+              docker compose -f docker-compose.prod.yml --env-file .env.production build --no-cache web
+              docker compose -f docker-compose.prod.yml --env-file .env.production up -d
+            else
+              echo "ERROR: .env.production not found!"
+              echo "SSH into server and run: cp .env.production.example .env.production && nano .env.production"
+              exit 1
             fi
 
-            echo ">>> Собираем..."
-            pnpm build 2>/dev/null || echo "build пропущен"
+            echo ">>> Deploy complete!"
+            docker compose -f docker-compose.prod.yml ps
 
-            echo ">>> Перезапускаем..."
-            if pm2 list 2>/dev/null | grep -q "cargo-web"; then
+  # ========================================
+  # Option B: PM2-based deploy (without Docker)
+  # ========================================
+  deploy-pm2:
+    runs-on: ubuntu-latest
+    if: ${{ vars.DEPLOY_METHOD == 'pm2' }}
+    steps:
+      - name: Deploy via SSH (PM2)
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+
+            PROJECT_DIR=/opt/cargo-marketplace
+            REPO_URL=https://github.com/${{ github.repository }}.git
+
+            # Ensure Node.js is available
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            export PATH="$HOME/.local/share/pnpm:$PATH"
+
+            # First deploy: clone
+            if [ ! -d "$PROJECT_DIR/.git" ]; then
+              echo ">>> First deploy: cloning..."
+              git clone "$REPO_URL" "$PROJECT_DIR"
+            fi
+
+            cd "$PROJECT_DIR"
+
+            echo ">>> Pulling latest code..."
+            git fetch origin
+            git reset --hard origin/main
+
+            echo ">>> Installing dependencies..."
+            pnpm install --frozen-lockfile
+
+            echo ">>> Building..."
+            pnpm build
+
+            echo ">>> Restarting with PM2..."
+            if pm2 describe cargo-web > /dev/null 2>&1; then
               pm2 restart cargo-web
-            elif [ -f "ecosystem.config.js" ]; then
+            else
               pm2 start ecosystem.config.js
               pm2 save
             fi
 
-            echo ">>> Готово!"
+            echo ">>> Deploy complete!"
+            pm2 status
