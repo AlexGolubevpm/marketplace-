@@ -1,0 +1,22 @@
+{
+  "name": "cargo-marketplace",
+  "private": true,
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "type-check": "turbo type-check",
+    "db:generate": "pnpm --filter @cargo/db generate",
+    "db:migrate": "pnpm --filter @cargo/db migrate",
+    "db:push": "pnpm --filter @cargo/db push",
+    "db:studio": "pnpm --filter @cargo/db studio"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.0",
+    "typescript": "^5.7.0"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20"
+  }
+}
