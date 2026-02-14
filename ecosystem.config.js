@@ -15,20 +15,10 @@ module.exports = {
         NODE_ENV: "production",
         PORT: 3000,
       },
-      env_production: {
-        NODE_ENV: "production",
-        PORT: 3000,
-      },
-      // Logging
-      log_date_format: "YYYY-MM-DD HH:mm:ss Z",
-      error_file: "/var/log/cargo/web-error.log",
-      out_file: "/var/log/cargo/web-out.log",
-      merge_logs: true,
       // Restart policy
       max_restarts: 10,
       min_uptime: "10s",
       max_memory_restart: "512M",
-      // Watch (disabled in production)
       watch: false,
     },
   ],
