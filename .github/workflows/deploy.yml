@@ -31,7 +31,7 @@ jobs:
             cd "$PROJECT_DIR"
 
             echo ">>> Pulling latest code..."
-            git fetch origin
+            git fetch origin main
             git reset --hard origin/main
 
             # Check if Docker is available
