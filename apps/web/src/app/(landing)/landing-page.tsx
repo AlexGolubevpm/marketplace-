@@ -249,9 +249,9 @@ function Navbar({ branding }: { branding: any }) {
   const session = useSession();
   return (
     <nav className="fixed top-0 w-full z-50 border-b border-gray-100 bg-white/80 backdrop-blur-xl">
-      <div className="max-w-6xl mx-auto px-6 h-24 flex items-center justify-between">
+      <div className="max-w-6xl mx-auto px-6 h-40 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-3">
-          <CngoLogo className="h-[76px] w-auto max-w-[160px]" logoUrl={branding.logo_url || undefined} />
+          <CngoLogo className="h-[152px] w-auto max-w-[320px]" logoUrl={branding.logo_url || undefined} />
           <span className="text-gray-900 font-bold text-2xl tracking-tight">{branding.logo_text || "CNGO"}</span>
         </Link>
         <div className="hidden md:flex items-center gap-8">
@@ -294,7 +294,7 @@ function Navbar({ branding }: { branding: any }) {
 function HeroSection({ content, branding }: { content: any; branding: any }) {
   const checkmarks = content.checkmarks || DEFAULTS.hero.checkmarks;
   return (
-    <section className="relative min-h-[90vh] flex items-center justify-center pt-24 overflow-hidden">
+    <section className="relative min-h-[90vh] flex items-center justify-center pt-40 overflow-hidden">
       {content.background_image ? (
         <div className="absolute inset-0">
           <img src={content.background_image} alt="" className="w-full h-full object-cover" />
@@ -307,7 +307,7 @@ function HeroSection({ content, branding }: { content: any; branding: any }) {
         <motion.div initial="hidden" animate="visible" variants={stagger}>
           <motion.div variants={fadeUp} custom={0} className="mb-8">
             <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-red-100 bg-red-50 text-[13px] text-red-600 font-medium">
-              <CngoLogo className="h-7 w-auto" logoUrl={branding.logo_url || undefined} /> {content.badge}
+              <CngoLogo className="h-14 w-auto" logoUrl={branding.logo_url || undefined} /> {content.badge}
             </span>
           </motion.div>
           <motion.h1 variants={fadeUp} custom={1} className="text-4xl sm:text-5xl md:text-7xl font-bold tracking-tight leading-[1.1]">
@@ -563,7 +563,7 @@ function Footer({ branding }: { branding: any }) {
     <footer className="py-10 px-6 border-t border-gray-100">
       <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
         <Link href="/" className="flex items-center gap-2">
-          <CngoLogo className="h-12 w-auto max-w-[100px]" logoUrl={branding.logo_url || undefined} />
+          <CngoLogo className="h-24 w-auto max-w-[200px]" logoUrl={branding.logo_url || undefined} />
           <span className="text-gray-900 font-bold text-xl tracking-tight">{branding.logo_text || "CNGO"}</span>
         </Link>
         <div className="flex items-center gap-6 text-sm text-gray-400">

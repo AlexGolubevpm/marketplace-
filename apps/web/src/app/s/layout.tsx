@@ -5,7 +5,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { getSession, clearSession, type UserSession } from "@/lib/auth";
-import { ClipboardList, Send, User, LogOut, Truck } from "lucide-react";
+import { ClipboardList, Send, User, LogOut } from "lucide-react";
+import { CngoLogo } from "@/components/cngo-logo";
 
 const navItems = [
   { href: "/s/requests", label: "Заявки", icon: ClipboardList },
@@ -47,10 +48,8 @@ export default function CarrierLayout({ children }: { children: React.ReactNode 
       <nav className="sticky top-0 z-50 border-b border-white/[0.06] bg-[#0a0a0f]/80 backdrop-blur-xl">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
-              <Truck className="h-3.5 w-3.5 text-white" />
-            </div>
-            <span className="font-semibold hidden sm:block">Cargo Carrier</span>
+            <CngoLogo className="h-10 w-10" />
+            <span className="font-semibold hidden sm:block">CNGO Carrier</span>
           </Link>
           <div className="hidden md:flex items-center gap-1">
             {navItems.map((item) => {

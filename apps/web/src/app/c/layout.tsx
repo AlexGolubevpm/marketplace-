@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { getSession, clearSession, type UserSession } from "@/lib/auth";
 import { ClipboardList, PlusCircle, Archive, User, LogOut, BookOpen } from "lucide-react";
+import { CngoLogo } from "@/components/cngo-logo";
 
 const navItems = [
   { href: "/c/requests", label: "Заявки", icon: ClipboardList },
@@ -50,8 +51,8 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
       <nav className="sticky top-0 z-50 border-b border-white/[0.06] bg-[#0a0a0f]/80 backdrop-blur-xl">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-500 to-indigo-500 flex items-center justify-center text-white font-bold text-xs">C</div>
-            <span className="font-semibold hidden sm:block">Cargo Market</span>
+            <CngoLogo className="h-10 w-10" />
+            <span className="font-semibold hidden sm:block">CNGO</span>
           </Link>
           <div className="hidden md:flex items-center gap-1">
             {navItems.map((item) => {
