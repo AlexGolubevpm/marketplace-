@@ -135,9 +135,9 @@ function useSession(): SessionInfo {
 }
 
 /* ── IconOrImage: show uploaded image or fallback to lucide icon ── */
-function IconOrImage({ iconName, imageUrl, size = "w-7 h-7", className = "" }: { iconName?: string; imageUrl?: string; size?: string; className?: string }) {
+function IconOrImage({ iconName, imageUrl, size = "w-10 h-10", className = "" }: { iconName?: string; imageUrl?: string; size?: string; className?: string }) {
   if (imageUrl) {
-    return <img src={imageUrl} alt="" className={`${size} object-contain rounded ${className}`} />;
+    return <img src={imageUrl} alt="" className={`${size} object-contain rounded-lg ${className}`} />;
   }
   const Icon = iconName ? ICON_MAP[iconName] : null;
   if (Icon) return <Icon className={`${size} ${className}`} />;
@@ -145,9 +145,9 @@ function IconOrImage({ iconName, imageUrl, size = "w-7 h-7", className = "" }: {
 }
 
 /* ── Logo ── */
-function CngoLogo({ className = "h-8 w-8", logoUrl }: { className?: string; logoUrl?: string }) {
+function CngoLogo({ className = "h-10 w-10", logoUrl }: { className?: string; logoUrl?: string }) {
   if (logoUrl) {
-    return <img src={logoUrl} alt="Logo" className={className} />;
+    return <img src={logoUrl} alt="Logo" className={`${className} object-contain`} />;
   }
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none" className={className}>
@@ -186,8 +186,8 @@ function Navbar({ branding }: { branding: any }) {
     <nav className="fixed top-0 w-full z-50 border-b border-gray-100 bg-white/80 backdrop-blur-xl">
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2.5">
-          <CngoLogo className="h-8 w-8" logoUrl={branding.logo_url || undefined} />
-          <span className="text-gray-900 font-bold text-lg tracking-tight">{branding.logo_text || "CNGO"}</span>
+          <CngoLogo className="h-10 w-10" logoUrl={branding.logo_url || undefined} />
+          <span className="text-gray-900 font-bold text-xl tracking-tight">{branding.logo_text || "CNGO"}</span>
         </Link>
         <div className="hidden md:flex items-center gap-8">
           <a href="#delivery" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Доставка</a>
@@ -242,7 +242,7 @@ function HeroSection({ content, branding }: { content: any; branding: any }) {
         <motion.div initial="hidden" animate="visible" variants={stagger}>
           <motion.div variants={fadeUp} custom={0} className="mb-8">
             <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-red-100 bg-red-50 text-[13px] text-red-600 font-medium">
-              <CngoLogo className="h-3.5 w-3.5" logoUrl={branding.logo_url || undefined} /> {content.badge}
+              <CngoLogo className="h-5 w-5" logoUrl={branding.logo_url || undefined} /> {content.badge}
             </span>
           </motion.div>
           <motion.h1 variants={fadeUp} custom={1} className="text-4xl sm:text-5xl md:text-7xl font-bold tracking-tight leading-[1.1]">
@@ -322,9 +322,9 @@ function DeliveryTypesSection({ content }: { content: any }) {
             return (
               <motion.div key={t.title} variants={fadeUp} custom={i}>
                 <Card className="p-6 group text-center cursor-default hover:-translate-y-1">
-                  <div className="flex justify-center mb-4">
-                    <div className={`w-14 h-14 rounded-xl border flex items-center justify-center ${t.image_url ? "" : color} transition-all duration-300`}>
-                      <IconOrImage iconName={t.icon} imageUrl={t.image_url} />
+                  <div className="flex justify-center mb-5">
+                    <div className={`w-20 h-20 rounded-2xl border flex items-center justify-center ${t.image_url ? "" : color} transition-all duration-300`}>
+                      <IconOrImage iconName={t.icon} imageUrl={t.image_url} size="w-10 h-10" />
                     </div>
                   </div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">{t.title}</h3>
@@ -358,8 +358,8 @@ function HowItWorksSection({ content }: { content: any }) {
               <motion.div key={step.num} variants={fadeUp} custom={i}>
                 <Card className="p-7 group h-full hover:-translate-y-1">
                   <div className="flex items-start gap-5">
-                    <div className={`flex-shrink-0 w-12 h-12 rounded-xl border flex items-center justify-center ${step.image_url ? "" : color} transition-all duration-300`}>
-                      <IconOrImage iconName={step.icon} imageUrl={step.image_url} size="w-6 h-6" />
+                    <div className={`flex-shrink-0 w-16 h-16 rounded-xl border flex items-center justify-center ${step.image_url ? "" : color} transition-all duration-300`}>
+                      <IconOrImage iconName={step.icon} imageUrl={step.image_url} size="w-8 h-8" />
                     </div>
                     <div className="pt-0.5">
                       <div className="flex items-center gap-3 mb-1.5">
@@ -395,8 +395,8 @@ function WhyUsSection({ content }: { content: any }) {
             return (
               <motion.div key={f.title} variants={fadeUp} custom={i}>
                 <Card className="p-6 group h-full hover:-translate-y-1">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-4 ${f.image_url ? "" : color}`}>
-                    <IconOrImage iconName={f.icon} imageUrl={f.image_url} size="w-5 h-5" />
+                  <div className={`w-14 h-14 rounded-xl flex items-center justify-center mb-4 ${f.image_url ? "" : color}`}>
+                    <IconOrImage iconName={f.icon} imageUrl={f.image_url} size="w-7 h-7" />
                   </div>
                   <h3 className="text-base font-semibold text-gray-900 mb-1.5">{f.title}</h3>
                   <p className="text-sm text-gray-500 leading-relaxed">{f.desc}</p>
@@ -481,8 +481,8 @@ function Footer({ branding }: { branding: any }) {
     <footer className="py-10 px-6 border-t border-gray-100">
       <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
         <Link href="/" className="flex items-center gap-2">
-          <CngoLogo className="h-6 w-6" logoUrl={branding.logo_url || undefined} />
-          <span className="text-gray-900 font-semibold tracking-tight">{branding.logo_text || "CNGO"}</span>
+          <CngoLogo className="h-9 w-9" logoUrl={branding.logo_url || undefined} />
+          <span className="text-gray-900 font-bold text-lg tracking-tight">{branding.logo_text || "CNGO"}</span>
         </Link>
         <div className="flex items-center gap-6 text-sm text-gray-400">
           <Link href="/knowledge-base" className="hover:text-gray-900 transition-colors">База знаний</Link>
