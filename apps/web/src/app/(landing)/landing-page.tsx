@@ -4,13 +4,9 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import {
   ArrowRight,
-  Package,
-  BarChart3,
   CheckCircle2,
   ChevronRight,
   Send,
-  Truck,
-  Users,
 } from "lucide-react";
 
 function CngoLogo({ className = "h-8 w-8" }: { className?: string }) {
@@ -134,30 +130,139 @@ function HeroSection() {
 }
 
 function HowItWorksSection() {
+  /* Custom SVG icons matching 3D illustration style */
+  const DescribeCargoIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" fill="none" className="h-14 w-14">
+      {/* Clipboard */}
+      <rect x="14" y="10" width="42" height="56" rx="5" fill="#dc2626" opacity="0.1" />
+      <rect x="14" y="10" width="42" height="56" rx="5" stroke="#dc2626" strokeWidth="2" fill="none" />
+      {/* Clipboard clip */}
+      <rect x="28" y="4" width="14" height="10" rx="3.5" fill="#dc2626" opacity="0.8" />
+      <rect x="31" y="6" width="8" height="5" rx="2" fill="#1a1a2e" />
+      {/* Checklist lines with checkboxes */}
+      <rect x="20" y="24" width="8" height="8" rx="2" stroke="#dc2626" strokeWidth="1.5" fill="none" />
+      <path d="M22 28.5l2 2 4-4" stroke="#dc2626" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <rect x="32" y="26" width="18" height="3" rx="1" fill="#dc2626" opacity="0.3" />
+      <rect x="20" y="38" width="8" height="8" rx="2" stroke="#dc2626" strokeWidth="1.5" fill="none" />
+      <path d="M22 42.5l2 2 4-4" stroke="#dc2626" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <rect x="32" y="40" width="14" height="3" rx="1" fill="#dc2626" opacity="0.3" />
+      <rect x="20" y="52" width="8" height="8" rx="2" stroke="#dc2626" strokeWidth="1.5" fill="#dc2626" opacity="0.08" />
+      <rect x="32" y="54" width="16" height="3" rx="1" fill="#dc2626" opacity="0.15" />
+      {/* Red pencil */}
+      <g transform="rotate(-35, 64, 20)">
+        <rect x="58" y="10" width="6" height="32" rx="1" fill="#dc2626" opacity="0.85" />
+        <polygon points="58,42 61,50 64,42" fill="#dc2626" opacity="0.6" />
+        <rect x="58" y="10" width="6" height="5" rx="1" fill="#b91c1c" />
+      </g>
+    </svg>
+  );
+
+  const GetOffersIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" fill="none" className="h-14 w-14">
+      {/* Browser window */}
+      <rect x="6" y="8" width="58" height="48" rx="5" fill="#dc2626" opacity="0.08" />
+      <rect x="6" y="8" width="58" height="48" rx="5" stroke="#dc2626" strokeWidth="2" fill="none" />
+      {/* Browser toolbar */}
+      <line x1="6" y1="20" x2="64" y2="20" stroke="#dc2626" strokeWidth="1.5" opacity="0.3" />
+      <circle cx="14" cy="14" r="2" fill="#dc2626" opacity="0.5" />
+      <circle cx="21" cy="14" r="2" fill="#dc2626" opacity="0.3" />
+      <circle cx="28" cy="14" r="2" fill="#dc2626" opacity="0.2" />
+      {/* Offer cards inside */}
+      <rect x="12" y="25" width="22" height="12" rx="2.5" fill="#dc2626" opacity="0.2" />
+      <rect x="14" y="28" width="10" height="2" rx="0.5" fill="#dc2626" opacity="0.5" />
+      <rect x="14" y="32" width="6" height="2" rx="0.5" fill="#dc2626" opacity="0.3" />
+      <rect x="36" y="25" width="22" height="12" rx="2.5" fill="#dc2626" opacity="0.2" />
+      <rect x="38" y="28" width="10" height="2" rx="0.5" fill="#dc2626" opacity="0.5" />
+      <rect x="38" y="32" width="6" height="2" rx="0.5" fill="#dc2626" opacity="0.3" />
+      <rect x="12" y="40" width="22" height="12" rx="2.5" fill="#dc2626" opacity="0.15" />
+      <rect x="14" y="43" width="10" height="2" rx="0.5" fill="#dc2626" opacity="0.4" />
+      <rect x="14" y="47" width="6" height="2" rx="0.5" fill="#dc2626" opacity="0.25" />
+      {/* Notification badge */}
+      <circle cx="62" cy="12" r="8" fill="#dc2626" />
+      <text x="62" y="15.5" textAnchor="middle" fill="white" fontSize="10" fontWeight="bold">3</text>
+      {/* Magnifying glass */}
+      <circle cx="64" cy="58" r="10" stroke="#dc2626" strokeWidth="2.5" fill="#dc2626" opacity="0.1" />
+      <line x1="71" y1="65" x2="76" y2="70" stroke="#dc2626" strokeWidth="3" strokeLinecap="round" />
+    </svg>
+  );
+
+  const CompareChooseIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" fill="none" className="h-14 w-14">
+      {/* Price tag */}
+      <path d="M10 36l22-22h16l-22 22-8 16z" fill="#dc2626" opacity="0.15" stroke="#dc2626" strokeWidth="2" />
+      <circle cx="40" cy="22" r="3" fill="#dc2626" opacity="0.5" />
+      {/* Dollar sign on tag */}
+      <text x="26" y="38" fill="#dc2626" fontSize="14" fontWeight="bold">$</text>
+      {/* Comparison cards */}
+      <rect x="38" y="30" width="18" height="22" rx="3" fill="#dc2626" opacity="0.2" stroke="#dc2626" strokeWidth="1.5" />
+      <rect x="40" y="34" width="8" height="2" rx="0.5" fill="#dc2626" opacity="0.5" />
+      <rect x="40" y="39" width="12" height="2" rx="0.5" fill="#dc2626" opacity="0.3" />
+      <path d="M41 45l2 2 4-4" stroke="#16a34a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <rect x="50" y="36" width="18" height="22" rx="3" fill="#dc2626" opacity="0.12" stroke="#dc2626" strokeWidth="1.2" opacity="0.4" />
+      <rect x="52" y="40" width="8" height="2" rx="0.5" fill="#dc2626" opacity="0.3" />
+      <rect x="52" y="45" width="12" height="2" rx="0.5" fill="#dc2626" opacity="0.2" />
+      {/* Shield with checkmark */}
+      <path d="M60 56c-4 0-8 3-8 7s3.5 11 8 13c4.5-2 8-9 8-13s-4-7-8-7z" fill="#dc2626" opacity="0.2" />
+      <path d="M60 58c-3 0-6 2.5-6 5.5s3 9 6 11c3-2 6-8 6-11s-3-5.5-6-5.5z" stroke="#dc2626" strokeWidth="1.5" fill="none" />
+      <path d="M57 64l2.5 2.5 4.5-5" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </svg>
+  );
+
+  const TrackDeliveryIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" fill="none" className="h-14 w-14">
+      {/* Truck body */}
+      <rect x="4" y="24" width="36" height="24" rx="3" fill="#dc2626" opacity="0.85" />
+      <rect x="4" y="24" width="36" height="8" rx="2" fill="#b91c1c" />
+      {/* CNGO text on truck */}
+      <text x="14" y="41" fill="white" fontSize="7" fontWeight="bold" opacity="0.9">CNGO</text>
+      {/* Truck cabin */}
+      <path d="M40 32h10l7 8v8a2 2 0 01-2 2H40V32z" fill="#dc2626" opacity="0.7" />
+      <rect x="43" y="35" width="8" height="6" rx="1.5" fill="#1a1a2e" opacity="0.6" />
+      {/* Wheels */}
+      <circle cx="16" cy="50" r="5" fill="#dc2626" />
+      <circle cx="16" cy="50" r="2.5" fill="#1a1a2e" />
+      <circle cx="48" cy="50" r="5" fill="#dc2626" />
+      <circle cx="48" cy="50" r="2.5" fill="#1a1a2e" />
+      {/* Phone / tracking device */}
+      <rect x="56" y="18" width="18" height="32" rx="3" fill="#dc2626" opacity="0.15" stroke="#dc2626" strokeWidth="1.5" />
+      <rect x="58" y="22" width="14" height="22" rx="1" fill="#dc2626" opacity="0.08" />
+      {/* Map pin on phone */}
+      <path d="M65 28c-3 0-5 2-5 5 0 4 5 9 5 9s5-5 5-9c0-3-2-5-5-5z" fill="#dc2626" opacity="0.7" />
+      <circle cx="65" cy="33" r="1.5" fill="white" opacity="0.8" />
+      {/* Route dots on phone */}
+      <circle cx="61" cy="40" r="1" fill="#dc2626" opacity="0.4" />
+      <circle cx="63" cy="38" r="1" fill="#dc2626" opacity="0.4" />
+      <circle cx="69" cy="40" r="1" fill="#dc2626" opacity="0.4" />
+      {/* Signal waves */}
+      <path d="M60 16c2-2 8-2 10 0" stroke="#dc2626" strokeWidth="1" strokeLinecap="round" fill="none" opacity="0.3" />
+      <path d="M62 13c1.5-1.5 5.5-1.5 7 0" stroke="#dc2626" strokeWidth="1" strokeLinecap="round" fill="none" opacity="0.2" />
+    </svg>
+  );
+
   const steps = [
     {
       num: "01",
       title: "Опишите груз",
       desc: "Маршрут, вес, тип товара — 2 минуты на заявку",
-      icon: Package,
+      icon: DescribeCargoIcon,
     },
     {
       num: "02",
       title: "Получите предложения",
       desc: "Карго-компании пришлют офферы с ценами и сроками",
-      icon: Users,
+      icon: GetOffersIcon,
     },
     {
       num: "03",
       title: "Сравните и выберите",
       desc: "Удобное сравнение цен, сроков и условий в таблице",
-      icon: BarChart3,
+      icon: CompareChooseIcon,
     },
     {
       num: "04",
       title: "Отслеживайте доставку",
       desc: "Статус заказа в реальном времени до момента получения",
-      icon: Truck,
+      icon: TrackDeliveryIcon,
     },
   ];
 
@@ -193,14 +298,14 @@ function HowItWorksSection() {
                 key={step.num}
                 variants={fadeUp}
                 custom={i}
-                className="group relative p-8 rounded-2xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/[0.12] transition-all duration-300"
+                className="group relative p-8 rounded-2xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-red-500/20 transition-all duration-300"
               >
                 <div className="flex items-start gap-5">
-                  <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500/20 to-indigo-500/20 border border-cyan-500/20 flex items-center justify-center">
-                    <Icon className="h-5 w-5 text-cyan-400" />
+                  <div className="flex-shrink-0 group-hover:scale-105 transition-transform duration-300">
+                    <Icon />
                   </div>
                   <div>
-                    <span className="text-xs font-mono text-white/20 tracking-wider">{step.num}</span>
+                    <span className="text-xs font-mono text-red-500/40 tracking-wider">{step.num}</span>
                     <h3 className="text-xl font-semibold text-white mt-1">{step.title}</h3>
                     <p className="mt-2 text-white/40 leading-relaxed">{step.desc}</p>
                   </div>
