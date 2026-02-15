@@ -26,7 +26,23 @@ export async function GET(
       .from(schema.offers)
       .where(eq(schema.offers.request_id, id));
 
-    return NextResponse.json({ ...request, offers, offer_count: offers.length });
+    // Get order if exists (created when offer is selected)
+    const [order] = await db
+      .select()
+      .from(schema.orders)
+      .where(eq(schema.orders.request_id, id))
+      .limit(1);
+
+    // Get documents for order
+    let documents: any[] = [];
+    if (order) {
+      documents = await db
+        .select()
+        .from(schema.orderDocuments)
+        .where(eq(schema.orderDocuments.order_id, order.id));
+    }
+
+    return NextResponse.json({ ...request, offers, offer_count: offers.length, order: order || null, documents });
   } catch (error: any) {
     console.error("GET /api/requests/[id] error:", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
