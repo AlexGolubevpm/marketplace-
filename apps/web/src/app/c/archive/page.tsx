@@ -17,10 +17,15 @@ export default function CustomerArchivePage() {
   const [requests, setRequests] = useState<Request[]>([]);
 
   useEffect(() => {
-    const session = getSession();
-    const userId = session?.tg_id || session?.username || "anonymous";
-    const all = getRequests(userId);
-    setRequests(all.filter((r) => ["offer_selected", "completed", "cancelled", "expired"].includes(r.status)));
+    async function load() {
+      const session = getSession();
+      const userId = session?.tg_id || session?.username || "anonymous";
+      try {
+        const all = await getRequests(userId);
+        setRequests(all.filter((r) => ["offer_selected", "completed", "cancelled", "expired"].includes(r.status)));
+      } catch {}
+    }
+    load();
   }, []);
 
   return (

@@ -47,21 +47,27 @@ export default function NewRequestPage() {
 
   const [submitted, setSubmitted] = useState(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const session = getSession();
     const userId = session?.tg_id || session?.username || "anonymous";
 
-    createRequest({
-      customer_id: userId,
-      origin_country: form.origin_country,
-      origin_city: form.origin_city,
-      destination_country: form.destination_country,
-      destination_city: form.destination_city,
-      cargo_description: form.cargo_description,
-      weight_kg: form.weight_kg,
-      volume_m3: form.volume_m3,
-      delivery_type_preferred: form.delivery_type,
-    });
+    try {
+      await createRequest({
+        customer_id: userId,
+        customer_name: session?.name,
+        customer_email: session?.username?.includes("@") ? session.username : undefined,
+        origin_country: form.origin_country,
+        origin_city: form.origin_city,
+        destination_country: form.destination_country,
+        destination_city: form.destination_city,
+        cargo_description: form.cargo_description,
+        weight_kg: form.weight_kg || undefined,
+        volume_m3: form.volume_m3 || undefined,
+        delivery_type_preferred: form.delivery_type,
+      });
+    } catch (e) {
+      console.error("Failed to create request:", e);
+    }
 
     setSubmitted(true);
     setTimeout(() => {

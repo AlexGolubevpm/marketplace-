@@ -24,17 +24,21 @@ export default function CarrierOfferPage() {
   const [includes, setIncludes] = useState({ pickup: false, customs: false, door: false, insurance: false });
 
   useEffect(() => {
-    const req = getRequestById(params.id as string);
-    setRequest(req);
-    if (req) {
-      const session = getSession();
-      const carrierId = session?.tg_id || session?.username || "carrier";
-      const existing = getOffersByRequest(req.id).find((o) => o.carrier_id === carrierId);
-      if (existing) setAlreadySubmitted(true);
+    async function load() {
+      const req = await getRequestById(params.id as string);
+      setRequest(req);
+      if (req) {
+        const session = getSession();
+        const carrierId = session?.tg_id || session?.username || "carrier";
+        const offers = req.offers || await getOffersByRequest(req.id);
+        const existing = offers.find((o: any) => o.carrier_id === carrierId);
+        if (existing) setAlreadySubmitted(true);
+      }
     }
+    load();
   }, [params.id]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!request) return;
     const session = getSession();
@@ -47,19 +51,23 @@ export default function CarrierOfferPage() {
     if (includes.door) inc.push("До двери");
     if (includes.insurance) inc.push("Страховка");
 
-    createOffer({
-      request_id: request.id,
-      carrier_id: carrierId,
-      carrier_name: carrierName,
-      price: parseFloat(price),
-      estimated_days_min: parseInt(daysMin),
-      estimated_days_max: parseInt(daysMax) || parseInt(daysMin) + 3,
-      delivery_type: deliveryType,
-      conditions: comment,
-      includes: inc,
-    });
-
-    setSubmitted(true);
+    try {
+      await createOffer({
+        request_id: request.id,
+        carrier_id: carrierId,
+        carrier_name: carrierName,
+        carrier_email: session?.username?.includes("@") ? session.username : undefined,
+        price: parseFloat(price),
+        estimated_days_min: parseInt(daysMin),
+        estimated_days_max: parseInt(daysMax) || parseInt(daysMin) + 3,
+        delivery_type: deliveryType,
+        conditions: comment,
+        includes: inc,
+      });
+      setSubmitted(true);
+    } catch (e) {
+      console.error("Failed to create offer:", e);
+    }
   };
 
   if (!request) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { MapPin, Package, ChevronRight, Plus, Clock, Inbox } from "lucide-react";
@@ -24,24 +24,27 @@ const statusConfig: Record<string, { label: string; color: string; bg: string }>
   expired: { label: "Истекла", color: "text-orange-400", bg: "bg-orange-500/10" },
 };
 
-const countryNames: Record<string, string> = { CN: "Китай", TR: "Турция", DE: "Германия", IT: "Италия", RU: "Россия", KZ: "Казахстан", UZ: "Узбекистан", KG: "Кыргызстан" };
-
 export default function CustomerRequestsPage() {
   const [requests, setRequests] = useState<Request[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     const session = getSession();
     const userId = session?.tg_id || session?.username || "anonymous";
-    setRequests(getRequests(userId));
+    try {
+      const data = await getRequests(userId);
+      setRequests(data);
+    } catch (e) {
+      console.error("Failed to load requests:", e);
+    }
     setLoading(false);
-
-    // Poll for updates (offers coming in)
-    const interval = setInterval(() => {
-      setRequests(getRequests(userId));
-    }, 2000);
-    return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    load();
+    const interval = setInterval(load, 5000);
+    return () => clearInterval(interval);
+  }, [load]);
 
   if (loading) {
     return (
@@ -53,19 +56,20 @@ export default function CustomerRequestsPage() {
     );
   }
 
+  const active = requests.filter((r) => !["cancelled", "completed", "expired"].includes(r.status));
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Мои заявки</h1>
         <Link href="/c/requests/new">
           <button className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-500 text-white font-medium text-sm hover:shadow-[0_0_25px_rgba(6,182,212,0.2)] transition-all active:scale-[0.98]">
-            <Plus className="h-4 w-4" />
-            Новая заявка
+            <Plus className="h-4 w-4" /> Новая заявка
           </button>
         </Link>
       </div>
 
-      {requests.length === 0 ? (
+      {active.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="w-16 h-16 rounded-2xl bg-white/[0.04] flex items-center justify-center mb-4">
             <Inbox className="h-8 w-8 text-white/10" />
@@ -73,15 +77,14 @@ export default function CustomerRequestsPage() {
           <p className="text-white/40 text-lg mb-2">Пока нет заявок</p>
           <p className="text-white/20 text-sm mb-6">Создайте первую заявку и получите предложения от карго-компаний</p>
           <Link href="/c/requests/new">
-            <button className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-500 text-white font-medium hover:shadow-[0_0_25px_rgba(6,182,212,0.2)] transition-all active:scale-[0.98]">
-              <Plus className="h-4 w-4" />
-              Создать заявку
+            <button className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-500 text-white font-medium">
+              <Plus className="h-4 w-4" /> Создать заявку
             </button>
           </Link>
         </div>
       ) : (
         <motion.div initial="hidden" animate="visible" className="space-y-3">
-          {requests.map((req, i) => {
+          {active.map((req, i) => {
             const st = statusConfig[req.status] || statusConfig.new;
             return (
               <motion.div key={req.id} variants={fadeUp} custom={i}>
@@ -91,16 +94,15 @@ export default function CustomerRequestsPage() {
                       <div className="space-y-3 flex-1">
                         <div className="flex items-center gap-2 text-lg font-semibold">
                           <MapPin className="h-4 w-4 text-cyan-400" />
-                          {req.origin_city || countryNames[req.origin_country] || req.origin_country}
+                          {req.origin_city || req.origin_country}
                           <span className="text-white/20">→</span>
-                          {req.destination_city || countryNames[req.destination_country] || req.destination_country}
+                          {req.destination_city || req.destination_country}
                         </div>
                         <div className="flex items-center gap-4 text-sm text-white/30">
                           {req.weight_kg && (
                             <span className="flex items-center gap-1">
                               <Package className="h-3.5 w-3.5" />
                               {parseFloat(req.weight_kg).toLocaleString()} кг
-                              {req.volume_m3 ? ` / ${req.volume_m3} м³` : ""}
                             </span>
                           )}
                           <span className="flex items-center gap-1">
@@ -109,18 +111,13 @@ export default function CustomerRequestsPage() {
                           </span>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${st.color} ${st.bg}`}>
-                            {st.label}
-                          </span>
+                          <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${st.color} ${st.bg}`}>{st.label}</span>
                           {req.offer_count > 0 && (
-                            <span className="text-sm text-cyan-400 font-medium">
-                              {req.offer_count} предложени{req.offer_count === 1 ? "е" : req.offer_count < 5 ? "я" : "й"}
-                            </span>
+                            <span className="text-sm text-cyan-400 font-medium">{req.offer_count} предложений</span>
                           )}
                           {req.status === "matching" && (
                             <span className="flex items-center gap-1 text-xs text-indigo-400">
-                              <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
-                              Ищем предложения...
+                              <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" /> Ищем...
                             </span>
                           )}
                         </div>

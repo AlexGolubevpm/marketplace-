@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { MapPin, Package, Clock, ChevronRight, Inbox } from "lucide-react";
@@ -16,25 +16,37 @@ export default function CarrierRequestsPage() {
   const [requests, setRequests] = useState<Request[]>([]);
   const [myOfferRequestIds, setMyOfferRequestIds] = useState<Set<string>>(new Set());
   const [tab, setTab] = useState<"new" | "replied">("new");
+  const [loading, setLoading] = useState(true);
 
-  const reload = () => {
-    const session = getSession();
-    const carrierId = session?.tg_id || session?.username || "carrier";
-    const allReqs = getCarrierRequests();
-    setRequests(allReqs);
-    const myOffers = getOffersByCarrier(carrierId);
-    setMyOfferRequestIds(new Set(myOffers.map((o) => o.request_id)));
-  };
-
-  useEffect(() => {
-    reload();
-    const interval = setInterval(reload, 3000);
-    return () => clearInterval(interval);
+  const load = useCallback(async () => {
+    try {
+      const session = getSession();
+      const carrierId = session?.tg_id || session?.username || "carrier";
+      const [allReqs, myOffers] = await Promise.all([
+        getCarrierRequests(),
+        getOffersByCarrier(carrierId),
+      ]);
+      setRequests(allReqs);
+      setMyOfferRequestIds(new Set(myOffers.map((o) => o.request_id)));
+    } catch (e) {
+      console.error("Failed to load:", e);
+    }
+    setLoading(false);
   }, []);
 
-  const newRequests = requests.filter((r) => !myOfferRequestIds.has(r.id) && r.status !== "offer_selected" && r.status !== "cancelled");
+  useEffect(() => {
+    load();
+    const interval = setInterval(load, 5000);
+    return () => clearInterval(interval);
+  }, [load]);
+
+  const newRequests = requests.filter((r) => !myOfferRequestIds.has(r.id) && r.status !== "offer_selected");
   const repliedRequests = requests.filter((r) => myOfferRequestIds.has(r.id));
   const displayed = tab === "new" ? newRequests : repliedRequests;
+
+  if (loading) {
+    return <div className="space-y-3">{[1,2,3].map((i) => <div key={i} className="h-24 rounded-2xl bg-white/[0.02] border border-white/[0.06] animate-pulse" />)}</div>;
+  }
 
   return (
     <div className="space-y-6">

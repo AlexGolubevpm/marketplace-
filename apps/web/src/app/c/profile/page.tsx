@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { User, Mail, Phone, Building, Save, CheckCircle2 } from "lucide-react";
 import { getSession } from "@/lib/auth";
-import { getRequests, getOrders } from "@/lib/store";
+import { getRequests } from "@/lib/store";
 
 export default function CustomerProfilePage() {
   const [session, setSession] = useState<any>(null);
@@ -15,10 +15,9 @@ export default function CustomerProfilePage() {
     setSession(s);
     if (s) {
       const userId = s.tg_id || s.username || "anonymous";
-      setStats({
-        requests: getRequests(userId).length,
-        orders: getOrders().length,
-      });
+      getRequests(userId).then((reqs) => {
+        setStats({ requests: reqs.length, orders: 0 });
+      }).catch(() => {});
     }
   }, []);
 
