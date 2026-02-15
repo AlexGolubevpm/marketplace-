@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowRight, Send, Check, Plane, Ship, TrainFront, Truck, ClipboardList, FileText, BarChart3, MapPin, Shield, Clock, Globe, Star, Zap, ChevronDown, User, LogIn } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { trpc } from "@/trpc/client";
+import { CngoLogo } from "@/components/cngo-logo";
 
 /* ── Icon map ── */
 const ICON_MAP: Record<string, LucideIcon> = {
@@ -96,7 +97,7 @@ function TransportIllustration({ icon, className = "" }: { icon: string; classNa
 
 /* ── Default content ── */
 const DEFAULTS: Record<string, any> = {
-  branding: { logo_url: "", logo_text: "CNGO", favicon_url: "" },
+  branding: { logo_url: "", logo_text: "", favicon_url: "" },
   hero: {
     background_image: "", badge: "\u041f\u0435\u0440\u0432\u044b\u0439 \u043a\u0430\u0440\u0433\u043e \u043c\u0430\u0440\u043a\u0435\u0442\u043f\u043b\u0435\u0439\u0441",
     title_1: "\u0415\u0441\u043b\u0438 \u0432\u0430\u0436\u043d\u043e ", title_accent: "\u043f\u0440\u0438\u043d\u0438\u043c\u0430\u0442\u044c \u0440\u0435\u0448\u0435\u043d\u0438\u044f",
@@ -209,22 +210,6 @@ function IconOrImage({ iconName, imageUrl, size = "w-10 h-10", className = "" }:
   return null;
 }
 
-/* ── Logo ── */
-function CngoLogo({ className = "h-10 w-10", logoUrl }: { className?: string; logoUrl?: string }) {
-  if (logoUrl) {
-    return <img src={logoUrl} alt="Logo" className={`${className} object-contain`} />;
-  }
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none" className={className}>
-      <path d="M15 20 L65 8 L72 22 L28 35 L15 30Z" fill="#DC2626" />
-      <path d="M8 35 L28 35 L72 22 L78 36 L30 50 L8 45Z" fill="#B91C1C" />
-      <path d="M8 45 L30 50 L78 36 L72 55 L25 65 L5 58Z" fill="#DC2626" />
-      <path d="M5 58 L25 65 L72 55 L55 72 L20 82 L10 70Z" fill="#991B1B" />
-      <path d="M20 82 L55 72 L42 82 L25 88Z" fill="#EF4444" />
-    </svg>
-  );
-}
-
 /* ── Animations ── */
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -252,7 +237,7 @@ function Navbar({ branding }: { branding: any }) {
       <div className="max-w-6xl mx-auto px-6 h-40 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-3">
           <CngoLogo className="h-[152px] w-auto max-w-[320px]" logoUrl={branding.logo_url || undefined} />
-          <span className="text-gray-900 font-bold text-2xl tracking-tight">{branding.logo_text || "CNGO"}</span>
+          <span className="text-gray-900 font-bold text-2xl tracking-tight">{branding.logo_text}</span>
         </Link>
         <div className="hidden md:flex items-center gap-8">
           <a href="#delivery" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Доставка</a>
@@ -564,14 +549,14 @@ function Footer({ branding }: { branding: any }) {
       <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
         <Link href="/" className="flex items-center gap-2">
           <CngoLogo className="h-24 w-auto max-w-[200px]" logoUrl={branding.logo_url || undefined} />
-          <span className="text-gray-900 font-bold text-xl tracking-tight">{branding.logo_text || "CNGO"}</span>
+          <span className="text-gray-900 font-bold text-xl tracking-tight">{branding.logo_text}</span>
         </Link>
         <div className="flex items-center gap-6 text-sm text-gray-400">
           <Link href="/knowledge-base" className="hover:text-gray-900 transition-colors">База знаний</Link>
           <Link href="/auth/customer" className="hover:text-gray-900 transition-colors">Вход для клиентов</Link>
           <Link href="/auth/carrier" className="hover:text-gray-900 transition-colors">Вход для карго</Link>
         </div>
-        <p className="text-sm text-gray-300">&copy; 2026 CNGO</p>
+        <p className="text-sm text-gray-300">&copy; 2026 {branding.logo_text}</p>
       </div>
     </footer>
   );

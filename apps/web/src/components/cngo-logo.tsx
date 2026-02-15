@@ -1,16 +1,40 @@
 "use client";
 
+import { trpc } from "@/trpc/client";
+
+/**
+ * Shared hook to get branding (logo_url, logo_text) from the content system.
+ * Caches for 5 minutes. Returns empty strings while loading (no flash).
+ */
+export function useBranding() {
+  const { data } = trpc.content.getPublished.useQuery(undefined, {
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+  const branding = data?.branding || {};
+  return {
+    logo_url: (branding as any).logo_url || "",
+    logo_text: (branding as any).logo_text || "",
+    favicon_url: (branding as any).favicon_url || "",
+  };
+}
+
+/**
+ * Logo component. Pass logoUrl to render the image.
+ * No hardcoded SVG fallback — renders empty placeholder if no logoUrl.
+ */
 export function CngoLogo({ className = "h-10 w-10", logoUrl }: { className?: string; logoUrl?: string }) {
   if (logoUrl) {
     return <img src={logoUrl} alt="Logo" className={`${className} object-contain`} />;
   }
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none" className={className}>
-      <path d="M15 20 L65 8 L72 22 L28 35 L15 30Z" fill="#DC2626" />
-      <path d="M8 35 L28 35 L72 22 L78 36 L30 50 L8 45Z" fill="#B91C1C" />
-      <path d="M8 45 L30 50 L78 36 L72 55 L25 65 L5 58Z" fill="#DC2626" />
-      <path d="M5 58 L25 65 L72 55 L55 72 L20 82 L10 70Z" fill="#991B1B" />
-      <path d="M20 82 L55 72 L42 82 L25 88Z" fill="#EF4444" />
-    </svg>
-  );
+  return <div className={className} />;
+}
+
+/**
+ * Self-contained logo that auto-fetches branding from DB. Use in layouts.
+ */
+export function BrandedLogo({ className = "h-10 w-10" }: { className?: string }) {
+  const { logo_url } = useBranding();
+  if (!logo_url) return <div className={className} />;
+  return <img src={logo_url} alt="Logo" className={`${className} object-contain`} />;
 }
