@@ -30,6 +30,9 @@ jobs:
 
             cd "$PROJECT_DIR"
 
+            echo ">>> Fixing permissions..."
+            chown -R $(whoami):$(id -gn) "$PROJECT_DIR"
+
             echo ">>> Pulling latest code..."
             git fetch origin main
             git reset --hard origin/main
