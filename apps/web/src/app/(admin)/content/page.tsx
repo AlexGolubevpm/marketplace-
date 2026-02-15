@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,14 +13,20 @@ import {
   Trash2,
   GripVertical,
   CheckCircle,
+  Upload,
+  X,
+  ImageIcon,
+  Loader2,
 } from "lucide-react";
 import { trpc } from "@/trpc/client";
+
+type ItemFieldType = "text" | "textarea" | "icon-select" | "image-upload";
 
 type FieldConfig = {
   key: string;
   label: string;
-  type: "text" | "textarea" | "items";
-  itemFields?: { key: string; label: string; type: "text" | "textarea" | "icon-select" }[];
+  type: "text" | "textarea" | "items" | "image";
+  itemFields?: { key: string; label: string; type: ItemFieldType }[];
 };
 
 type SectionConfig = {
@@ -48,10 +54,21 @@ const ICON_OPTIONS = [
 
 const SECTION_CONFIGS: SectionConfig[] = [
   {
+    id: "branding",
+    name: "Логотип и брендинг",
+    description: "Логотип сайта и фавикон",
+    fields: [
+      { key: "logo_url", label: "Логотип (SVG, PNG)", type: "image" },
+      { key: "logo_text", label: "Текст рядом с логотипом", type: "text" },
+      { key: "favicon_url", label: "Фавикон", type: "image" },
+    ],
+  },
+  {
     id: "hero",
     name: "Hero (главный экран)",
-    description: "Заголовок, подзаголовок, кнопки",
+    description: "Заголовок, подзаголовок, кнопки, фон",
     fields: [
+      { key: "background_image", label: "Фоновое изображение", type: "image" },
       { key: "badge", label: "Бейдж (метка вверху)", type: "text" },
       { key: "title_1", label: "Заголовок (1 строка)", type: "text" },
       { key: "title_accent", label: "Заголовок (акцент)", type: "text" },
@@ -74,6 +91,7 @@ const SECTION_CONFIGS: SectionConfig[] = [
     name: "Статистика",
     description: "Числа и метрики",
     fields: [
+      { key: "background_image", label: "Фоновое изображение секции", type: "image" },
       {
         key: "items",
         label: "Блоки статистики",
@@ -93,12 +111,14 @@ const SECTION_CONFIGS: SectionConfig[] = [
       { key: "section_label", label: "Надпись секции", type: "text" },
       { key: "title", label: "Заголовок", type: "text" },
       { key: "subtitle", label: "Подзаголовок", type: "text" },
+      { key: "section_image", label: "Изображение секции", type: "image" },
       {
         key: "items",
         label: "Виды доставки",
         type: "items",
         itemFields: [
           { key: "icon", label: "Иконка", type: "icon-select" },
+          { key: "image_url", label: "Картинка (вместо иконки)", type: "image-upload" },
           { key: "title", label: "Название", type: "text" },
           { key: "price", label: "Цена", type: "text" },
           { key: "period", label: "Срок", type: "text" },
@@ -114,6 +134,7 @@ const SECTION_CONFIGS: SectionConfig[] = [
       { key: "section_label", label: "Надпись секции", type: "text" },
       { key: "title", label: "Заголовок", type: "text" },
       { key: "subtitle", label: "Подзаголовок", type: "text" },
+      { key: "section_image", label: "Изображение секции", type: "image" },
       {
         key: "steps",
         label: "Шаги",
@@ -121,6 +142,7 @@ const SECTION_CONFIGS: SectionConfig[] = [
         itemFields: [
           { key: "num", label: "Номер", type: "text" },
           { key: "icon", label: "Иконка", type: "icon-select" },
+          { key: "image_url", label: "Картинка (вместо иконки)", type: "image-upload" },
           { key: "title", label: "Заголовок", type: "text" },
           { key: "desc", label: "Описание", type: "text" },
         ],
@@ -134,12 +156,14 @@ const SECTION_CONFIGS: SectionConfig[] = [
     fields: [
       { key: "section_label", label: "Надпись секции", type: "text" },
       { key: "title", label: "Заголовок", type: "text" },
+      { key: "section_image", label: "Изображение секции", type: "image" },
       {
         key: "features",
         label: "Преимущества",
         type: "items",
         itemFields: [
           { key: "icon", label: "Иконка", type: "icon-select" },
+          { key: "image_url", label: "Картинка (вместо иконки)", type: "image-upload" },
           { key: "title", label: "Заголовок", type: "text" },
           { key: "desc", label: "Описание", type: "text" },
         ],
@@ -169,6 +193,7 @@ const SECTION_CONFIGS: SectionConfig[] = [
     name: "CTA (призыв к действию)",
     description: "Финальный блок с кнопками",
     fields: [
+      { key: "background_image", label: "Фоновое изображение", type: "image" },
       { key: "title", label: "Заголовок", type: "text" },
       { key: "subtitle", label: "Подзаголовок", type: "text" },
       { key: "cta_text", label: "Текст основной кнопки", type: "text" },
@@ -184,12 +209,19 @@ const SECTION_CONFIGS: SectionConfig[] = [
       { key: "description", label: "Meta Description", type: "textarea" },
       { key: "og_title", label: "OG Title", type: "text" },
       { key: "og_description", label: "OG Description", type: "text" },
+      { key: "og_image", label: "OG Image (для соцсетей)", type: "image" },
     ],
   },
 ];
 
 const DEFAULT_CONTENT: Record<string, Record<string, any>> = {
+  branding: {
+    logo_url: "",
+    logo_text: "CNGO",
+    favicon_url: "",
+  },
   hero: {
+    background_image: "",
     badge: "Первый карго маркетплейс",
     title_1: "Если важно ",
     title_accent: "принимать решения",
@@ -206,6 +238,7 @@ const DEFAULT_CONTENT: Record<string, Record<string, any>> = {
     ],
   },
   stats: {
+    background_image: "",
     items: [
       { value: "200+", label: "Карго-компаний" },
       { value: "<2ч", label: "Среднее время ответа" },
@@ -217,34 +250,37 @@ const DEFAULT_CONTENT: Record<string, Record<string, any>> = {
     section_label: "Виды доставки",
     title: "Любой способ перевозки",
     subtitle: "Подберём оптимальный вариант по цене и срокам",
+    section_image: "",
     items: [
-      { icon: "Plane", title: "Авиа", price: "от 10 $", period: "от 1 дня" },
-      { icon: "TrainFront", title: "ЖД", price: "от 5 $", period: "от 15 дней" },
-      { icon: "Truck", title: "Авто", price: "от 2 $", period: "от 25 дней" },
-      { icon: "Ship", title: "Море", price: "от 1 $", period: "от 40 дней" },
+      { icon: "Plane", image_url: "", title: "Авиа", price: "от 10 $", period: "от 1 дня" },
+      { icon: "TrainFront", image_url: "", title: "ЖД", price: "от 5 $", period: "от 15 дней" },
+      { icon: "Truck", image_url: "", title: "Авто", price: "от 2 $", period: "от 25 дней" },
+      { icon: "Ship", image_url: "", title: "Море", price: "от 1 $", period: "от 40 дней" },
     ],
   },
   how_it_works: {
     section_label: "Процесс",
     title: "Как это работает",
     subtitle: "4 простых шага до выгодной доставки",
+    section_image: "",
     steps: [
-      { num: "01", icon: "ClipboardList", title: "Опишите груз", desc: "Маршрут, вес, тип товара — оформление заявки за 2 минуты" },
-      { num: "02", icon: "FileText", title: "Получите офферы", desc: "Карго-компании присылают предложения с ценами и сроками" },
-      { num: "03", icon: "BarChart3", title: "Сравните и выберите", desc: "Удобное сравнение всех условий в единой таблице" },
-      { num: "04", icon: "MapPin", title: "Отслеживайте", desc: "Статус заказа в реальном времени до момента получения" },
+      { num: "01", icon: "ClipboardList", image_url: "", title: "Опишите груз", desc: "Маршрут, вес, тип товара — оформление заявки за 2 минуты" },
+      { num: "02", icon: "FileText", image_url: "", title: "Получите офферы", desc: "Карго-компании присылают предложения с ценами и сроками" },
+      { num: "03", icon: "BarChart3", image_url: "", title: "Сравните и выберите", desc: "Удобное сравнение всех условий в единой таблице" },
+      { num: "04", icon: "MapPin", image_url: "", title: "Отслеживайте", desc: "Статус заказа в реальном времени до момента получения" },
     ],
   },
   why_us: {
     section_label: "Преимущества",
     title: "Почему выбирают нас",
+    section_image: "",
     features: [
-      { icon: "Shield", title: "Проверенные карго", desc: "Каждая компания проходит верификацию перед подключением к платформе" },
-      { icon: "Clock", title: "Экономия времени", desc: "Вместо обзвона десятков компаний — офферы приходят к вам" },
-      { icon: "Globe", title: "Любые маршруты", desc: "Китай, Турция, Европа → Россия, Казахстан, Узбекистан" },
-      { icon: "BarChart3", title: "Прозрачное сравнение", desc: "Цена, сроки, условия — всё в одной таблице для быстрого выбора" },
-      { icon: "Star", title: "Рейтинг надёжности", desc: "Система оценки карго-компаний по скорости и качеству работы" },
-      { icon: "Zap", title: "Быстрый старт", desc: "Заявка за 2 минуты, первые офферы — уже через час" },
+      { icon: "Shield", image_url: "", title: "Проверенные карго", desc: "Каждая компания проходит верификацию перед подключением к платформе" },
+      { icon: "Clock", image_url: "", title: "Экономия времени", desc: "Вместо обзвона десятков компаний — офферы приходят к вам" },
+      { icon: "Globe", image_url: "", title: "Любые маршруты", desc: "Китай, Турция, Европа → Россия, Казахстан, Узбекистан" },
+      { icon: "BarChart3", image_url: "", title: "Прозрачное сравнение", desc: "Цена, сроки, условия — всё в одной таблице для быстрого выбора" },
+      { icon: "Star", image_url: "", title: "Рейтинг надёжности", desc: "Система оценки карго-компаний по скорости и качеству работы" },
+      { icon: "Zap", image_url: "", title: "Быстрый старт", desc: "Заявка за 2 минуты, первые офферы — уже через час" },
     ],
   },
   faq: {
@@ -259,6 +295,7 @@ const DEFAULT_CONTENT: Record<string, Record<string, any>> = {
     ],
   },
   cta: {
+    background_image: "",
     title: "Готовы начать?",
     subtitle: "Создайте заявку за 2 минуты и получите предложения от проверенных карго-компаний",
     cta_text: "Получить предложения",
@@ -269,8 +306,197 @@ const DEFAULT_CONTENT: Record<string, Record<string, any>> = {
     description: "Первый карго-маркетплейс для доставки грузов из Китая.",
     og_title: "CNGO — Карго маркетплейс",
     og_description: "Найдите лучшее предложение по доставке груза",
+    og_image: "",
   },
 };
+
+/* ── Upload helper ── */
+async function uploadFile(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const res = await fetch("/api/upload", { method: "POST", body: formData });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || "Upload failed");
+  }
+  const data = await res.json();
+  return data.url;
+}
+
+/* ── ImageUpload component (section-level) ── */
+function ImageUpload({
+  value,
+  onChange,
+  label,
+}: {
+  value: string;
+  onChange: (url: string) => void;
+  label: string;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleFile = async (file: File) => {
+    setError(null);
+    setUploading(true);
+    try {
+      const url = await uploadFile(file);
+      onChange(url);
+    } catch (e: any) {
+      setError(e.message || "Ошибка загрузки");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  };
+
+  return (
+    <div>
+      <Label>{label}</Label>
+      {value ? (
+        <div className="mt-2 relative inline-block">
+          <img
+            src={value}
+            alt={label}
+            className="max-h-32 rounded-lg border border-white/10 object-contain bg-white/5"
+          />
+          <button
+            type="button"
+            onClick={() => onChange("")}
+            className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-colors"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      ) : (
+        <div
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={handleDrop}
+          onClick={() => inputRef.current?.click()}
+          className={`mt-2 flex flex-col items-center justify-center gap-2 p-6 rounded-xl border-2 border-dashed cursor-pointer transition-colors ${
+            dragOver
+              ? "border-cyan-500/50 bg-cyan-500/5"
+              : "border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04]"
+          }`}
+        >
+          {uploading ? (
+            <Loader2 className="h-6 w-6 text-cyan-400 animate-spin" />
+          ) : (
+            <>
+              <ImageIcon className="h-8 w-8 text-white/20" />
+              <p className="text-xs text-white/40">
+                Перетащите файл или нажмите для загрузки
+              </p>
+              <p className="text-[10px] text-white/20">
+                JPEG, PNG, WebP, SVG, GIF. Макс. 5 МБ
+              </p>
+            </>
+          )}
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleFile(file);
+              e.target.value = "";
+            }}
+          />
+        </div>
+      )}
+      {error && (
+        <p className="mt-1 text-xs text-red-400">{error}</p>
+      )}
+    </div>
+  );
+}
+
+/* ── Compact ImageUpload for item fields ── */
+function ItemImageUpload({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (url: string) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleFile = async (file: File) => {
+    setError(null);
+    setUploading(true);
+    try {
+      const url = await uploadFile(file);
+      onChange(url);
+    } catch (e: any) {
+      setError(e.message || "Ошибка загрузки");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div>
+      {value ? (
+        <div className="mt-1 flex items-center gap-2">
+          <img
+            src={value}
+            alt="uploaded"
+            className="h-10 w-10 rounded-lg border border-white/10 object-cover bg-white/5"
+          />
+          <button
+            type="button"
+            onClick={() => onChange("")}
+            className="text-xs text-red-400 hover:text-red-300 transition-colors"
+          >
+            Удалить
+          </button>
+        </div>
+      ) : (
+        <div className="mt-1 flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs"
+            disabled={uploading}
+            onClick={() => inputRef.current?.click()}
+          >
+            {uploading ? (
+              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+            ) : (
+              <Upload className="h-3 w-3 mr-1" />
+            )}
+            Загрузить
+          </Button>
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleFile(file);
+              e.target.value = "";
+            }}
+          />
+        </div>
+      )}
+      {error && <p className="text-[10px] text-red-400 mt-0.5">{error}</p>}
+    </div>
+  );
+}
 
 function IconSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
@@ -440,6 +666,14 @@ export default function ContentPage() {
                     </div>
                   )}
 
+                  {field.type === "image" && (
+                    <ImageUpload
+                      label={field.label}
+                      value={activeData[field.key] || ""}
+                      onChange={(url) => updateField(field.key, url)}
+                    />
+                  )}
+
                   {field.type === "items" && (
                     <div>
                       <div className="flex items-center justify-between mb-3">
@@ -473,6 +707,11 @@ export default function ContentPage() {
                                     <IconSelect
                                       value={item[itemField.key] || ""}
                                       onChange={(v) => updateItemField(field.key, idx, itemField.key, v)}
+                                    />
+                                  ) : itemField.type === "image-upload" ? (
+                                    <ItemImageUpload
+                                      value={item[itemField.key] || ""}
+                                      onChange={(url) => updateItemField(field.key, idx, itemField.key, url)}
                                     />
                                   ) : itemField.type === "textarea" ? (
                                     <Textarea
