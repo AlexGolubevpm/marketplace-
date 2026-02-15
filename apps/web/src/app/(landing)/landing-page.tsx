@@ -5,17 +5,12 @@ import Link from "next/link";
 import {
   ArrowRight,
   Package,
-  Shield,
-  Clock,
   BarChart3,
   CheckCircle2,
   ChevronRight,
   Send,
   Truck,
-  Globe,
-  Zap,
   Users,
-  Star,
 } from "lucide-react";
 
 function CngoLogo({ className = "h-8 w-8" }: { className?: string }) {
@@ -402,13 +397,152 @@ function DeliveryTypesSection() {
 }
 
 function WhyUsSection() {
+  /* Custom SVG icon components matching 3D illustration style */
+  const VerifiedCargoIcon = ({ className = "h-14 w-14" }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" fill="none" className={className}>
+      {/* Shield */}
+      <path d="M40 6L14 18v20c0 16 11 30 26 34 15-4 26-18 26-34V18L40 6z" fill="#dc2626" opacity="0.15" />
+      <path d="M40 10L18 20v18c0 14 9.5 26 22 30 12.5-4 22-16 22-30V20L40 10z" fill="none" stroke="#dc2626" strokeWidth="2.5" />
+      {/* Checkmark inside shield */}
+      <path d="M30 40l8 8 14-16" stroke="#dc2626" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      {/* Mini container box bottom-right */}
+      <rect x="50" y="52" width="22" height="14" rx="2" fill="#dc2626" opacity="0.9" />
+      <rect x="50" y="52" width="22" height="5" rx="1" fill="#b91c1c" />
+      <line x1="56" y1="57" x2="56" y2="66" stroke="#fca5a5" strokeWidth="0.8" opacity="0.5" />
+      <line x1="61" y1="57" x2="61" y2="66" stroke="#fca5a5" strokeWidth="0.8" opacity="0.5" />
+      <line x1="66" y1="57" x2="66" y2="66" stroke="#fca5a5" strokeWidth="0.8" opacity="0.5" />
+    </svg>
+  );
+
+  const TimeIcon = ({ className = "h-14 w-14" }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" fill="none" className={className}>
+      {/* Stopwatch body */}
+      <circle cx="40" cy="44" r="26" fill="#dc2626" opacity="0.12" />
+      <circle cx="40" cy="44" r="24" stroke="#dc2626" strokeWidth="2.5" fill="none" />
+      {/* Stopwatch top button */}
+      <rect x="37" y="14" width="6" height="8" rx="2" fill="#dc2626" />
+      <rect x="36" y="12" width="8" height="4" rx="1.5" fill="#dc2626" opacity="0.7" />
+      {/* Side button */}
+      <path d="M58 28l6-6" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" />
+      {/* Clock hands */}
+      <line x1="40" y1="44" x2="40" y2="30" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" />
+      <line x1="40" y1="44" x2="52" y2="44" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="40" cy="44" r="2.5" fill="#dc2626" />
+      {/* Tick marks */}
+      <line x1="40" y1="22" x2="40" y2="26" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="40" y1="62" x2="40" y2="66" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="18" y1="44" x2="22" y2="44" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="58" y1="44" x2="62" y2="44" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round" />
+      {/* Checkmark overlay */}
+      <circle cx="60" cy="62" r="10" fill="#16a34a" />
+      <path d="M55 62l4 4 7-8" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </svg>
+  );
+
+  const RoutesIcon = ({ className = "h-14 w-14" }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" fill="none" className={className}>
+      {/* Map background */}
+      <rect x="8" y="12" width="64" height="52" rx="6" fill="#dc2626" opacity="0.1" />
+      <rect x="8" y="12" width="64" height="52" rx="6" stroke="#dc2626" strokeWidth="1.5" opacity="0.3" fill="none" />
+      {/* Map fold lines */}
+      <line x1="32" y1="12" x2="28" y2="64" stroke="#dc2626" strokeWidth="0.8" opacity="0.2" />
+      <line x1="52" y1="12" x2="56" y2="64" stroke="#dc2626" strokeWidth="0.8" opacity="0.2" />
+      {/* Route path */}
+      <path d="M20 52 C25 40, 32 36, 38 30 S52 22, 60 26" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" strokeDasharray="4 3" fill="none" />
+      {/* Pin A */}
+      <circle cx="20" cy="52" r="5" fill="#dc2626" />
+      <circle cx="20" cy="52" r="2" fill="white" />
+      {/* Pin B */}
+      <path d="M60 14c-5 0-9 4-9 9 0 7 9 15 9 15s9-8 9-15c0-5-4-9-9-9z" fill="#dc2626" />
+      <circle cx="60" cy="23" r="3" fill="white" />
+      {/* Small plane on route */}
+      <path d="M42 28l-3-1.5-1-3h-1l0.5 3H35l-1-1.5h-1l0.8 2.5-0.8 2.5h1l1-1.5h2.5L38 31.5h1l1-3 3-1.5v-1z" fill="#dc2626" />
+    </svg>
+  );
+
+  const CompareIcon = ({ className = "h-14 w-14" }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" fill="none" className={className}>
+      {/* Document */}
+      <rect x="12" y="8" width="44" height="58" rx="5" fill="#dc2626" opacity="0.1" />
+      <rect x="12" y="8" width="44" height="58" rx="5" stroke="#dc2626" strokeWidth="2" fill="none" />
+      {/* Table rows */}
+      <line x1="18" y1="24" x2="50" y2="24" stroke="#dc2626" strokeWidth="1" opacity="0.3" />
+      <line x1="18" y1="34" x2="50" y2="34" stroke="#dc2626" strokeWidth="1" opacity="0.3" />
+      <line x1="18" y1="44" x2="50" y2="44" stroke="#dc2626" strokeWidth="1" opacity="0.3" />
+      {/* Text lines */}
+      <rect x="18" y="16" width="20" height="3" rx="1" fill="#dc2626" opacity="0.5" />
+      <rect x="18" y="27" width="16" height="2.5" rx="1" fill="#dc2626" opacity="0.35" />
+      <rect x="18" y="37" width="14" height="2.5" rx="1" fill="#dc2626" opacity="0.35" />
+      <rect x="18" y="47" width="18" height="2.5" rx="1" fill="#dc2626" opacity="0.35" />
+      {/* Checkmarks */}
+      <path d="M42 27l2 2 4-4" stroke="#16a34a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <path d="M42 37l2 2 4-4" stroke="#16a34a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <path d="M42 47l2 2 4-4" stroke="#dc2626" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      {/* Magnifying glass */}
+      <circle cx="58" cy="54" r="12" fill="#dc2626" opacity="0.12" />
+      <circle cx="56" cy="52" r="9" stroke="#dc2626" strokeWidth="2.5" fill="none" />
+      <line x1="62" y1="58" x2="70" y2="66" stroke="#dc2626" strokeWidth="3" strokeLinecap="round" />
+      <path d="M52 49l3 3 5-6" stroke="#dc2626" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </svg>
+  );
+
+  const RatingIcon = ({ className = "h-14 w-14" }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" fill="none" className={className}>
+      {/* Clipboard body */}
+      <rect x="14" y="14" width="52" height="58" rx="6" fill="#dc2626" opacity="0.1" />
+      <rect x="14" y="14" width="52" height="58" rx="6" stroke="#dc2626" strokeWidth="2" fill="none" />
+      {/* Clipboard clip */}
+      <rect x="30" y="8" width="20" height="12" rx="4" fill="#dc2626" opacity="0.8" />
+      <rect x="34" y="10" width="12" height="6" rx="2" fill="#1a1a2e" />
+      {/* Stars row */}
+      <g transform="translate(22, 30)">
+        <polygon points="7,0 9,5 14,5 10,8 11.5,13 7,10 2.5,13 4,8 0,5 5,5" fill="#dc2626" />
+      </g>
+      <g transform="translate(36, 30)">
+        <polygon points="7,0 9,5 14,5 10,8 11.5,13 7,10 2.5,13 4,8 0,5 5,5" fill="#dc2626" />
+      </g>
+      <g transform="translate(50, 30)">
+        <polygon points="7,0 9,5 14,5 10,8 11.5,13 7,10 2.5,13 4,8 0,5 5,5" fill="#dc2626" opacity="0.4" />
+      </g>
+      {/* Bar chart */}
+      <rect x="22" y="54" width="8" height="10" rx="1.5" fill="#dc2626" opacity="0.4" />
+      <rect x="34" y="48" width="8" height="16" rx="1.5" fill="#dc2626" opacity="0.6" />
+      <rect x="46" y="42" width="8" height="22" rx="1.5" fill="#dc2626" opacity="0.9" />
+      {/* Trend arrow */}
+      <path d="M24 52L38 46L50 40" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+      <path d="M47 38l5 2-2 5" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </svg>
+  );
+
+  const QuickStartIcon = ({ className = "h-14 w-14" }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" fill="none" className={className}>
+      {/* Rocket body */}
+      <path d="M40 8c-8 10-14 24-14 36 0 6 2 10 6 14h16c4-4 6-8 6-14 0-12-6-26-14-36z" fill="#dc2626" opacity="0.15" />
+      <path d="M40 12c-7 9-12 22-12 32 0 5 1.5 9 5 12h14c3.5-3 5-7 5-12 0-10-5-23-12-32z" stroke="#dc2626" strokeWidth="2.5" fill="none" />
+      {/* Window */}
+      <circle cx="40" cy="32" r="5" fill="#dc2626" opacity="0.3" />
+      <circle cx="40" cy="32" r="5" stroke="#dc2626" strokeWidth="1.5" fill="none" />
+      {/* Fins */}
+      <path d="M28 44c-6 2-10 8-10 14h10" fill="#dc2626" opacity="0.5" />
+      <path d="M52 44c6 2 10 8 10 14H52" fill="#dc2626" opacity="0.5" />
+      {/* Flame */}
+      <path d="M34 58c2 6 4 12 6 16 2-4 4-10 6-16" fill="#dc2626" opacity="0.7" />
+      <path d="M36 58c1.5 4 2.5 8 4 11 1.5-3 2.5-7 4-11" fill="#fbbf24" opacity="0.8" />
+      {/* Speed lines */}
+      <line x1="16" y1="50" x2="10" y2="56" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round" opacity="0.4" />
+      <line x1="64" y1="50" x2="70" y2="56" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round" opacity="0.4" />
+      <line x1="14" y1="42" x2="8" y2="44" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round" opacity="0.3" />
+      <line x1="66" y1="42" x2="72" y2="44" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round" opacity="0.3" />
+    </svg>
+  );
+
   const features = [
-    { icon: Shield, title: "Проверенные карго", desc: "Каждая компания проходит верификацию перед подключением" },
-    { icon: Clock, title: "Экономия времени", desc: "Вместо обзвона десятков компаний — офферы приходят к вам" },
-    { icon: Globe, title: "Любые маршруты", desc: "Китай, Турция, Европа — в Россию, Казахстан, Узбекистан" },
-    { icon: BarChart3, title: "Прозрачное сравнение", desc: "Цена, сроки, условия — всё в одной таблице" },
-    { icon: Star, title: "Рейтинг надёжности", desc: "Система оценки карго по скорости и качеству" },
-    { icon: Zap, title: "Быстрый старт", desc: "Заявка за 2 минуты, первые офферы — через час" },
+    { icon: VerifiedCargoIcon, title: "Проверенные карго", desc: "Каждая компания проходит верификацию перед подключением" },
+    { icon: TimeIcon, title: "Экономия времени", desc: "Вместо обзвона десятков компаний — офферы приходят к вам" },
+    { icon: RoutesIcon, title: "Любые маршруты", desc: "Китай, Турция, Европа — в Россию, Казахстан, Узбекистан" },
+    { icon: CompareIcon, title: "Прозрачное сравнение", desc: "Цена, сроки, условия — всё в одной таблице" },
+    { icon: RatingIcon, title: "Рейтинг надёжности", desc: "Система оценки карго по скорости и качеству" },
+    { icon: QuickStartIcon, title: "Быстрый старт", desc: "Заявка за 2 минуты, первые офферы — через час" },
   ];
 
   return (
@@ -440,9 +574,11 @@ function WhyUsSection() {
                 key={f.title}
                 variants={fadeUp}
                 custom={i}
-                className="p-6 rounded-2xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-cyan-500/20 transition-all duration-300 group"
+                className="p-6 rounded-2xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-red-500/20 transition-all duration-300 group"
               >
-                <Icon className="h-8 w-8 text-cyan-400/70 group-hover:text-cyan-400 transition-colors" />
+                <div className="group-hover:scale-105 transition-transform duration-300">
+                  <Icon />
+                </div>
                 <h3 className="mt-4 text-lg font-semibold text-white">{f.title}</h3>
                 <p className="mt-2 text-sm text-white/40 leading-relaxed">{f.desc}</p>
               </motion.div>
