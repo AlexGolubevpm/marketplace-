@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, BookOpen, ChevronDown, ChevronRight, Search, User, LogIn, Truck } from "lucide-react";
 import { trpc } from "@/trpc/client";
+import { CngoLogo } from "@/components/cngo-logo";
 
 /* ── Auth helpers ── */
 type SessionInfo = { name: string; role: string; href: string } | null;
@@ -37,19 +38,6 @@ function useSession(): SessionInfo {
     } catch {}
   }, []);
   return session;
-}
-
-/* ── Logo ── */
-function CngoLogo({ className = "h-8 w-8" }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none" className={className}>
-      <path d="M15 20 L65 8 L72 22 L28 35 L15 30Z" fill="#DC2626" />
-      <path d="M8 35 L28 35 L72 22 L78 36 L30 50 L8 45Z" fill="#B91C1C" />
-      <path d="M8 45 L30 50 L78 36 L72 55 L25 65 L5 58Z" fill="#DC2626" />
-      <path d="M5 58 L25 65 L72 55 L55 72 L20 82 L10 70Z" fill="#991B1B" />
-      <path d="M20 82 L55 72 L42 82 L25 88Z" fill="#EF4444" />
-    </svg>
-  );
 }
 
 function Accordion({ title, children }: { title: string; children: React.ReactNode }) {
@@ -88,10 +76,10 @@ export function KnowledgeBasePublic() {
     <div className="min-h-screen bg-white text-gray-900 antialiased">
       {/* Nav */}
       <nav className="fixed top-0 w-full z-50 border-b border-gray-100 bg-white/80 backdrop-blur-xl">
-        <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="max-w-5xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link href="/" className="flex items-center gap-2">
-              <CngoLogo className="h-8 w-8" />
+              <CngoLogo className="h-16 w-16" />
               <span className="text-gray-900 font-bold text-lg hidden sm:block">CNGO</span>
             </Link>
             <ChevronRight className="h-4 w-4 text-gray-300 hidden sm:block" />
@@ -217,7 +205,7 @@ export function KnowledgeBasePublic() {
       <footer className="py-12 px-6 border-t border-gray-100">
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
           <Link href="/" className="flex items-center gap-2">
-            <CngoLogo className="h-6 w-6" />
+            <CngoLogo className="h-12 w-12" />
             <span className="text-gray-900 font-semibold">CNGO</span>
           </Link>
           <div className="flex items-center gap-8 text-sm text-gray-400">

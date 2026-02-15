@@ -19,6 +19,7 @@ import {
   BookOpen,
   FileEdit,
 } from "lucide-react";
+import { CngoLogo } from "@/components/cngo-logo";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -66,8 +67,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <div className="flex h-screen overflow-hidden bg-[#0a0a0f] text-white">
       <aside className={cn("flex flex-col border-r border-white/[0.06] bg-[#0a0a0f] transition-all duration-200", collapsed ? "w-16" : "w-60")}>
         <div className="flex h-14 items-center gap-2 border-b border-white/[0.06] px-4">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 to-indigo-500 text-white font-bold text-sm">C</div>
-          {!collapsed && <span className="font-semibold">Cargo Admin</span>}
+          <CngoLogo className="h-10 w-10 shrink-0" />
+          {!collapsed && <span className="font-semibold">CNGO Admin</span>}
         </div>
 
         <nav className="flex-1 overflow-y-auto py-3 px-2">
