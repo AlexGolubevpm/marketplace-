@@ -5,12 +5,13 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { getSession, clearSession, type UserSession } from "@/lib/auth";
-import { ClipboardList, Send, User, LogOut } from "lucide-react";
+import { ClipboardList, Send, User, LogOut, MessageSquare } from "lucide-react";
 import { BrandedLogo, useBranding } from "@/components/cngo-logo";
 
 const navItems = [
   { href: "/s/requests", label: "Заявки", icon: ClipboardList },
   { href: "/s/offers", label: "Офферы", icon: Send },
+  { href: "/s/chats", label: "Чаты", icon: MessageSquare },
   { href: "/s/profile", label: "Профиль", icon: User },
 ];
 
@@ -38,19 +39,19 @@ export default function CarrierLayout({ children }: { children: React.ReactNode 
 
   if (!checked) {
     return (
-      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white pb-20 md:pb-0">
-      <nav className="sticky top-0 z-50 border-b border-white/[0.06] bg-[#0a0a0f]/80 backdrop-blur-xl">
+    <div className="min-h-screen bg-gray-50 text-gray-900 pb-20 md:pb-0">
+      <nav className="sticky top-0 z-50 border-b border-gray-200 bg-white/80 backdrop-blur-xl">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <BrandedLogo className="h-10 w-10" />
-            <span className="font-semibold hidden sm:block">{branding.logo_text || "Carrier"}</span>
+            <BrandedLogo className="h-8 w-8" />
+            <span className="font-semibold text-gray-900 hidden sm:block">{branding.logo_text || "Carrier"}</span>
           </Link>
           <div className="hidden md:flex items-center gap-1">
             {navItems.map((item) => {
@@ -62,7 +63,7 @@ export default function CarrierLayout({ children }: { children: React.ReactNode 
                   href={item.href}
                   className={cn(
                     "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
-                    isActive ? "bg-white/[0.08] text-white" : "text-white/40 hover:text-white/70 hover:bg-white/[0.04]"
+                    isActive ? "bg-red-50 text-red-600" : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
                   )}
                 >
                   <Icon className="h-4 w-4" />
@@ -73,9 +74,9 @@ export default function CarrierLayout({ children }: { children: React.ReactNode 
           </div>
           <div className="flex items-center gap-3">
             {session && (
-              <span className="text-sm text-white/30 hidden sm:block">{session.name}</span>
+              <span className="text-sm text-gray-400 hidden sm:block">{session.name}</span>
             )}
-            <button onClick={handleLogout} className="text-white/30 hover:text-white/60 transition-colors">
+            <button onClick={handleLogout} className="text-gray-400 hover:text-gray-600 transition-colors">
               <LogOut className="h-4 w-4" />
             </button>
           </div>
@@ -84,13 +85,13 @@ export default function CarrierLayout({ children }: { children: React.ReactNode 
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6">{children}</main>
 
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-50 border-t border-white/[0.06] bg-[#0a0a0f]/95 backdrop-blur-xl">
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-50 border-t border-gray-200 bg-white/95 backdrop-blur-xl safe-area-bottom">
         <div className="flex items-center justify-around h-14">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href || pathname?.startsWith(item.href + "/");
             return (
-              <Link key={item.href} href={item.href} className={cn("flex flex-col items-center gap-0.5 text-[10px] transition-colors py-1 px-3", isActive ? "text-indigo-400" : "text-white/30")}>
+              <Link key={item.href} href={item.href} className={cn("flex flex-col items-center gap-0.5 text-[10px] transition-colors py-1 px-3", isActive ? "text-red-500" : "text-gray-400")}>
                 <Icon className="h-5 w-5" />
                 {item.label}
               </Link>

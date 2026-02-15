@@ -4,7 +4,9 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowLeft, MapPin, Star, CheckCircle2, Truck, Plane, Anchor, Train, XCircle, Bell, Upload, FileText, Download } from "lucide-react";
+import { ArrowLeft, MapPin, Star, CheckCircle2, Truck, Plane, Anchor, Train, XCircle, Bell, Upload, FileText, Download, MessageSquare } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { getSession } from "@/lib/auth";
 import { getRequestById, getOffersByRequest, selectOffer, cancelRequest, subscribeToRequest, type Request, type Offer, type Order } from "@/lib/store";
 
 const fadeUp = {
@@ -126,8 +128,29 @@ export default function CustomerRequestDetailPage() {
     }
   };
 
+  const router = useRouter();
   const getPrice = (o: Offer) => typeof o.price === "string" ? parseFloat(o.price) : o.price;
   const getDays = (o: Offer) => o.estimated_days_min && o.estimated_days_max ? `${o.estimated_days_min}-${o.estimated_days_max}` : String(o.estimated_days || "—");
+
+  const startChat = async (carrierId: string) => {
+    if (!request) return;
+    const session = getSession();
+    if (!session) return;
+    try {
+      const res = await fetch("/api/chats", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          request_id: request.id,
+          customer_id: session.tg_id,
+          carrier_id: carrierId,
+        }),
+      });
+      if (res.ok) {
+        router.push("/c/chats");
+      }
+    } catch {}
+  };
 
   return (
     <div className="space-y-6">
@@ -249,7 +272,10 @@ export default function CustomerRequestDetailPage() {
                       <td className="py-3 px-4 text-lg font-bold">${getPrice(o).toLocaleString()}</td>
                       <td className="py-3 px-4">{getDays(o)} дн</td>
                       <td className="py-3 px-4">{deliveryLabels[o.delivery_type] || o.delivery_type}</td>
-                      <td className="py-3 px-4 text-right"><button onClick={() => setShowConfirm(o.id)} className="px-4 py-2 rounded-lg bg-cyan-500/10 text-cyan-400 text-sm font-medium hover:bg-cyan-500/20">Выбрать</button></td>
+                      <td className="py-3 px-4 text-right flex gap-2 justify-end">
+                        <button onClick={() => startChat(o.carrier_id)} className="px-3 py-2 rounded-lg border border-gray-200 text-gray-500 text-sm hover:bg-gray-50"><MessageSquare className="h-3.5 w-3.5 inline mr-1" />Чат</button>
+                        <button onClick={() => setShowConfirm(o.id)} className="px-4 py-2 rounded-lg bg-red-50 text-red-500 text-sm font-medium hover:bg-red-100">Выбрать</button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -278,7 +304,10 @@ export default function CustomerRequestDetailPage() {
                           </div>
                         )}
                       </div>
-                      <button onClick={() => setShowConfirm(offer.id)} className="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-500 text-white font-medium hover:shadow-[0_0_25px_rgba(6,182,212,0.2)] transition-all active:scale-[0.98] whitespace-nowrap">Выбрать</button>
+                      <div className="flex gap-2">
+                        <button onClick={() => startChat(offer.carrier_id)} className="px-4 py-3 rounded-xl border border-gray-200 text-gray-600 font-medium hover:bg-gray-50 transition-all active:scale-[0.98] whitespace-nowrap"><MessageSquare className="h-4 w-4 inline mr-1" />Написать</button>
+                        <button onClick={() => setShowConfirm(offer.id)} className="px-6 py-3 rounded-xl bg-gradient-to-r from-red-500 to-red-600 text-white font-medium hover:shadow-lg transition-all active:scale-[0.98] whitespace-nowrap">Выбрать</button>
+                      </div>
                     </div>
                   </motion.div>
                 );

@@ -4,11 +4,11 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowLeft, MapPin, Package, DollarSign, Send, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, MapPin, Package, DollarSign, Send, CheckCircle2, MessageSquare } from "lucide-react";
 import { getRequestById, createOffer, getOffersByCarrier, type Request } from "@/lib/store";
 import { getSession } from "@/lib/auth";
 
-const inputClass = "w-full px-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-white/20 focus:outline-none focus:border-indigo-500/40 transition-colors";
+const inputClass = "w-full px-4 py-3 rounded-xl bg-white border border-gray-200 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-red-300 focus:ring-2 focus:ring-red-100 transition-colors";
 
 export default function CarrierOfferPage() {
   const params = useParams();
@@ -96,10 +96,26 @@ export default function CarrierOfferPage() {
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="p-8 rounded-2xl border border-green-500/20 bg-green-500/[0.03] text-center">
           <CheckCircle2 className="h-12 w-12 text-green-400 mx-auto mb-4" />
           <h2 className="text-xl font-bold mb-2">{alreadySubmitted && !submitted ? "Оффер уже отправлен" : "Оффер отправлен"}</h2>
-          <p className="text-sm text-white/40 mb-6">Клиент получит ваше предложение и сможет его выбрать.</p>
-          <button onClick={() => router.push("/s/requests")} className="px-6 py-3 rounded-xl border border-white/10 text-white font-medium hover:bg-white/5 transition-colors">
-            Вернуться к заявкам
-          </button>
+          <p className="text-sm text-gray-400 mb-6">Клиент получит ваше предложение и сможет его выбрать.</p>
+          <div className="flex gap-3 justify-center">
+            <button onClick={async () => {
+              const session = getSession();
+              if (!session || !request) return;
+              try {
+                await fetch("/api/chats", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ request_id: request.id, customer_id: request.customer_id, carrier_id: session.tg_id }),
+                });
+                router.push("/s/chats");
+              } catch {}
+            }} className="px-6 py-3 rounded-xl bg-red-500 text-white font-medium hover:bg-red-600 transition-colors flex items-center gap-2">
+              <MessageSquare className="h-4 w-4" /> Написать клиенту
+            </button>
+            <button onClick={() => router.push("/s/requests")} className="px-6 py-3 rounded-xl border border-gray-200 text-gray-600 font-medium hover:bg-gray-50 transition-colors">
+              Вернуться к заявкам
+            </button>
+          </div>
         </motion.div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-5">

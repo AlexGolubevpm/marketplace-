@@ -18,6 +18,7 @@ import {
   PanelLeft,
   BookOpen,
   FileEdit,
+  MessageSquare,
 } from "lucide-react";
 import { BrandedLogo, useBranding } from "@/components/cngo-logo";
 
@@ -28,6 +29,7 @@ const navItems = [
   { href: "/orders", label: "Заказы", icon: Package },
   { href: "/carriers", label: "Карго", icon: Truck },
   { href: "/customers", label: "Клиенты", icon: Users },
+  { href: "/chats", label: "Чаты", icon: MessageSquare },
   { href: "/analytics", label: "Аналитика", icon: BarChart3 },
   { href: "/knowledgebase", label: "База знаний", icon: BookOpen },
   { href: "/content", label: "Контент лендинга", icon: FileEdit },
@@ -37,13 +39,13 @@ const navItems = [
 function AdminSidebarHeader({ collapsed }: { collapsed: boolean }) {
   const { logo_url, logo_text } = useBranding();
   return (
-    <div className="flex h-14 items-center gap-2 border-b border-white/[0.06] px-4">
+    <div className="flex h-14 items-center gap-2 border-b border-gray-200 px-4">
       {logo_url ? (
-        <img src={logo_url} alt="Logo" className="h-10 w-10 shrink-0 object-contain" />
+        <img src={logo_url} alt="Logo" className="h-8 w-8 shrink-0 object-contain" />
       ) : (
-        <div className="h-10 w-10 shrink-0" />
+        <div className="h-8 w-8 shrink-0" />
       )}
-      {!collapsed && <span className="font-semibold">{logo_text || "Admin"}</span>}
+      {!collapsed && <span className="font-semibold text-gray-900">{logo_text || "Admin"}</span>}
     </div>
   );
 }
@@ -71,15 +73,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (!checked) {
     return (
-      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#0a0a0f] text-white">
-      <aside className={cn("flex flex-col border-r border-white/[0.06] bg-[#0a0a0f] transition-all duration-200", collapsed ? "w-16" : "w-60")}>
+    <div className="flex h-screen overflow-hidden bg-gray-50 text-gray-900">
+      <aside className={cn("flex flex-col border-r border-gray-200 bg-white transition-all duration-200", collapsed ? "w-16" : "w-60")}>
         <AdminSidebarHeader collapsed={collapsed} />
 
         <nav className="flex-1 overflow-y-auto py-3 px-2">
@@ -89,7 +91,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             return (
               <Link key={item.href} href={item.href}
                 className={cn("flex items-center gap-3 rounded-lg px-3 py-2 mb-0.5 text-sm font-medium transition-colors",
-                  isActive ? "bg-white/[0.08] text-white" : "text-white/40 hover:bg-white/[0.04] hover:text-white/70")}>
+                  isActive ? "bg-red-50 text-red-600" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900")}>
                 <Icon className="h-4 w-4 shrink-0" />
                 {!collapsed && <span>{item.label}</span>}
               </Link>
@@ -97,14 +99,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           })}
         </nav>
 
-        <div className="border-t border-white/[0.06] p-2 space-y-1">
+        <div className="border-t border-gray-200 p-2 space-y-1">
           <button onClick={handleLogout}
-            className="flex items-center gap-2 w-full rounded-lg px-3 py-2 text-sm text-red-400/60 hover:text-red-400 hover:bg-red-500/5 transition-colors">
+            className="flex items-center gap-2 w-full rounded-lg px-3 py-2 text-sm text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors">
             <LogOut className="h-4 w-4" />
             {!collapsed && <span>Выйти</span>}
           </button>
           <button onClick={() => setCollapsed(!collapsed)}
-            className="flex items-center gap-2 w-full rounded-lg px-3 py-2 text-sm text-white/30 hover:text-white/60 hover:bg-white/[0.04] transition-colors">
+            className="flex items-center gap-2 w-full rounded-lg px-3 py-2 text-sm text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
             {collapsed ? <PanelLeft className="h-4 w-4" /> : <><PanelLeftClose className="h-4 w-4" /><span>Свернуть</span></>}
           </button>
         </div>
