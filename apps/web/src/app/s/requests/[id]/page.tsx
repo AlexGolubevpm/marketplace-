@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowLeft, MapPin, Package, DollarSign, Send, CheckCircle2 } from "lucide-react";
-import { getRequestById, createOffer, getOffersByRequest, type Request } from "@/lib/store";
+import { getRequestById, createOffer, getOffersByCarrier, type Request } from "@/lib/store";
 import { getSession } from "@/lib/auth";
 
 const inputClass = "w-full px-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-white/20 focus:outline-none focus:border-indigo-500/40 transition-colors";
@@ -30,8 +30,8 @@ export default function CarrierOfferPage() {
       if (req) {
         const session = getSession();
         const carrierId = session?.tg_id || session?.username || "carrier";
-        const offers = req.offers || await getOffersByRequest(req.id);
-        const existing = offers.find((o: any) => o.carrier_id === carrierId);
+        const myOffers = await getOffersByCarrier(carrierId);
+        const existing = myOffers.find((o) => o.request_id === req.id);
         if (existing) setAlreadySubmitted(true);
       }
     }

@@ -1,16 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
-import { eq, and, sql, desc } from "drizzle-orm";
+import { eq, and, or, sql, desc } from "drizzle-orm";
+
+// Resolve a carrier identifier (tg_id, email, or UUID) to a carrier UUID
+async function resolveCarrierId(identifier: string): Promise<string | null> {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (uuidRegex.test(identifier)) {
+    return identifier;
+  }
+
+  const carrier = await db
+    .select({ id: schema.carriers.id })
+    .from(schema.carriers)
+    .where(
+      or(
+        eq(schema.carriers.telegram_id, identifier),
+        eq(schema.carriers.contact_email, identifier)
+      )
+    )
+    .limit(1);
+
+  return carrier[0]?.id || null;
+}
 
 // GET /api/offers?request_id=xxx&carrier_id=xxx
 export async function GET(req: NextRequest) {
   try {
     const requestId = req.nextUrl.searchParams.get("request_id");
-    const carrierId = req.nextUrl.searchParams.get("carrier_id");
+    const carrierIdentifier = req.nextUrl.searchParams.get("carrier_id");
 
     const conditions = [];
     if (requestId) conditions.push(eq(schema.offers.request_id, requestId));
-    if (carrierId) conditions.push(eq(schema.offers.carrier_id, carrierId));
+    if (carrierIdentifier) {
+      const resolvedId = await resolveCarrierId(carrierIdentifier);
+      if (!resolvedId) {
+        return NextResponse.json([]);
+      }
+      conditions.push(eq(schema.offers.carrier_id, resolvedId));
+    }
 
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 
@@ -40,23 +67,58 @@ export async function POST(req: NextRequest) {
     const num = (countResult[0]?.count || 0) + 1;
     const display_id = `OFF-${new Date().getFullYear()}-${String(num).padStart(4, "0")}`;
 
-    // Ensure carrier exists
-    if (body.carrier_id) {
+    // Resolve carrier: find existing or create new
+    let carrierId: string;
+    const carrierIdentifier = body.carrier_id || "";
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+    if (uuidRegex.test(carrierIdentifier)) {
+      carrierId = carrierIdentifier;
       const existing = await db
         .select()
         .from(schema.carriers)
-        .where(eq(schema.carriers.id, body.carrier_id))
+        .where(eq(schema.carriers.id, carrierId))
         .limit(1);
 
       if (existing.length === 0) {
         await db.insert(schema.carriers).values({
-          id: body.carrier_id,
+          id: carrierId,
           name: body.carrier_name || "Carrier",
           contact_name: body.carrier_name || "Contact",
           contact_phone: "",
           contact_email: body.carrier_email || null,
           status: "active" as any,
         }).onConflictDoNothing();
+      }
+    } else {
+      // Non-UUID identifier (tg_id or email) — look up or create carrier
+      const isEmail = carrierIdentifier.includes("@");
+
+      const existing = await db
+        .select()
+        .from(schema.carriers)
+        .where(
+          isEmail
+            ? eq(schema.carriers.contact_email, carrierIdentifier)
+            : eq(schema.carriers.telegram_id, carrierIdentifier)
+        )
+        .limit(1);
+
+      if (existing.length > 0) {
+        carrierId = existing[0].id;
+      } else {
+        const [newCarrier] = await db
+          .insert(schema.carriers)
+          .values({
+            telegram_id: !isEmail ? carrierIdentifier : null,
+            contact_email: isEmail ? carrierIdentifier : (body.carrier_email || null),
+            name: body.carrier_name || "Carrier",
+            contact_name: body.carrier_name || "Contact",
+            contact_phone: "",
+            status: "active" as any,
+          })
+          .returning();
+        carrierId = newCarrier.id;
       }
     }
 
@@ -65,7 +127,7 @@ export async function POST(req: NextRequest) {
       .values({
         display_id,
         request_id: body.request_id,
-        carrier_id: body.carrier_id,
+        carrier_id: carrierId,
         price: String(body.price),
         currency: body.currency || "USD",
         estimated_days: body.estimated_days || body.estimated_days_min || 14,
