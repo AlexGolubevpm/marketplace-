@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
-import { eq, desc, and, or, sql } from "drizzle-orm";
+import { eq, desc, and, or, sql, inArray } from "drizzle-orm";
 
 // Resolve a customer identifier (tg_id, email, or UUID) to a customer UUID
 async function resolveCustomerId(identifier: string): Promise<string | null> {
@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
           count: sql<number>`count(*)::int`,
         })
         .from(schema.offers)
-        .where(sql`${schema.offers.request_id} = ANY(${requestIds})`)
+        .where(inArray(schema.offers.request_id, requestIds))
         .groupBy(schema.offers.request_id);
 
       offerCounts = Object.fromEntries(counts.map((c) => [c.request_id, c.count]));
