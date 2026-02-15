@@ -29,6 +29,71 @@ const ICON_COLORS: Record<string, string> = {
   Zap: "text-cyan-500 bg-cyan-50",
 };
 
+/* ── Transport illustrations (full-card SVGs) ── */
+const TRANSPORT_GRADIENTS: Record<string, { bg: string; from: string; to: string }> = {
+  Plane: { bg: "from-blue-50 to-blue-100", from: "#3B82F6", to: "#1D4ED8" },
+  Ship: { bg: "from-cyan-50 to-cyan-100", from: "#06B6D4", to: "#0E7490" },
+  TrainFront: { bg: "from-orange-50 to-orange-100", from: "#F97316", to: "#C2410C" },
+  Truck: { bg: "from-green-50 to-green-100", from: "#22C55E", to: "#15803D" },
+};
+
+function TransportIllustration({ icon, className = "" }: { icon: string; className?: string }) {
+  const grad = TRANSPORT_GRADIENTS[icon];
+  if (!grad) return null;
+
+  return (
+    <div className={`w-full h-full bg-gradient-to-br ${grad.bg} flex items-center justify-center ${className}`}>
+      {icon === "Plane" && (
+        <svg viewBox="0 0 200 160" fill="none" className="w-4/5 h-4/5 drop-shadow-md">
+          <path d="M30 100 L90 45 L170 30 L175 40 L105 70 L120 100 L100 100 L90 75 L55 105 L65 120 L50 120 L30 100Z" fill={grad.from} opacity="0.9"/>
+          <path d="M90 45 L170 30 L175 40 L105 70 L90 45Z" fill={grad.to}/>
+          <path d="M55 105 L90 75 L100 100 L65 120Z" fill={grad.to} opacity="0.7"/>
+          <ellipse cx="100" cy="140" rx="70" ry="8" fill={grad.from} opacity="0.15"/>
+        </svg>
+      )}
+      {icon === "Ship" && (
+        <svg viewBox="0 0 200 160" fill="none" className="w-4/5 h-4/5 drop-shadow-md">
+          <path d="M40 70 L60 40 L65 70Z" fill={grad.to}/>
+          <path d="M75 75 L90 25 L95 75Z" fill={grad.from} opacity="0.9"/>
+          <path d="M20 80 L180 80 L165 115 L35 115Z" fill={grad.to}/>
+          <path d="M20 80 L180 80 L175 90 L25 90Z" fill={grad.from}/>
+          <path d="M15 120 C50 130 150 130 185 120 L165 115 L35 115Z" fill={grad.from} opacity="0.7"/>
+          <path d="M10 135 C40 140 80 142 100 140 C120 142 160 140 190 135" stroke={grad.from} strokeWidth="2" opacity="0.3" fill="none"/>
+          <path d="M5 145 C35 150 75 152 100 150 C125 152 165 150 195 145" stroke={grad.from} strokeWidth="1.5" opacity="0.15" fill="none"/>
+        </svg>
+      )}
+      {icon === "TrainFront" && (
+        <svg viewBox="0 0 200 160" fill="none" className="w-4/5 h-4/5 drop-shadow-md">
+          <rect x="60" y="20" width="80" height="100" rx="12" fill={grad.to}/>
+          <rect x="65" y="25" width="70" height="90" rx="8" fill={grad.from}/>
+          <rect x="75" y="35" width="50" height="30" rx="6" fill="white" opacity="0.9"/>
+          <circle cx="85" cy="95" r="8" fill="white" opacity="0.8"/>
+          <circle cx="115" cy="95" r="8" fill="white" opacity="0.8"/>
+          <rect x="93" y="75" width="14" height="6" rx="3" fill={grad.to}/>
+          <rect x="50" y="120" width="100" height="8" rx="4" fill={grad.to}/>
+          <circle cx="70" cy="135" r="7" fill={grad.to}/>
+          <circle cx="130" cy="135" r="7" fill={grad.to}/>
+          <circle cx="70" cy="135" r="4" fill={grad.from} opacity="0.5"/>
+          <circle cx="130" cy="135" r="4" fill={grad.from} opacity="0.5"/>
+        </svg>
+      )}
+      {icon === "Truck" && (
+        <svg viewBox="0 0 200 160" fill="none" className="w-4/5 h-4/5 drop-shadow-md">
+          <rect x="20" y="45" width="110" height="65" rx="6" fill={grad.from} opacity="0.9"/>
+          <rect x="25" y="50" width="100" height="55" rx="4" fill={grad.to} opacity="0.3"/>
+          <path d="M130 60 L130 110 L175 110 L185 80 L170 60Z" fill={grad.to}/>
+          <rect x="140" y="68" width="28" height="22" rx="4" fill="white" opacity="0.85"/>
+          <rect x="15" y="110" width="175" height="10" rx="5" fill={grad.to}/>
+          <circle cx="60" cy="125" r="12" fill={grad.to}/>
+          <circle cx="60" cy="125" r="7" fill="white" opacity="0.6"/>
+          <circle cx="155" cy="125" r="12" fill={grad.to}/>
+          <circle cx="155" cy="125" r="7" fill="white" opacity="0.6"/>
+        </svg>
+      )}
+    </div>
+  );
+}
+
 /* ── Default content ── */
 const DEFAULTS: Record<string, any> = {
   branding: { logo_url: "", logo_text: "CNGO", favicon_url: "" },
@@ -137,7 +202,7 @@ function useSession(): SessionInfo {
 /* ── IconOrImage: show uploaded image or fallback to lucide icon ── */
 function IconOrImage({ iconName, imageUrl, size = "w-10 h-10", className = "" }: { iconName?: string; imageUrl?: string; size?: string; className?: string }) {
   if (imageUrl) {
-    return <img src={imageUrl} alt="" className={`${size} object-contain rounded-lg ${className}`} />;
+    return <img src={imageUrl} alt="" className={`w-full h-full object-contain ${className}`} />;
   }
   const Icon = iconName ? ICON_MAP[iconName] : null;
   if (Icon) return <Icon className={`${size} ${className}`} />;
@@ -184,10 +249,10 @@ function Navbar({ branding }: { branding: any }) {
   const session = useSession();
   return (
     <nav className="fixed top-0 w-full z-50 border-b border-gray-100 bg-white/80 backdrop-blur-xl">
-      <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2.5">
-          <CngoLogo className="h-10 w-10" logoUrl={branding.logo_url || undefined} />
-          <span className="text-gray-900 font-bold text-xl tracking-tight">{branding.logo_text || "CNGO"}</span>
+      <div className="max-w-6xl mx-auto px-6 h-24 flex items-center justify-between">
+        <Link href="/" className="flex items-center gap-3">
+          <CngoLogo className="h-[76px] w-auto max-w-[160px]" logoUrl={branding.logo_url || undefined} />
+          <span className="text-gray-900 font-bold text-2xl tracking-tight">{branding.logo_text || "CNGO"}</span>
         </Link>
         <div className="hidden md:flex items-center gap-8">
           <a href="#delivery" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Доставка</a>
@@ -229,7 +294,7 @@ function Navbar({ branding }: { branding: any }) {
 function HeroSection({ content, branding }: { content: any; branding: any }) {
   const checkmarks = content.checkmarks || DEFAULTS.hero.checkmarks;
   return (
-    <section className="relative min-h-[90vh] flex items-center justify-center pt-16 overflow-hidden">
+    <section className="relative min-h-[90vh] flex items-center justify-center pt-24 overflow-hidden">
       {content.background_image ? (
         <div className="absolute inset-0">
           <img src={content.background_image} alt="" className="w-full h-full object-cover" />
@@ -242,7 +307,7 @@ function HeroSection({ content, branding }: { content: any; branding: any }) {
         <motion.div initial="hidden" animate="visible" variants={stagger}>
           <motion.div variants={fadeUp} custom={0} className="mb-8">
             <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-red-100 bg-red-50 text-[13px] text-red-600 font-medium">
-              <CngoLogo className="h-5 w-5" logoUrl={branding.logo_url || undefined} /> {content.badge}
+              <CngoLogo className="h-7 w-auto" logoUrl={branding.logo_url || undefined} /> {content.badge}
             </span>
           </motion.div>
           <motion.h1 variants={fadeUp} custom={1} className="text-4xl sm:text-5xl md:text-7xl font-bold tracking-tight leading-[1.1]">
@@ -317,23 +382,24 @@ function DeliveryTypesSection({ content }: { content: any }) {
           <motion.p variants={fadeUp} custom={2} className="mt-3 text-gray-500 text-lg max-w-xl mx-auto">{content.subtitle}</motion.p>
         </motion.div>
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-40px" }} variants={stagger} className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {items.map((t: any, i: number) => {
-            const color = ICON_COLORS[t.icon] || "text-gray-500 bg-gray-50 border-gray-100";
-            return (
+          {items.map((t: any, i: number) => (
               <motion.div key={t.title} variants={fadeUp} custom={i}>
-                <Card className="p-6 group text-center cursor-default hover:-translate-y-1">
-                  <div className="flex justify-center mb-5">
-                    <div className={`w-20 h-20 rounded-2xl border flex items-center justify-center ${t.image_url ? "" : color} transition-all duration-300`}>
-                      <IconOrImage iconName={t.icon} imageUrl={t.image_url} size="w-10 h-10" />
-                    </div>
+                <Card className="group text-center cursor-default hover:-translate-y-1 overflow-hidden">
+                  <div className="w-full h-44 rounded-t-2xl overflow-hidden">
+                    {t.image_url ? (
+                      <img src={t.image_url} alt={t.title} className="w-full h-full object-cover" />
+                    ) : (
+                      <TransportIllustration icon={t.icon} />
+                    )}
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">{t.title}</h3>
-                  <p className="text-base font-medium text-gray-700">{t.price} <span className="text-sm font-normal text-gray-400">/ кг</span></p>
-                  <p className="text-sm text-gray-400 mt-1">{t.period}</p>
+                  <div className="p-5">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">{t.title}</h3>
+                    <p className="text-base font-medium text-gray-700">{t.price} <span className="text-sm font-normal text-gray-400">/ кг</span></p>
+                    <p className="text-sm text-gray-400 mt-1">{t.period}</p>
+                  </div>
                 </Card>
               </motion.div>
-            );
-          })}
+          ))}
         </motion.div>
       </div>
     </section>
@@ -356,18 +422,24 @@ function HowItWorksSection({ content }: { content: any }) {
             const color = ICON_COLORS[step.icon] || "text-gray-500 bg-gray-50 border-gray-100";
             return (
               <motion.div key={step.num} variants={fadeUp} custom={i}>
-                <Card className="p-7 group h-full hover:-translate-y-1">
-                  <div className="flex items-start gap-5">
-                    <div className={`flex-shrink-0 w-16 h-16 rounded-xl border flex items-center justify-center ${step.image_url ? "" : color} transition-all duration-300`}>
-                      <IconOrImage iconName={step.icon} imageUrl={step.image_url} size="w-8 h-8" />
+                <Card className="group h-full hover:-translate-y-1 overflow-hidden">
+                  {step.image_url ? (
+                    <div className="w-full h-36 p-4">
+                      <IconOrImage imageUrl={step.image_url} />
                     </div>
-                    <div className="pt-0.5">
-                      <div className="flex items-center gap-3 mb-1.5">
-                        <span className="text-[11px] font-mono text-gray-300 tracking-widest">{step.num}</span>
-                        <h3 className="text-lg font-semibold text-gray-900">{step.title}</h3>
+                  ) : (
+                    <div className="p-7 pb-0">
+                      <div className={`w-16 h-16 rounded-xl border flex items-center justify-center ${color} transition-all duration-300`}>
+                        <IconOrImage iconName={step.icon} size="w-8 h-8" />
                       </div>
-                      <p className="text-sm text-gray-500 leading-relaxed">{step.desc}</p>
                     </div>
+                  )}
+                  <div className="p-7 pt-4">
+                    <div className="flex items-center gap-3 mb-1.5">
+                      <span className="text-[11px] font-mono text-gray-300 tracking-widest">{step.num}</span>
+                      <h3 className="text-lg font-semibold text-gray-900">{step.title}</h3>
+                    </div>
+                    <p className="text-sm text-gray-500 leading-relaxed">{step.desc}</p>
                   </div>
                 </Card>
               </motion.div>
@@ -394,12 +466,22 @@ function WhyUsSection({ content }: { content: any }) {
             const color = ICON_COLORS[f.icon] || "text-gray-500 bg-gray-50";
             return (
               <motion.div key={f.title} variants={fadeUp} custom={i}>
-                <Card className="p-6 group h-full hover:-translate-y-1">
-                  <div className={`w-14 h-14 rounded-xl flex items-center justify-center mb-4 ${f.image_url ? "" : color}`}>
-                    <IconOrImage iconName={f.icon} imageUrl={f.image_url} size="w-7 h-7" />
+                <Card className="group h-full hover:-translate-y-1 overflow-hidden">
+                  {f.image_url ? (
+                    <div className="w-full h-32 p-4">
+                      <IconOrImage imageUrl={f.image_url} />
+                    </div>
+                  ) : (
+                    <div className="px-6 pt-6">
+                      <div className={`w-14 h-14 rounded-xl flex items-center justify-center ${color}`}>
+                        <IconOrImage iconName={f.icon} size="w-7 h-7" />
+                      </div>
+                    </div>
+                  )}
+                  <div className="p-6 pt-3">
+                    <h3 className="text-base font-semibold text-gray-900 mb-1.5">{f.title}</h3>
+                    <p className="text-sm text-gray-500 leading-relaxed">{f.desc}</p>
                   </div>
-                  <h3 className="text-base font-semibold text-gray-900 mb-1.5">{f.title}</h3>
-                  <p className="text-sm text-gray-500 leading-relaxed">{f.desc}</p>
                 </Card>
               </motion.div>
             );
@@ -481,8 +563,8 @@ function Footer({ branding }: { branding: any }) {
     <footer className="py-10 px-6 border-t border-gray-100">
       <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
         <Link href="/" className="flex items-center gap-2">
-          <CngoLogo className="h-9 w-9" logoUrl={branding.logo_url || undefined} />
-          <span className="text-gray-900 font-bold text-lg tracking-tight">{branding.logo_text || "CNGO"}</span>
+          <CngoLogo className="h-12 w-auto max-w-[100px]" logoUrl={branding.logo_url || undefined} />
+          <span className="text-gray-900 font-bold text-xl tracking-tight">{branding.logo_text || "CNGO"}</span>
         </Link>
         <div className="flex items-center gap-6 text-sm text-gray-400">
           <Link href="/knowledge-base" className="hover:text-gray-900 transition-colors">База знаний</Link>
