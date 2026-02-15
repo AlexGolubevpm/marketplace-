@@ -70,13 +70,21 @@ export const contentRouter = router({
 
       const newVersion = (maxVer?.maxVersion ?? 0) + 1;
 
+      // Unpublish all existing versions of this section
+      await ctx.db
+        .update(landingContent)
+        .set({ is_published: false })
+        .where(eq(landingContent.section, input.section));
+
+      // Insert new version as published
       const [content] = await ctx.db
         .insert(landingContent)
         .values({
           section: input.section,
           content: input.content,
           version: newVersion,
-          is_published: false,
+          is_published: true,
+          published_by: ctx.admin?.id,
         })
         .returning();
 
