@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- Upper wing/chevron -->
+  <path d="M15 20 L65 8 L72 22 L28 35 L15 30Z" fill="#FF0A0A"/>
+  <!-- Middle body -->
+  <path d="M8 35 L28 35 L72 22 L78 36 L30 50 L8 45Z" fill="#E50000"/>
+  <!-- Lower body -->
+  <path d="M8 45 L30 50 L78 36 L72 55 L25 65 L5 58Z" fill="#FF0A0A"/>
+  <!-- Bottom tail -->
+  <path d="M5 58 L25 65 L72 55 L55 72 L20 82 L10 70Z" fill="#CC0000"/>
+  <!-- Sharp accent tail -->
+  <path d="M20 82 L55 72 L42 82 L25 88Z" fill="#FF2020"/>
+</svg>

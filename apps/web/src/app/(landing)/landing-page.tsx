@@ -18,6 +18,23 @@ import {
   Star,
 } from "lucide-react";
 
+function CngoLogo({ className = "h-8 w-8" }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 100 100"
+      fill="none"
+      className={className}
+    >
+      <path d="M15 20 L65 8 L72 22 L28 35 L15 30Z" fill="#FF0A0A" />
+      <path d="M8 35 L28 35 L72 22 L78 36 L30 50 L8 45Z" fill="#E50000" />
+      <path d="M8 45 L30 50 L78 36 L72 55 L25 65 L5 58Z" fill="#FF0A0A" />
+      <path d="M5 58 L25 65 L72 55 L55 72 L20 82 L10 70Z" fill="#CC0000" />
+      <path d="M20 82 L55 72 L42 82 L25 88Z" fill="#FF2020" />
+    </svg>
+  );
+}
+
 const fadeUp = {
   hidden: { opacity: 0, y: 12 },
   visible: (i: number) => ({
@@ -45,9 +62,9 @@ function HeroSection() {
           variants={stagger}
         >
           <motion.div variants={fadeUp} custom={0} className="mb-6">
-            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-white/10 bg-white/5 text-sm text-cyan-400">
-              <Zap className="h-3.5 w-3.5" />
-              Карго-маркетплейс для бизнеса
+            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-white/10 bg-white/5 text-sm text-red-400">
+              <CngoLogo className="h-4 w-4" />
+              Первый карго маркетплейс
             </span>
           </motion.div>
 
@@ -380,17 +397,15 @@ function Footer() {
     <footer className="py-12 px-6 border-t border-white/[0.06]">
       <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-indigo-500 flex items-center justify-center text-white font-bold text-sm">
-            C
-          </div>
-          <span className="text-white font-semibold">Cargo Market</span>
+          <CngoLogo className="h-8 w-8" />
+          <span className="text-white font-bold tracking-tight">CNGO</span>
         </div>
         <div className="flex items-center gap-8 text-sm text-white/30">
           <Link href="/knowledge-base" className="hover:text-white/60 transition-colors">База знаний</Link>
           <Link href="/auth/customer" className="hover:text-white/60 transition-colors">Для клиентов</Link>
           <Link href="/auth/carrier" className="hover:text-white/60 transition-colors">Для карго</Link>
         </div>
-        <p className="text-sm text-white/20">© 2026 Cargo Market</p>
+        <p className="text-sm text-white/20">© 2026 CNGO</p>
       </div>
     </footer>
   );
@@ -403,10 +418,8 @@ export function LandingPage() {
       <nav className="fixed top-0 w-full z-50 border-b border-white/[0.06] bg-[#0a0a0f]/80 backdrop-blur-xl">
         <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-indigo-500 flex items-center justify-center text-white font-bold text-sm">
-              C
-            </div>
-            <span className="text-white font-semibold text-lg">Cargo Market</span>
+            <CngoLogo className="h-9 w-9" />
+            <span className="text-white font-bold text-lg tracking-tight">CNGO</span>
           </div>
           <div className="flex items-center gap-4">
             <Link href="/knowledge-base" className="text-sm text-white/50 hover:text-white transition-colors">
