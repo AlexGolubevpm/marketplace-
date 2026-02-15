@@ -1,10 +1,28 @@
 import { z } from "zod";
 import { eq, and, sql, desc, max } from "drizzle-orm";
-import { router, protectedProcedure, withRole } from "../trpc";
+import { router, publicProcedure, protectedProcedure, withRole } from "../trpc";
 import { landingContent } from "@cargo/db";
 import { landingContentUpdateSchema } from "@cargo/shared";
 
 export const contentRouter = router({
+  getPublished: publicProcedure.query(async ({ ctx }) => {
+    const sections = await ctx.db
+      .select()
+      .from(landingContent)
+      .where(eq(landingContent.is_published, true))
+      .orderBy(desc(landingContent.created_at));
+
+    const seen = new Set<string>();
+    const result: Record<string, any> = {};
+    for (const s of sections) {
+      if (!seen.has(s.section)) {
+        seen.add(s.section);
+        result[s.section] = s.content;
+      }
+    }
+    return result;
+  }),
+
   getSections: protectedProcedure.query(async ({ ctx }) => {
     // Get latest published version of each section
     const sections = await ctx.db
