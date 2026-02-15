@@ -4,8 +4,8 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowLeft, MapPin, Star, CheckCircle2, Truck, Plane, Anchor, Train, XCircle, Bell } from "lucide-react";
-import { getRequestById, getOffersByRequest, selectOffer, cancelRequest, subscribeToRequest, type Request, type Offer } from "@/lib/store";
+import { ArrowLeft, MapPin, Star, CheckCircle2, Truck, Plane, Anchor, Train, XCircle, Bell, Upload, FileText, Download } from "lucide-react";
+import { getRequestById, getOffersByRequest, selectOffer, cancelRequest, subscribeToRequest, type Request, type Offer, type Order } from "@/lib/store";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 8 },
@@ -22,26 +22,56 @@ const statusConfig: Record<string, { label: string; color: string; bg: string }>
   cancelled: { label: "Отменена", color: "text-red-400", bg: "bg-red-500/10" },
 };
 
+interface DocFile {
+  id: string;
+  file_name: string;
+  file_url: string;
+  file_type: string;
+  uploaded_by_role: string;
+  created_at: string;
+}
+
+/* Order status → timeline step mapping */
+const ORDER_TIMELINE = [
+  { key: "confirmed", label: "Оффер выбран" },
+  { key: "awaiting_shipment", label: "Груз передан карго" },
+  { key: "in_transit", label: "В пути" },
+  { key: "customs", label: "Таможня" },
+  { key: "delivered", label: "Доставлено" },
+  { key: "completed", label: "Завершён" },
+];
+
+const ORDER_STEP_INDEX: Record<string, number> = {};
+ORDER_TIMELINE.forEach((s, i) => { ORDER_STEP_INDEX[s.key] = i; });
+// customs_hold maps same as customs
+ORDER_STEP_INDEX["customs_hold"] = ORDER_STEP_INDEX["customs"];
+ORDER_STEP_INDEX["payment_pending"] = -1;
+
 export default function CustomerRequestDetailPage() {
   const params = useParams();
   const [request, setRequest] = useState<Request | null>(null);
   const [offers, setOffers] = useState<Offer[]>([]);
+  const [order, setOrder] = useState<Order | null>(null);
+  const [documents, setDocuments] = useState<DocFile[]>([]);
   const [showConfirm, setShowConfirm] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
   const [selectedOffer, setSelectedOffer] = useState<Offer | null>(null);
   const [compareMode, setCompareMode] = useState(false);
   const [newOfferAlert, setNewOfferAlert] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
 
   const reload = useCallback(async () => {
     try {
-      const req = await getRequestById(params.id as string);
+      const req = await getRequestById(params.id as string) as any;
       setRequest(req);
       if (req) {
         const offs = req.offers || await getOffersByRequest(req.id);
         setOffers(offs);
-        const sel = offs.find((o) => o.status === "selected");
+        const sel = offs.find((o: Offer) => o.status === "selected");
         if (sel) { setSelectedOffer(sel); setConfirmed(true); }
+        if (req.order) setOrder(req.order);
+        if (req.documents) setDocuments(req.documents);
       }
     } catch (e) {
       console.error("Failed to load:", e);
@@ -150,23 +180,36 @@ export default function CustomerRequestDetailPage() {
             <p className="font-semibold">{selectedOffer.carrier_name || "Карго"}</p>
             <p className="text-sm text-white/40">${getPrice(selectedOffer).toLocaleString()} / {getDays(selectedOffer)} дней / {deliveryLabels[selectedOffer.delivery_type]}</p>
           </div>
+          {/* Dynamic timeline based on order status */}
           <div className="space-y-0 pl-4">
-            {[
-              { label: "Оффер выбран", done: true },
-              { label: "Груз передан карго", done: false },
-              { label: "В пути", done: false },
-              { label: "Таможня", done: false },
-              { label: "Доставлено", done: false },
-            ].map((s, i, arr) => (
-              <div key={s.label} className="flex items-start gap-4 pb-5">
-                <div className="flex flex-col items-center">
-                  <div className={`w-3 h-3 rounded-full ${s.done ? "bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.5)]" : "bg-white/10"}`} />
-                  {i < arr.length - 1 && <div className="w-0.5 flex-1 bg-white/[0.06] mt-1" />}
-                </div>
-                <span className={`text-sm ${s.done ? "text-white" : "text-white/20"}`}>{s.label}</span>
-              </div>
-            ))}
+            {(() => {
+              const currentStep = order ? (ORDER_STEP_INDEX[order.status] ?? -1) : 0;
+              return ORDER_TIMELINE.map((s, i, arr) => {
+                const done = i <= currentStep;
+                const isCurrent = i === currentStep;
+                return (
+                  <div key={s.key} className="flex items-start gap-4 pb-5">
+                    <div className="flex flex-col items-center">
+                      <div className={`w-3 h-3 rounded-full ${done ? "bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.5)]" : "bg-white/10"} ${isCurrent ? "ring-2 ring-cyan-400/30" : ""}`} />
+                      {i < arr.length - 1 && <div className={`w-0.5 flex-1 mt-1 ${done && i < currentStep ? "bg-cyan-400/30" : "bg-white/[0.06]"}`} />}
+                    </div>
+                    <span className={`text-sm ${done ? "text-white" : "text-white/20"} ${isCurrent ? "font-semibold" : ""}`}>{s.label}</span>
+                  </div>
+                );
+              });
+            })()}
           </div>
+
+          {/* Order tracking info */}
+          {order?.tracking_number && (
+            <div className="p-4 rounded-2xl border border-white/[0.06] bg-white/[0.02]">
+              <p className="text-sm text-white/30 mb-1">Трек-номер</p>
+              <p className="font-mono font-medium">{order.tracking_number}</p>
+            </div>
+          )}
+
+          {/* Documents section */}
+          <DocumentsSection orderId={order?.id} documents={documents} onUpload={reload} uploading={uploading} setUploading={setUploading} role="customer" />
         </>
       ) : request.status === "cancelled" ? (
         <div className="p-5 rounded-2xl border border-red-500/20 bg-red-500/[0.03] text-center">
@@ -245,6 +288,11 @@ export default function CustomerRequestDetailPage() {
         </>
       )}
 
+      {/* Documents section for non-order state */}
+      {!confirmed && !selectedOffer && order && (
+        <DocumentsSection orderId={order?.id} documents={documents} onUpload={reload} uploading={uploading} setUploading={setUploading} role="customer" />
+      )}
+
       {/* Confirm modal */}
       {showConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-6">
@@ -258,6 +306,96 @@ export default function CustomerRequestDetailPage() {
               <button onClick={handleConfirm} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-500 text-white font-semibold active:scale-[0.98]">Подтвердить</button>
             </div>
           </motion.div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Documents Section ── */
+const DOC_TYPE_LABELS: Record<string, string> = {
+  invoice: "Инвойс",
+  customs_declaration: "Таможенная декларация",
+  bill_of_lading: "Коносамент",
+  photo: "Фото",
+  contract: "Договор",
+  other: "Другое",
+};
+
+function DocumentsSection({ orderId, documents, onUpload, uploading, setUploading, role }: {
+  orderId?: string;
+  documents: DocFile[];
+  onUpload: () => void;
+  uploading: boolean;
+  setUploading: (v: boolean) => void;
+  role: string;
+}) {
+  if (!orderId) return null;
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      // Upload file
+      const formData = new FormData();
+      formData.append("file", file);
+      const uploadRes = await fetch("/api/upload", { method: "POST", body: formData });
+      if (!uploadRes.ok) throw new Error("Upload failed");
+      const { url } = await uploadRes.json();
+
+      // Save document record
+      await fetch("/api/documents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          order_id: orderId,
+          file_name: file.name,
+          file_url: url,
+          file_type: "other",
+          uploaded_by_role: role,
+        }),
+      });
+      onUpload();
+    } catch (err) {
+      console.error("Upload error:", err);
+    }
+    setUploading(false);
+    e.target.value = "";
+  };
+
+  return (
+    <div className="p-5 rounded-2xl border border-white/[0.06] bg-white/[0.02]">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <FileText className="h-5 w-5 text-cyan-400" />
+          <h2 className="font-semibold">Документы</h2>
+          {documents.length > 0 && <span className="text-white/30 text-sm">({documents.length})</span>}
+        </div>
+        <label className={`px-4 py-2 rounded-lg border border-white/10 text-sm font-medium cursor-pointer hover:bg-white/5 transition-colors ${uploading ? "opacity-50 pointer-events-none" : ""}`}>
+          <Upload className="h-4 w-4 inline mr-1.5" />
+          {uploading ? "Загрузка..." : "Загрузить"}
+          <input type="file" className="hidden" onChange={handleUpload} disabled={uploading} />
+        </label>
+      </div>
+      {documents.length === 0 ? (
+        <p className="text-sm text-white/20">Нет загруженных документов</p>
+      ) : (
+        <div className="space-y-2">
+          {documents.map((doc) => (
+            <div key={doc.id} className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+              <div className="flex items-center gap-3 min-w-0">
+                <FileText className="h-4 w-4 text-white/30 flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium truncate">{doc.file_name}</p>
+                  <p className="text-xs text-white/20">{DOC_TYPE_LABELS[doc.file_type] || doc.file_type} · {new Date(doc.created_at).toLocaleDateString("ru-RU")}</p>
+                </div>
+              </div>
+              <a href={doc.file_url} download className="p-2 rounded-lg hover:bg-white/5 transition-colors flex-shrink-0">
+                <Download className="h-4 w-4 text-cyan-400" />
+              </a>
+            </div>
+          ))}
         </div>
       )}
     </div>

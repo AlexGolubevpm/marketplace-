@@ -97,8 +97,7 @@ export const orderDocuments = pgTable("order_documents", {
   file_name: varchar("file_name", { length: 255 }).notNull(),
   file_url: varchar("file_url", { length: 500 }).notNull(),
   file_type: documentTypeEnum("file_type").notNull(),
-  uploaded_by: uuid("uploaded_by")
-    .notNull()
-    .references(() => admins.id),
+  uploaded_by: varchar("uploaded_by", { length: 100 }),
+  uploaded_by_role: varchar("uploaded_by_role", { length: 20 }).notNull().default("admin"),
   created_at: timestamp("created_at").notNull().defaultNow(),
 });
