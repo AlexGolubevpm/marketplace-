@@ -84,7 +84,6 @@ export const contentRouter = router({
           content: input.content,
           version: newVersion,
           is_published: true,
-          published_by: ctx.admin?.id,
         })
         .returning();
 
