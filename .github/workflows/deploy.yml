@@ -74,6 +74,9 @@ jobs:
               echo ">>> Installing dependencies..."
               pnpm install --frozen-lockfile 2>/dev/null || npm install
 
+              echo ">>> Cleaning previous build artifacts..."
+              rm -rf apps/web/.next
+
               echo ">>> Building..."
               pnpm build 2>/dev/null || npx turbo build
 
