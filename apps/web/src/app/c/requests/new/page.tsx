@@ -45,6 +45,8 @@ export default function NewRequestPage() {
 
   const countryName = (code: string) => [...countries, ...destCountries].find((c) => c.code === code)?.name || code;
 
+  const [submitted, setSubmitted] = useState(false);
+
   const handleSubmit = () => {
     const session = getSession();
     const userId = session?.tg_id || session?.username || "anonymous";
@@ -61,8 +63,30 @@ export default function NewRequestPage() {
       delivery_type_preferred: form.delivery_type,
     });
 
-    router.push("/c/requests");
+    setSubmitted(true);
+    setTimeout(() => {
+      window.location.href = "/c/requests";
+    }, 2500);
   };
+
+  if (submitted) {
+    return (
+      <div className="max-w-md mx-auto text-center py-20">
+        <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.4 }}>
+          <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-6">
+            <Send className="h-7 w-7 text-green-400" />
+          </div>
+          <h2 className="text-2xl font-bold mb-2">Заявка отправлена!</h2>
+          <p className="text-white/40 mb-2">Мы отправили её подходящим карго-компаниям.</p>
+          <p className="text-white/30 text-sm">Первые предложения обычно приходят в течение нескольких минут.</p>
+          <div className="mt-6 flex items-center justify-center gap-2 text-sm text-white/20">
+            <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+            Переходим к заявкам...
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   const canProceed1 = form.origin_city.trim() !== "" && form.destination_city.trim() !== "";
   const canProceed2 = form.cargo_description.trim() !== "";

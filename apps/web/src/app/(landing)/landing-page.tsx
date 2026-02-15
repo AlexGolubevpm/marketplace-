@@ -70,8 +70,9 @@ function HeroSection() {
             custom={2}
             className="mt-6 text-lg md:text-xl text-white/50 max-w-2xl mx-auto leading-relaxed"
           >
-            Получите предложения от проверенных карго-компаний за часы, а не дни.
-            Сравните цены, сроки и условия в одном месте.
+            Вместо обзвона 20 компаний и 2 дней переговоров —{" "}
+            <span className="text-white/70">3-5 офферов с ценами за 2 часа.</span>{" "}
+            Сравните и выберите лучший.
           </motion.p>
 
           <motion.div
