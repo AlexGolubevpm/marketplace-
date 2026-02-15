@@ -1,74 +1,359 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Save, Upload, History, Eye, RotateCcw } from "lucide-react";
-import { formatDateTime } from "@/lib/utils";
+import {
+  Save,
+  Plus,
+  Trash2,
+  GripVertical,
+  CheckCircle,
+} from "lucide-react";
+import { trpc } from "@/trpc/client";
 
-const sections = [
+type FieldConfig = {
+  key: string;
+  label: string;
+  type: "text" | "textarea" | "items";
+  itemFields?: { key: string; label: string; type: "text" | "textarea" | "icon-select" }[];
+};
+
+type SectionConfig = {
+  id: string;
+  name: string;
+  description: string;
+  fields: FieldConfig[];
+};
+
+const ICON_OPTIONS = [
+  { value: "Plane", label: "Самолёт" },
+  { value: "Ship", label: "Корабль" },
+  { value: "TrainFront", label: "Поезд" },
+  { value: "Truck", label: "Грузовик" },
+  { value: "Shield", label: "Щит" },
+  { value: "Clock", label: "Часы" },
+  { value: "Globe", label: "Глобус" },
+  { value: "BarChart3", label: "Диаграмма" },
+  { value: "Star", label: "Звезда" },
+  { value: "Zap", label: "Молния" },
+  { value: "ClipboardList", label: "Заявка" },
+  { value: "FileText", label: "Документ" },
+  { value: "MapPin", label: "Точка" },
+];
+
+const SECTION_CONFIGS: SectionConfig[] = [
   {
     id: "hero",
     name: "Hero (главный экран)",
+    description: "Заголовок, подзаголовок, кнопки",
     fields: [
-      { key: "title", label: "Заголовок", type: "text", value: "Доставка грузов из Китая" },
-      { key: "subtitle", label: "Подзаголовок", type: "text", value: "Быстро, надёжно, выгодно" },
-      { key: "cta_text", label: "Текст кнопки", type: "text", value: "Рассчитать стоимость" },
-      { key: "cta_url", label: "URL кнопки", type: "text", value: "https://t.me/cargo_bot" },
+      { key: "badge", label: "Бейдж (метка вверху)", type: "text" },
+      { key: "title_1", label: "Заголовок (1 строка)", type: "text" },
+      { key: "title_accent", label: "Заголовок (акцент)", type: "text" },
+      { key: "title_2", label: "Заголовок (2 строка)", type: "text" },
+      { key: "title_fade", label: "Заголовок (затухающий)", type: "text" },
+      { key: "subtitle", label: "Подзаголовок", type: "textarea" },
+      { key: "cta_text", label: "Текст основной кнопки", type: "text" },
+      { key: "cta_secondary_text", label: "Текст второй кнопки", type: "text" },
+      { key: "telegram_url", label: "Ссылка на Telegram бот", type: "text" },
+      {
+        key: "checkmarks",
+        label: "Преимущества под кнопкой",
+        type: "items",
+        itemFields: [{ key: "text", label: "Текст", type: "text" }],
+      },
     ],
-    version: 3,
-    is_published: true,
-    updated_at: "2026-02-10T14:00:00",
+  },
+  {
+    id: "stats",
+    name: "Статистика",
+    description: "Числа и метрики",
+    fields: [
+      {
+        key: "items",
+        label: "Блоки статистики",
+        type: "items",
+        itemFields: [
+          { key: "value", label: "Значение", type: "text" },
+          { key: "label", label: "Подпись", type: "text" },
+        ],
+      },
+    ],
+  },
+  {
+    id: "delivery_types",
+    name: "Виды доставки",
+    description: "Карточки видов перевозки",
+    fields: [
+      { key: "section_label", label: "Надпись секции", type: "text" },
+      { key: "title", label: "Заголовок", type: "text" },
+      { key: "subtitle", label: "Подзаголовок", type: "text" },
+      {
+        key: "items",
+        label: "Виды доставки",
+        type: "items",
+        itemFields: [
+          { key: "icon", label: "Иконка", type: "icon-select" },
+          { key: "title", label: "Название", type: "text" },
+          { key: "price", label: "Цена", type: "text" },
+          { key: "period", label: "Срок", type: "text" },
+        ],
+      },
+    ],
   },
   {
     id: "how_it_works",
     name: "Как это работает",
+    description: "Шаги процесса",
     fields: [
-      { key: "steps", label: "Шаги (JSON)", type: "textarea", value: '[{"title":"Опишите груз","description":"Укажите маршрут, вес и тип товара"},{"title":"Получите предложения","description":"Карго-компании пришлют офферы"},{"title":"Выберите лучший","description":"Сравните цены и сроки"}]' },
+      { key: "section_label", label: "Надпись секции", type: "text" },
+      { key: "title", label: "Заголовок", type: "text" },
+      { key: "subtitle", label: "Подзаголовок", type: "text" },
+      {
+        key: "steps",
+        label: "Шаги",
+        type: "items",
+        itemFields: [
+          { key: "num", label: "Номер", type: "text" },
+          { key: "icon", label: "Иконка", type: "icon-select" },
+          { key: "title", label: "Заголовок", type: "text" },
+          { key: "desc", label: "Описание", type: "text" },
+        ],
+      },
     ],
-    version: 2,
-    is_published: true,
-    updated_at: "2026-02-05T10:00:00",
+  },
+  {
+    id: "why_us",
+    name: "Почему мы",
+    description: "Преимущества платформы",
+    fields: [
+      { key: "section_label", label: "Надпись секции", type: "text" },
+      { key: "title", label: "Заголовок", type: "text" },
+      {
+        key: "features",
+        label: "Преимущества",
+        type: "items",
+        itemFields: [
+          { key: "icon", label: "Иконка", type: "icon-select" },
+          { key: "title", label: "Заголовок", type: "text" },
+          { key: "desc", label: "Описание", type: "text" },
+        ],
+      },
+    ],
   },
   {
     id: "faq",
-    name: "Вопросы и ответы",
+    name: "Частые вопросы",
+    description: "FAQ секция",
     fields: [
-      { key: "items", label: "FAQ (JSON)", type: "textarea", value: '[{"q":"Сколько стоит доставка?","a":"Стоимость зависит от маршрута и веса. Получите расчёт бесплатно."},{"q":"Какие сроки доставки?","a":"От 7 дней авиа до 35 дней морем."}]' },
+      { key: "section_label", label: "Надпись секции", type: "text" },
+      { key: "title", label: "Заголовок", type: "text" },
+      {
+        key: "items",
+        label: "Вопросы и ответы",
+        type: "items",
+        itemFields: [
+          { key: "q", label: "Вопрос", type: "text" },
+          { key: "a", label: "Ответ", type: "textarea" },
+        ],
+      },
     ],
-    version: 4,
-    is_published: true,
-    updated_at: "2026-02-12T16:00:00",
+  },
+  {
+    id: "cta",
+    name: "CTA (призыв к действию)",
+    description: "Финальный блок с кнопками",
+    fields: [
+      { key: "title", label: "Заголовок", type: "text" },
+      { key: "subtitle", label: "Подзаголовок", type: "text" },
+      { key: "cta_text", label: "Текст основной кнопки", type: "text" },
+      { key: "cta_secondary_text", label: "Текст второй кнопки", type: "text" },
+    ],
   },
   {
     id: "seo",
     name: "SEO",
+    description: "Мета-теги страницы",
     fields: [
-      { key: "title", label: "Meta Title", type: "text", value: "Cargo Marketplace — Доставка грузов из Китая" },
-      { key: "description", label: "Meta Description", type: "textarea", value: "Карго-маркетплейс для доставки грузов из Китая в Россию и СНГ. Сравните цены и сроки от проверенных карго-компаний." },
-      { key: "og_title", label: "OG Title", type: "text", value: "Cargo Marketplace" },
-      { key: "og_description", label: "OG Description", type: "text", value: "Найдите лучшее предложение по доставке груза" },
+      { key: "title", label: "Meta Title", type: "text" },
+      { key: "description", label: "Meta Description", type: "textarea" },
+      { key: "og_title", label: "OG Title", type: "text" },
+      { key: "og_description", label: "OG Description", type: "text" },
     ],
-    version: 2,
-    is_published: true,
-    updated_at: "2026-02-08T11:00:00",
   },
 ];
 
-export default function ContentPage() {
-  const [activeSection, setActiveSection] = useState(sections[0].id);
+const DEFAULT_CONTENT: Record<string, Record<string, any>> = {
+  hero: {
+    badge: "Первый карго маркетплейс",
+    title_1: "Если важно ",
+    title_accent: "принимать решения",
+    title_2: "а не искать ",
+    title_fade: "исполнителей",
+    subtitle: "Вместо обзвона 20 компаний и 2 дней переговоров — 3–5 офферов с ценами за 2 часа. Сравните и выберите лучший.",
+    cta_text: "Получить предложения",
+    cta_secondary_text: "Через Telegram",
+    telegram_url: "https://t.me/cargomarketplace_bot",
+    checkmarks: [
+      { text: "Бесплатно для клиентов" },
+      { text: "От 3 офферов за 2 часа" },
+      { text: "Проверенные карго-компании" },
+    ],
+  },
+  stats: {
+    items: [
+      { value: "200+", label: "Карго-компаний" },
+      { value: "<2ч", label: "Среднее время ответа" },
+      { value: "98%", label: "Довольных клиентов" },
+      { value: "5 000+", label: "Доставок выполнено" },
+    ],
+  },
+  delivery_types: {
+    section_label: "Виды доставки",
+    title: "Любой способ перевозки",
+    subtitle: "Подберём оптимальный вариант по цене и срокам",
+    items: [
+      { icon: "Plane", title: "Авиа", price: "от 10 $", period: "от 1 дня" },
+      { icon: "TrainFront", title: "ЖД", price: "от 5 $", period: "от 15 дней" },
+      { icon: "Truck", title: "Авто", price: "от 2 $", period: "от 25 дней" },
+      { icon: "Ship", title: "Море", price: "от 1 $", period: "от 40 дней" },
+    ],
+  },
+  how_it_works: {
+    section_label: "Процесс",
+    title: "Как это работает",
+    subtitle: "4 простых шага до выгодной доставки",
+    steps: [
+      { num: "01", icon: "ClipboardList", title: "Опишите груз", desc: "Маршрут, вес, тип товара — оформление заявки за 2 минуты" },
+      { num: "02", icon: "FileText", title: "Получите офферы", desc: "Карго-компании присылают предложения с ценами и сроками" },
+      { num: "03", icon: "BarChart3", title: "Сравните и выберите", desc: "Удобное сравнение всех условий в единой таблице" },
+      { num: "04", icon: "MapPin", title: "Отслеживайте", desc: "Статус заказа в реальном времени до момента получения" },
+    ],
+  },
+  why_us: {
+    section_label: "Преимущества",
+    title: "Почему выбирают нас",
+    features: [
+      { icon: "Shield", title: "Проверенные карго", desc: "Каждая компания проходит верификацию перед подключением к платформе" },
+      { icon: "Clock", title: "Экономия времени", desc: "Вместо обзвона десятков компаний — офферы приходят к вам" },
+      { icon: "Globe", title: "Любые маршруты", desc: "Китай, Турция, Европа → Россия, Казахстан, Узбекистан" },
+      { icon: "BarChart3", title: "Прозрачное сравнение", desc: "Цена, сроки, условия — всё в одной таблице для быстрого выбора" },
+      { icon: "Star", title: "Рейтинг надёжности", desc: "Система оценки карго-компаний по скорости и качеству работы" },
+      { icon: "Zap", title: "Быстрый старт", desc: "Заявка за 2 минуты, первые офферы — уже через час" },
+    ],
+  },
+  faq: {
+    section_label: "FAQ",
+    title: "Частые вопросы",
+    items: [
+      { q: "Сколько стоит использование платформы?", a: "Для клиентов — бесплатно. Платформа зарабатывает на комиссии с карго-компаний." },
+      { q: "Какие сроки доставки?", a: "Зависит от типа: авиа — от 7 дней, ЖД — от 14 дней, море — от 25 дней." },
+      { q: "Как проверяются карго-компании?", a: "Каждая компания проходит верификацию: проверка документов, история работы, отзывы клиентов." },
+      { q: "Можно ли отменить заявку?", a: "Да, до момента выбора оффера заявку можно отменить или изменить в любое время." },
+      { q: "Какие маршруты доступны?", a: "Основные направления: Китай, Турция, Европа → Россия, Казахстан, Узбекистан, Кыргызстан." },
+    ],
+  },
+  cta: {
+    title: "Готовы начать?",
+    subtitle: "Создайте заявку за 2 минуты и получите предложения от проверенных карго-компаний",
+    cta_text: "Получить предложения",
+    cta_secondary_text: "Я карго-компания",
+  },
+  seo: {
+    title: "CNGO — Карго маркетплейс",
+    description: "Первый карго-маркетплейс для доставки грузов из Китая.",
+    og_title: "CNGO — Карго маркетплейс",
+    og_description: "Найдите лучшее предложение по доставке груза",
+  },
+};
 
-  const section = sections.find((s) => s.id === activeSection)!;
+function IconSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <select
+      value={value || ""}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full mt-1 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm focus:outline-none focus:border-cyan-500/40"
+    >
+      <option value="">Выберите иконку</option>
+      {ICON_OPTIONS.map((opt) => (
+        <option key={opt.value} value={opt.value}>{opt.label}</option>
+      ))}
+    </select>
+  );
+}
+
+export default function ContentPage() {
+  const [activeSectionId, setActiveSectionId] = useState(SECTION_CONFIGS[0].id);
+  const [sectionData, setSectionData] = useState<Record<string, Record<string, any>>>(DEFAULT_CONTENT);
+  const [saveStatus, setSaveStatus] = useState<Record<string, "saved" | "saving" | "error" | null>>({});
+
+  const updateMutation = trpc.content.update.useMutation({
+    onSuccess: (data) => {
+      setSaveStatus((prev) => ({ ...prev, [activeSectionId]: "saved" }));
+      if (data) {
+        publishMutation.mutate({ section: data.section, version: data.version });
+      }
+      setTimeout(() => setSaveStatus((prev) => ({ ...prev, [activeSectionId]: null })), 3000);
+    },
+    onError: () => {
+      setSaveStatus((prev) => ({ ...prev, [activeSectionId]: "error" }));
+    },
+  });
+
+  const publishMutation = trpc.content.publish.useMutation();
+
+  const activeConfig = SECTION_CONFIGS.find((s) => s.id === activeSectionId)!;
+  const activeData = sectionData[activeSectionId] || {};
+
+  const updateField = useCallback((key: string, value: any) => {
+    setSectionData((prev) => ({
+      ...prev,
+      [activeSectionId]: { ...prev[activeSectionId], [key]: value },
+    }));
+  }, [activeSectionId]);
+
+  const updateItemField = useCallback((listKey: string, index: number, fieldKey: string, value: any) => {
+    setSectionData((prev) => {
+      const items = [...(prev[activeSectionId]?.[listKey] || [])];
+      items[index] = { ...items[index], [fieldKey]: value };
+      return { ...prev, [activeSectionId]: { ...prev[activeSectionId], [listKey]: items } };
+    });
+  }, [activeSectionId]);
+
+  const addItem = useCallback((listKey: string, itemFields: FieldConfig["itemFields"]) => {
+    setSectionData((prev) => {
+      const items = [...(prev[activeSectionId]?.[listKey] || [])];
+      const newItem: Record<string, string> = {};
+      itemFields?.forEach((f) => { newItem[f.key] = ""; });
+      items.push(newItem);
+      return { ...prev, [activeSectionId]: { ...prev[activeSectionId], [listKey]: items } };
+    });
+  }, [activeSectionId]);
+
+  const removeItem = useCallback((listKey: string, index: number) => {
+    setSectionData((prev) => {
+      const items = [...(prev[activeSectionId]?.[listKey] || [])];
+      items.splice(index, 1);
+      return { ...prev, [activeSectionId]: { ...prev[activeSectionId], [listKey]: items } };
+    });
+  }, [activeSectionId]);
+
+  const handleSave = () => {
+    setSaveStatus((prev) => ({ ...prev, [activeSectionId]: "saving" }));
+    updateMutation.mutate({
+      section: activeSectionId,
+      content: activeData,
+    });
+  };
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Контент лендинга" description="Управление текстами и контентом" />
+      <PageHeader title="Контент лендинга" description="Редактирование секций главной страницы" />
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Section List */}
@@ -77,21 +362,24 @@ export default function ContentPage() {
             <CardTitle className="text-base">Секции</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1 p-2">
-            {sections.map((s) => (
+            {SECTION_CONFIGS.map((s) => (
               <button
                 key={s.id}
-                onClick={() => setActiveSection(s.id)}
-                className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
-                  activeSection === s.id
-                    ? "bg-primary/10 text-primary font-medium"
-                    : "hover:bg-muted"
+                onClick={() => setActiveSectionId(s.id)}
+                className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                  activeSectionId === s.id
+                    ? "bg-cyan-500/10 text-cyan-400 font-medium"
+                    : "text-white/60 hover:bg-white/5 hover:text-white/80"
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <span>{s.name}</span>
-                  <Badge variant={s.is_published ? "success" : "gray"} className="text-xs">
-                    v{s.version}
-                  </Badge>
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <p className="font-medium">{s.name}</p>
+                    <p className="text-[11px] opacity-50 mt-0.5">{s.description}</p>
+                  </div>
+                  {saveStatus[s.id] === "saved" && (
+                    <CheckCircle className="h-4 w-4 text-green-400 shrink-0" />
+                  )}
                 </div>
               </button>
             ))}
@@ -104,40 +392,112 @@ export default function ContentPage() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-base">{section.name}</CardTitle>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Версия {section.version} • Обновлено {formatDateTime(section.updated_at)}
-                  </p>
+                  <CardTitle className="text-base">{activeConfig.name}</CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">{activeConfig.description}</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm">
-                    <History className="h-4 w-4 mr-2" /> История
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    <Eye className="h-4 w-4 mr-2" /> Предпросмотр
-                  </Button>
-                </div>
+                <Button onClick={handleSave} disabled={updateMutation.isPending}>
+                  <Save className="h-4 w-4 mr-2" />
+                  {updateMutation.isPending ? "Сохранение..." : "Сохранить"}
+                </Button>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {section.fields.map((field) => (
+            <CardContent className="space-y-5">
+              {saveStatus[activeSectionId] === "saved" && (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400 text-sm">
+                  <CheckCircle className="h-4 w-4" /> Секция сохранена и опубликована
+                </div>
+              )}
+              {saveStatus[activeSectionId] === "error" && (
+                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                  Ошибка сохранения. Попробуйте ещё раз.
+                </div>
+              )}
+
+              {activeConfig.fields.map((field) => (
                 <div key={field.key}>
-                  <Label>{field.label}</Label>
-                  {field.type === "textarea" ? (
-                    <Textarea defaultValue={field.value} className="mt-1 font-mono text-sm" rows={5} />
-                  ) : (
-                    <Input defaultValue={field.value} className="mt-1" />
+                  {field.type === "text" && (
+                    <div>
+                      <Label>{field.label}</Label>
+                      <Input
+                        className="mt-1"
+                        value={activeData[field.key] || ""}
+                        onChange={(e) => updateField(field.key, e.target.value)}
+                        placeholder={field.label}
+                      />
+                    </div>
+                  )}
+
+                  {field.type === "textarea" && (
+                    <div>
+                      <Label>{field.label}</Label>
+                      <Textarea
+                        className="mt-1"
+                        rows={4}
+                        value={activeData[field.key] || ""}
+                        onChange={(e) => updateField(field.key, e.target.value)}
+                        placeholder={field.label}
+                      />
+                    </div>
+                  )}
+
+                  {field.type === "items" && (
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <Label>{field.label}</Label>
+                        <Button variant="outline" size="sm" onClick={() => addItem(field.key, field.itemFields)}>
+                          <Plus className="h-3 w-3 mr-1" /> Добавить
+                        </Button>
+                      </div>
+                      <div className="space-y-3">
+                        {(activeData[field.key] || []).map((item: any, idx: number) => (
+                          <div key={idx} className="relative p-4 rounded-xl border border-white/[0.08] bg-white/[0.02]">
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-2">
+                                <GripVertical className="h-4 w-4 text-white/20" />
+                                <span className="text-xs text-white/30 font-mono">#{idx + 1}</span>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-red-400/60 hover:text-red-400"
+                                onClick={() => removeItem(field.key, idx)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              {field.itemFields?.map((itemField) => (
+                                <div key={itemField.key} className={itemField.type === "textarea" ? "sm:col-span-2" : ""}>
+                                  <Label className="text-xs">{itemField.label}</Label>
+                                  {itemField.type === "icon-select" ? (
+                                    <IconSelect
+                                      value={item[itemField.key] || ""}
+                                      onChange={(v) => updateItemField(field.key, idx, itemField.key, v)}
+                                    />
+                                  ) : itemField.type === "textarea" ? (
+                                    <Textarea
+                                      className="mt-1"
+                                      rows={2}
+                                      value={item[itemField.key] || ""}
+                                      onChange={(e) => updateItemField(field.key, idx, itemField.key, e.target.value)}
+                                    />
+                                  ) : (
+                                    <Input
+                                      className="mt-1"
+                                      value={item[itemField.key] || ""}
+                                      onChange={(e) => updateItemField(field.key, idx, itemField.key, e.target.value)}
+                                    />
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
               ))}
-              <div className="flex items-center gap-2 pt-4 border-t">
-                <Button>
-                  <Save className="h-4 w-4 mr-2" /> Сохранить черновик
-                </Button>
-                <Button variant="secondary">
-                  <Upload className="h-4 w-4 mr-2" /> Опубликовать
-                </Button>
-              </div>
             </CardContent>
           </Card>
         </div>

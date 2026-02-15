@@ -16,6 +16,23 @@ function getDb() {
   return db;
 }
 
+function extractAdmin(req: Request): Context["admin"] {
+  try {
+    const header = req.headers.get("x-admin-session");
+    if (!header) return null;
+    const session = JSON.parse(header);
+    if (!session.logged_in) return null;
+    return {
+      id: session.id || "00000000-0000-0000-0000-000000000000",
+      email: session.email || session.login || "admin",
+      full_name: session.full_name || session.login || "Admin",
+      role: session.role || "super_admin",
+    };
+  } catch {
+    return null;
+  }
+}
+
 const handler = (req: Request) =>
   fetchRequestHandler({
     endpoint: "/api/trpc",
@@ -23,7 +40,7 @@ const handler = (req: Request) =>
     router: appRouter,
     createContext: (): Context => ({
       db: getDb(),
-      admin: null, // TODO: Extract admin from JWT in production
+      admin: extractAdmin(req),
     }),
   });
 

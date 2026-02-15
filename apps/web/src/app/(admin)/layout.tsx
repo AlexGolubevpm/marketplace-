@@ -17,6 +17,7 @@ import {
   PanelLeftClose,
   PanelLeft,
   BookOpen,
+  FileEdit,
 } from "lucide-react";
 
 const navItems = [
@@ -28,6 +29,7 @@ const navItems = [
   { href: "/customers", label: "Клиенты", icon: Users },
   { href: "/analytics", label: "Аналитика", icon: BarChart3 },
   { href: "/knowledgebase", label: "База знаний", icon: BookOpen },
+  { href: "/content", label: "Контент лендинга", icon: FileEdit },
   { href: "/settings", label: "Настройки", icon: Settings },
 ];
 

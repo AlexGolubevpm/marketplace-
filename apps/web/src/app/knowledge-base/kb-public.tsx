@@ -1,24 +1,72 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, BookOpen, ChevronDown, ChevronRight, FileText, Search } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, ChevronDown, ChevronRight, Search, User, LogIn, Truck } from "lucide-react";
 import { trpc } from "@/trpc/client";
+
+/* ── Auth helpers ── */
+type SessionInfo = { name: string; role: string; href: string } | null;
+
+function useSession(): SessionInfo {
+  const [session, setSession] = useState<SessionInfo>(null);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("cargo_session");
+      if (raw) {
+        const s = JSON.parse(raw);
+        if (s.logged_in) {
+          setSession({
+            name: s.name || s.username || "User",
+            role: s.role,
+            href: s.role === "carrier" ? "/s/requests" : "/c/requests",
+          });
+          return;
+        }
+      }
+    } catch {}
+    try {
+      const raw = localStorage.getItem("cargo_admin_session");
+      if (raw) {
+        const s = JSON.parse(raw);
+        if (s.logged_in) {
+          setSession({ name: s.login || "Admin", role: "admin", href: "/dashboard" });
+          return;
+        }
+      }
+    } catch {}
+  }, []);
+  return session;
+}
+
+/* ── Logo ── */
+function CngoLogo({ className = "h-8 w-8" }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none" className={className}>
+      <path d="M15 20 L65 8 L72 22 L28 35 L15 30Z" fill="#DC2626" />
+      <path d="M8 35 L28 35 L72 22 L78 36 L30 50 L8 45Z" fill="#B91C1C" />
+      <path d="M8 45 L30 50 L78 36 L72 55 L25 65 L5 58Z" fill="#DC2626" />
+      <path d="M5 58 L25 65 L72 55 L55 72 L20 82 L10 70Z" fill="#991B1B" />
+      <path d="M20 82 L55 72 L42 82 L25 88Z" fill="#EF4444" />
+    </svg>
+  );
+}
 
 function Accordion({ title, children }: { title: string; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="border border-white/[0.06] rounded-xl overflow-hidden">
-      <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between p-5 text-left hover:bg-white/[0.02] transition-colors">
-        <span className="font-medium text-white">{title}</span>
-        <ChevronDown className={`h-5 w-5 text-white/30 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+    <div className="border border-gray-200 rounded-xl overflow-hidden bg-white">
+      <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between p-5 text-left hover:bg-gray-50 transition-colors">
+        <span className="font-medium text-gray-900">{title}</span>
+        <ChevronDown className={`h-5 w-5 text-gray-400 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
-      {open && <div className="px-5 pb-5 text-white/50 leading-relaxed whitespace-pre-line">{children}</div>}
+      {open && <div className="px-5 pb-5 text-gray-500 leading-relaxed whitespace-pre-line">{children}</div>}
     </div>
   );
 }
 
 export function KnowledgeBasePublic() {
+  const session = useSession();
   const [search, setSearch] = useState("");
   const { data, isLoading } = trpc.knowledgebase.getPublished.useQuery();
   const sections = data ?? [];
@@ -37,47 +85,69 @@ export function KnowledgeBasePublic() {
     : sections;
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white antialiased">
+    <div className="min-h-screen bg-white text-gray-900 antialiased">
       {/* Nav */}
-      <nav className="fixed top-0 w-full z-50 border-b border-white/[0.06] bg-[#0a0a0f]/80 backdrop-blur-xl">
+      <nav className="fixed top-0 w-full z-50 border-b border-gray-100 bg-white/80 backdrop-blur-xl">
         <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link href="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-indigo-500 flex items-center justify-center text-white font-bold text-sm">C</div>
-              <span className="text-white font-semibold text-lg hidden sm:block">Cargo Market</span>
+              <CngoLogo className="h-8 w-8" />
+              <span className="text-gray-900 font-bold text-lg hidden sm:block">CNGO</span>
             </Link>
-            <ChevronRight className="h-4 w-4 text-white/20 hidden sm:block" />
-            <span className="text-white/50 text-sm hidden sm:block">База знаний</span>
+            <ChevronRight className="h-4 w-4 text-gray-300 hidden sm:block" />
+            <span className="text-gray-500 text-sm hidden sm:block">База знаний</span>
           </div>
-          <Link href="/auth/customer">
-            <button className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white hover:bg-white/10 transition-all">Войти</button>
-          </Link>
+          <div className="flex items-center gap-3">
+            {session ? (
+              <>
+                <span className="hidden sm:block text-sm text-gray-500">{session.name}</span>
+                <Link href={session.href}>
+                  <button className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors">
+                    <User className="inline-block mr-1.5 h-4 w-4" />Кабинет
+                  </button>
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link href="/auth/carrier" className="hidden sm:block">
+                  <button className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 border border-gray-200 hover:bg-gray-50 transition-all">
+                    <Truck className="inline-block mr-1.5 h-4 w-4" />Для карго
+                  </button>
+                </Link>
+                <Link href="/auth/customer">
+                  <button className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors">
+                    <LogIn className="inline-block mr-1.5 h-4 w-4" />Войти
+                  </button>
+                </Link>
+              </>
+            )}
+          </div>
         </div>
       </nav>
 
       {/* Header */}
       <header className="pt-28 pb-12 px-6">
         <div className="max-w-5xl mx-auto">
-          <Link href="/" className="inline-flex items-center gap-1 text-sm text-white/30 hover:text-white/50 transition-colors mb-6">
+          <Link href="/" className="inline-flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600 transition-colors mb-6">
             <ArrowLeft className="h-4 w-4" /> На главную
           </Link>
           <h1 className="text-3xl md:text-5xl font-bold">
-            <span className="text-white">База знаний: </span>
-            <span className="bg-gradient-to-r from-cyan-400 to-indigo-400 bg-clip-text text-transparent">импорт из Китая</span>
+            <span className="text-gray-900">База знаний: </span>
+            <span className="bg-gradient-to-r from-red-500 to-red-600 bg-clip-text text-transparent">импорт из Китая</span>
           </h1>
-          <p className="mt-4 text-lg text-white/40 max-w-3xl">
+          <p className="mt-4 text-lg text-gray-500 max-w-3xl">
             Документы, таможня, сертификация, логистика и налоги — всё для успешного импорта.
           </p>
 
           {/* Search */}
           <div className="mt-8 relative max-w-xl">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-white/30" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
               type="text"
               placeholder="Поиск по базе знаний..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 rounded-xl border border-white/[0.08] bg-white/[0.03] text-white placeholder:text-white/30 focus:outline-none focus:border-cyan-500/40 transition-colors"
+              className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-red-300 focus:ring-2 focus:ring-red-100 transition-all"
             />
           </div>
         </div>
@@ -87,18 +157,18 @@ export function KnowledgeBasePublic() {
       <main className="max-w-5xl mx-auto px-6 pb-24">
         {isLoading && (
           <div className="flex justify-center py-20">
-            <div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-8 h-8 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
           </div>
         )}
 
         {!isLoading && filtered.length === 0 && (
           <div className="text-center py-20">
-            <BookOpen className="h-16 w-16 mx-auto text-white/10 mb-4" />
-            <p className="text-white/40 text-lg">
+            <BookOpen className="h-16 w-16 mx-auto text-gray-200 mb-4" />
+            <p className="text-gray-500 text-lg">
               {search ? "Ничего не найдено" : "База знаний пока пуста"}
             </p>
             {search && (
-              <button onClick={() => setSearch("")} className="mt-3 text-sm text-cyan-400 hover:underline">
+              <button onClick={() => setSearch("")} className="mt-3 text-sm text-red-500 hover:underline">
                 Сбросить поиск
               </button>
             )}
@@ -109,12 +179,12 @@ export function KnowledgeBasePublic() {
           {filtered.map((section) => (
             <section key={section.id} id={section.slug}>
               <div className="flex items-center gap-3 mb-5">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/20 to-indigo-500/20 border border-cyan-500/20 flex items-center justify-center">
-                  <BookOpen className="h-5 w-5 text-cyan-400" />
+                <div className="w-10 h-10 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center">
+                  <BookOpen className="h-5 w-5 text-red-500" />
                 </div>
                 <div>
-                  <h2 className="text-xl md:text-2xl font-bold text-white">{section.title}</h2>
-                  {section.description && <p className="text-sm text-white/40">{section.description}</p>}
+                  <h2 className="text-xl md:text-2xl font-bold text-gray-900">{section.title}</h2>
+                  {section.description && <p className="text-sm text-gray-500">{section.description}</p>}
                 </div>
               </div>
 
@@ -131,11 +201,11 @@ export function KnowledgeBasePublic() {
 
         {/* CTA */}
         {!isLoading && sections.length > 0 && (
-          <div className="mt-16 p-8 md:p-12 rounded-2xl border border-white/[0.08] bg-gradient-to-br from-cyan-500/[0.05] to-indigo-500/[0.05] text-center">
+          <div className="mt-16 p-8 md:p-12 rounded-2xl bg-gradient-to-br from-red-600 to-red-700 text-center shadow-xl shadow-red-600/10">
             <h3 className="text-2xl font-bold text-white">Готовы начать импорт?</h3>
-            <p className="mt-3 text-white/40">Создайте заявку и получите предложения от проверенных карго-компаний</p>
+            <p className="mt-3 text-red-100">Создайте заявку и получите предложения от проверенных карго-компаний</p>
             <Link href="/auth/customer">
-              <button className="mt-6 px-8 py-3 bg-gradient-to-r from-cyan-500 to-indigo-500 rounded-xl text-white font-semibold hover:shadow-[0_0_40px_rgba(6,182,212,0.3)] transition-all active:scale-[0.98]">
+              <button className="mt-6 px-8 py-3 bg-white rounded-xl text-red-600 font-semibold hover:bg-gray-50 transition-all active:scale-[0.98] shadow-lg">
                 Получить предложения <ArrowRight className="inline-block ml-2 h-5 w-5" />
               </button>
             </Link>
@@ -144,18 +214,18 @@ export function KnowledgeBasePublic() {
       </main>
 
       {/* Footer */}
-      <footer className="py-12 px-6 border-t border-white/[0.06]">
+      <footer className="py-12 px-6 border-t border-gray-100">
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-indigo-500 flex items-center justify-center text-white font-bold text-sm">C</div>
-            <span className="text-white font-semibold">Cargo Market</span>
+          <Link href="/" className="flex items-center gap-2">
+            <CngoLogo className="h-6 w-6" />
+            <span className="text-gray-900 font-semibold">CNGO</span>
+          </Link>
+          <div className="flex items-center gap-8 text-sm text-gray-400">
+            <Link href="/" className="hover:text-gray-900 transition-colors">Главная</Link>
+            <Link href="/auth/customer" className="hover:text-gray-900 transition-colors">Вход для клиентов</Link>
+            <Link href="/auth/carrier" className="hover:text-gray-900 transition-colors">Вход для карго</Link>
           </div>
-          <div className="flex items-center gap-8 text-sm text-white/30">
-            <Link href="/" className="hover:text-white/60 transition-colors">Главная</Link>
-            <Link href="/auth/customer" className="hover:text-white/60 transition-colors">Для клиентов</Link>
-            <Link href="/auth/carrier" className="hover:text-white/60 transition-colors">Для карго</Link>
-          </div>
-          <p className="text-sm text-white/20">&copy; 2026 Cargo Market</p>
+          <p className="text-sm text-gray-300">&copy; 2026 CNGO</p>
         </div>
       </footer>
     </div>
