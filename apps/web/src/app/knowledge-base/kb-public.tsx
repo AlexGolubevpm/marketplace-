@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, BookOpen, ChevronDown, ChevronRight, Search, User, LogIn, Truck } from "lucide-react";
 import { trpc } from "@/trpc/client";
-import { CngoLogo } from "@/components/cngo-logo";
+import { BrandedLogo, useBranding } from "@/components/cngo-logo";
 
 /* ── Auth helpers ── */
 type SessionInfo = { name: string; role: string; href: string } | null;
@@ -55,6 +55,7 @@ function Accordion({ title, children }: { title: string; children: React.ReactNo
 
 export function KnowledgeBasePublic() {
   const session = useSession();
+  const branding = useBranding();
   const [search, setSearch] = useState("");
   const { data, isLoading } = trpc.knowledgebase.getPublished.useQuery();
   const sections = data ?? [];
@@ -79,8 +80,8 @@ export function KnowledgeBasePublic() {
         <div className="max-w-5xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link href="/" className="flex items-center gap-2">
-              <CngoLogo className="h-16 w-16" />
-              <span className="text-gray-900 font-bold text-lg hidden sm:block">CNGO</span>
+              <BrandedLogo className="h-16 w-16" />
+              <span className="text-gray-900 font-bold text-lg hidden sm:block">{branding.logo_text}</span>
             </Link>
             <ChevronRight className="h-4 w-4 text-gray-300 hidden sm:block" />
             <span className="text-gray-500 text-sm hidden sm:block">База знаний</span>
@@ -205,15 +206,15 @@ export function KnowledgeBasePublic() {
       <footer className="py-12 px-6 border-t border-gray-100">
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
           <Link href="/" className="flex items-center gap-2">
-            <CngoLogo className="h-12 w-12" />
-            <span className="text-gray-900 font-semibold">CNGO</span>
+            <BrandedLogo className="h-12 w-12" />
+            <span className="text-gray-900 font-semibold">{branding.logo_text}</span>
           </Link>
           <div className="flex items-center gap-8 text-sm text-gray-400">
             <Link href="/" className="hover:text-gray-900 transition-colors">Главная</Link>
             <Link href="/auth/customer" className="hover:text-gray-900 transition-colors">Вход для клиентов</Link>
             <Link href="/auth/carrier" className="hover:text-gray-900 transition-colors">Вход для карго</Link>
           </div>
-          <p className="text-sm text-gray-300">&copy; 2026 CNGO</p>
+          <p className="text-sm text-gray-300">&copy; 2026 {branding.logo_text}</p>
         </div>
       </footer>
     </div>

@@ -19,7 +19,7 @@ import {
   BookOpen,
   FileEdit,
 } from "lucide-react";
-import { CngoLogo } from "@/components/cngo-logo";
+import { BrandedLogo, useBranding } from "@/components/cngo-logo";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -33,6 +33,20 @@ const navItems = [
   { href: "/content", label: "Контент лендинга", icon: FileEdit },
   { href: "/settings", label: "Настройки", icon: Settings },
 ];
+
+function AdminSidebarHeader({ collapsed }: { collapsed: boolean }) {
+  const { logo_url, logo_text } = useBranding();
+  return (
+    <div className="flex h-14 items-center gap-2 border-b border-white/[0.06] px-4">
+      {logo_url ? (
+        <img src={logo_url} alt="Logo" className="h-10 w-10 shrink-0 object-contain" />
+      ) : (
+        <div className="h-10 w-10 shrink-0" />
+      )}
+      {!collapsed && <span className="font-semibold">{logo_text || "Admin"}</span>}
+    </div>
+  );
+}
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -66,10 +80,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <div className="flex h-screen overflow-hidden bg-[#0a0a0f] text-white">
       <aside className={cn("flex flex-col border-r border-white/[0.06] bg-[#0a0a0f] transition-all duration-200", collapsed ? "w-16" : "w-60")}>
-        <div className="flex h-14 items-center gap-2 border-b border-white/[0.06] px-4">
-          <CngoLogo className="h-10 w-10 shrink-0" />
-          {!collapsed && <span className="font-semibold">CNGO Admin</span>}
-        </div>
+        <AdminSidebarHeader collapsed={collapsed} />
 
         <nav className="flex-1 overflow-y-auto py-3 px-2">
           {navItems.map((item) => {
