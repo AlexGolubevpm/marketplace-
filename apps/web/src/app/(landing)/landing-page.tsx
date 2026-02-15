@@ -29,6 +29,71 @@ const ICON_COLORS: Record<string, string> = {
   Zap: "text-cyan-500 bg-cyan-50",
 };
 
+/* ── Transport illustrations (full-card SVGs) ── */
+const TRANSPORT_GRADIENTS: Record<string, { bg: string; from: string; to: string }> = {
+  Plane: { bg: "from-blue-50 to-blue-100", from: "#3B82F6", to: "#1D4ED8" },
+  Ship: { bg: "from-cyan-50 to-cyan-100", from: "#06B6D4", to: "#0E7490" },
+  TrainFront: { bg: "from-orange-50 to-orange-100", from: "#F97316", to: "#C2410C" },
+  Truck: { bg: "from-green-50 to-green-100", from: "#22C55E", to: "#15803D" },
+};
+
+function TransportIllustration({ icon, className = "" }: { icon: string; className?: string }) {
+  const grad = TRANSPORT_GRADIENTS[icon];
+  if (!grad) return null;
+
+  return (
+    <div className={`w-full h-full bg-gradient-to-br ${grad.bg} flex items-center justify-center ${className}`}>
+      {icon === "Plane" && (
+        <svg viewBox="0 0 200 160" fill="none" className="w-4/5 h-4/5 drop-shadow-md">
+          <path d="M30 100 L90 45 L170 30 L175 40 L105 70 L120 100 L100 100 L90 75 L55 105 L65 120 L50 120 L30 100Z" fill={grad.from} opacity="0.9"/>
+          <path d="M90 45 L170 30 L175 40 L105 70 L90 45Z" fill={grad.to}/>
+          <path d="M55 105 L90 75 L100 100 L65 120Z" fill={grad.to} opacity="0.7"/>
+          <ellipse cx="100" cy="140" rx="70" ry="8" fill={grad.from} opacity="0.15"/>
+        </svg>
+      )}
+      {icon === "Ship" && (
+        <svg viewBox="0 0 200 160" fill="none" className="w-4/5 h-4/5 drop-shadow-md">
+          <path d="M40 70 L60 40 L65 70Z" fill={grad.to}/>
+          <path d="M75 75 L90 25 L95 75Z" fill={grad.from} opacity="0.9"/>
+          <path d="M20 80 L180 80 L165 115 L35 115Z" fill={grad.to}/>
+          <path d="M20 80 L180 80 L175 90 L25 90Z" fill={grad.from}/>
+          <path d="M15 120 C50 130 150 130 185 120 L165 115 L35 115Z" fill={grad.from} opacity="0.7"/>
+          <path d="M10 135 C40 140 80 142 100 140 C120 142 160 140 190 135" stroke={grad.from} strokeWidth="2" opacity="0.3" fill="none"/>
+          <path d="M5 145 C35 150 75 152 100 150 C125 152 165 150 195 145" stroke={grad.from} strokeWidth="1.5" opacity="0.15" fill="none"/>
+        </svg>
+      )}
+      {icon === "TrainFront" && (
+        <svg viewBox="0 0 200 160" fill="none" className="w-4/5 h-4/5 drop-shadow-md">
+          <rect x="60" y="20" width="80" height="100" rx="12" fill={grad.to}/>
+          <rect x="65" y="25" width="70" height="90" rx="8" fill={grad.from}/>
+          <rect x="75" y="35" width="50" height="30" rx="6" fill="white" opacity="0.9"/>
+          <circle cx="85" cy="95" r="8" fill="white" opacity="0.8"/>
+          <circle cx="115" cy="95" r="8" fill="white" opacity="0.8"/>
+          <rect x="93" y="75" width="14" height="6" rx="3" fill={grad.to}/>
+          <rect x="50" y="120" width="100" height="8" rx="4" fill={grad.to}/>
+          <circle cx="70" cy="135" r="7" fill={grad.to}/>
+          <circle cx="130" cy="135" r="7" fill={grad.to}/>
+          <circle cx="70" cy="135" r="4" fill={grad.from} opacity="0.5"/>
+          <circle cx="130" cy="135" r="4" fill={grad.from} opacity="0.5"/>
+        </svg>
+      )}
+      {icon === "Truck" && (
+        <svg viewBox="0 0 200 160" fill="none" className="w-4/5 h-4/5 drop-shadow-md">
+          <rect x="20" y="45" width="110" height="65" rx="6" fill={grad.from} opacity="0.9"/>
+          <rect x="25" y="50" width="100" height="55" rx="4" fill={grad.to} opacity="0.3"/>
+          <path d="M130 60 L130 110 L175 110 L185 80 L170 60Z" fill={grad.to}/>
+          <rect x="140" y="68" width="28" height="22" rx="4" fill="white" opacity="0.85"/>
+          <rect x="15" y="110" width="175" height="10" rx="5" fill={grad.to}/>
+          <circle cx="60" cy="125" r="12" fill={grad.to}/>
+          <circle cx="60" cy="125" r="7" fill="white" opacity="0.6"/>
+          <circle cx="155" cy="125" r="12" fill={grad.to}/>
+          <circle cx="155" cy="125" r="7" fill="white" opacity="0.6"/>
+        </svg>
+      )}
+    </div>
+  );
+}
+
 /* ── Default content ── */
 const DEFAULTS: Record<string, any> = {
   branding: { logo_url: "", logo_text: "CNGO", favicon_url: "" },
@@ -184,9 +249,9 @@ function Navbar({ branding }: { branding: any }) {
   const session = useSession();
   return (
     <nav className="fixed top-0 w-full z-50 border-b border-gray-100 bg-white/80 backdrop-blur-xl">
-      <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
+      <div className="max-w-6xl mx-auto px-6 h-24 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-3">
-          <CngoLogo className="h-14 w-auto max-w-[120px]" logoUrl={branding.logo_url || undefined} />
+          <CngoLogo className="h-[76px] w-auto max-w-[160px]" logoUrl={branding.logo_url || undefined} />
           <span className="text-gray-900 font-bold text-2xl tracking-tight">{branding.logo_text || "CNGO"}</span>
         </Link>
         <div className="hidden md:flex items-center gap-8">
@@ -229,7 +294,7 @@ function Navbar({ branding }: { branding: any }) {
 function HeroSection({ content, branding }: { content: any; branding: any }) {
   const checkmarks = content.checkmarks || DEFAULTS.hero.checkmarks;
   return (
-    <section className="relative min-h-[90vh] flex items-center justify-center pt-20 overflow-hidden">
+    <section className="relative min-h-[90vh] flex items-center justify-center pt-24 overflow-hidden">
       {content.background_image ? (
         <div className="absolute inset-0">
           <img src={content.background_image} alt="" className="w-full h-full object-cover" />
@@ -317,31 +382,24 @@ function DeliveryTypesSection({ content }: { content: any }) {
           <motion.p variants={fadeUp} custom={2} className="mt-3 text-gray-500 text-lg max-w-xl mx-auto">{content.subtitle}</motion.p>
         </motion.div>
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-40px" }} variants={stagger} className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {items.map((t: any, i: number) => {
-            const color = ICON_COLORS[t.icon] || "text-gray-500 bg-gray-50 border-gray-100";
-            return (
+          {items.map((t: any, i: number) => (
               <motion.div key={t.title} variants={fadeUp} custom={i}>
                 <Card className="group text-center cursor-default hover:-translate-y-1 overflow-hidden">
-                  <div className="flex justify-center">
+                  <div className="w-full h-44 rounded-t-2xl overflow-hidden">
                     {t.image_url ? (
-                      <div className="w-full h-40 p-4">
-                        <IconOrImage imageUrl={t.image_url} />
-                      </div>
+                      <img src={t.image_url} alt={t.title} className="w-full h-full object-cover" />
                     ) : (
-                      <div className={`w-20 h-20 rounded-2xl border flex items-center justify-center mt-6 ${color} transition-all duration-300`}>
-                        <IconOrImage iconName={t.icon} size="w-10 h-10" />
-                      </div>
+                      <TransportIllustration icon={t.icon} />
                     )}
                   </div>
-                  <div className="p-6 pt-3">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">{t.title}</h3>
-                  <p className="text-base font-medium text-gray-700">{t.price} <span className="text-sm font-normal text-gray-400">/ кг</span></p>
-                  <p className="text-sm text-gray-400 mt-1">{t.period}</p>
+                  <div className="p-5">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">{t.title}</h3>
+                    <p className="text-base font-medium text-gray-700">{t.price} <span className="text-sm font-normal text-gray-400">/ кг</span></p>
+                    <p className="text-sm text-gray-400 mt-1">{t.period}</p>
                   </div>
                 </Card>
               </motion.div>
-            );
-          })}
+          ))}
         </motion.div>
       </div>
     </section>
