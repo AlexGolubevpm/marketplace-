@@ -7,3 +7,4 @@ export * from "./orders";
 export * from "./notifications";
 export * from "./content";
 export * from "./sessions";
+export * from "./knowledgebase";

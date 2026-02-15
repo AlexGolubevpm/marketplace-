@@ -386,6 +386,7 @@ function Footer() {
           <span className="text-white font-semibold">Cargo Market</span>
         </div>
         <div className="flex items-center gap-8 text-sm text-white/30">
+          <Link href="/knowledge-base" className="hover:text-white/60 transition-colors">База знаний</Link>
           <Link href="/auth/customer" className="hover:text-white/60 transition-colors">Для клиентов</Link>
           <Link href="/auth/carrier" className="hover:text-white/60 transition-colors">Для карго</Link>
         </div>
@@ -408,6 +409,9 @@ export function LandingPage() {
             <span className="text-white font-semibold text-lg">Cargo Market</span>
           </div>
           <div className="flex items-center gap-4">
+            <Link href="/knowledge-base" className="text-sm text-white/50 hover:text-white transition-colors">
+              База знаний
+            </Link>
             <Link href="/auth/carrier" className="text-sm text-white/50 hover:text-white transition-colors">
               Для карго
             </Link>

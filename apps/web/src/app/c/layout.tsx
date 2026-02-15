@@ -5,12 +5,13 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { getSession, clearSession, type UserSession } from "@/lib/auth";
-import { ClipboardList, PlusCircle, Archive, User, LogOut } from "lucide-react";
+import { ClipboardList, PlusCircle, Archive, User, LogOut, BookOpen } from "lucide-react";
 
 const navItems = [
   { href: "/c/requests", label: "Заявки", icon: ClipboardList },
   { href: "/c/requests/new", label: "Создать", icon: PlusCircle },
   { href: "/c/archive", label: "Архив", icon: Archive },
+  { href: "/knowledge-base", label: "База знаний", icon: BookOpen },
   { href: "/c/profile", label: "Профиль", icon: User },
 ];
 

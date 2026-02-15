@@ -16,6 +16,7 @@ import {
   LogOut,
   PanelLeftClose,
   PanelLeft,
+  BookOpen,
 } from "lucide-react";
 
 const navItems = [
@@ -26,6 +27,7 @@ const navItems = [
   { href: "/carriers", label: "Карго", icon: Truck },
   { href: "/customers", label: "Клиенты", icon: Users },
   { href: "/analytics", label: "Аналитика", icon: BarChart3 },
+  { href: "/knowledgebase", label: "База знаний", icon: BookOpen },
   { href: "/settings", label: "Настройки", icon: Settings },
 ];
 
