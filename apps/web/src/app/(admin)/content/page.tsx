@@ -519,19 +519,14 @@ export default function ContentPage() {
   const [saveStatus, setSaveStatus] = useState<Record<string, "saved" | "saving" | "error" | null>>({});
 
   const updateMutation = trpc.content.update.useMutation({
-    onSuccess: (data) => {
+    onSuccess: () => {
       setSaveStatus((prev) => ({ ...prev, [activeSectionId]: "saved" }));
-      if (data) {
-        publishMutation.mutate({ section: data.section, version: data.version });
-      }
       setTimeout(() => setSaveStatus((prev) => ({ ...prev, [activeSectionId]: null })), 3000);
     },
     onError: () => {
       setSaveStatus((prev) => ({ ...prev, [activeSectionId]: "error" }));
     },
   });
-
-  const publishMutation = trpc.content.publish.useMutation();
 
   const activeConfig = SECTION_CONFIGS.find((s) => s.id === activeSectionId)!;
   const activeData = sectionData[activeSectionId] || {};
