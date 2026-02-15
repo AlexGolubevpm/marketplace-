@@ -251,6 +251,156 @@ function StatsSection() {
   );
 }
 
+function PlaneIcon({ className = "h-12 w-12" }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" className={className}>
+      <path d="M58 28l-20-8-6-16h-4l2 16H16l-4-6H8l3 10-3 10h4l4-6h14l-2 16h4l6-16 20-8v-4z" fill="currentColor" />
+    </svg>
+  );
+}
+
+function TrainIcon({ className = "h-12 w-12" }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" className={className}>
+      <rect x="14" y="6" width="36" height="42" rx="6" fill="currentColor" />
+      <rect x="18" y="12" width="28" height="14" rx="2" fill="#0a0a0f" />
+      <circle cx="22" cy="40" r="3" fill="#0a0a0f" />
+      <circle cx="42" cy="40" r="3" fill="#0a0a0f" />
+      <rect x="28" y="32" width="8" height="6" rx="1" fill="#0a0a0f" />
+      <path d="M20 48l-4 10h4l3-6M44 48l4 10h-4l-3-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function TruckIcon({ className = "h-12 w-12" }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" className={className}>
+      <rect x="2" y="16" width="38" height="26" rx="3" fill="currentColor" />
+      <path d="M40 24h12l8 10v8a3 3 0 01-3 3h-17V24z" fill="currentColor" opacity="0.8" />
+      <rect x="42" y="28" width="10" height="8" rx="1.5" fill="#0a0a0f" />
+      <circle cx="14" cy="46" r="5" fill="currentColor" />
+      <circle cx="14" cy="46" r="2.5" fill="#0a0a0f" />
+      <circle cx="50" cy="46" r="5" fill="currentColor" />
+      <circle cx="50" cy="46" r="2.5" fill="#0a0a0f" />
+    </svg>
+  );
+}
+
+function ShipIcon({ className = "h-12 w-12" }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" className={className}>
+      <path d="M8 38h48l-6 16H14L8 38z" fill="currentColor" />
+      <rect x="16" y="22" width="32" height="16" rx="2" fill="currentColor" opacity="0.85" />
+      <rect x="20" y="26" width="8" height="8" rx="1" fill="#0a0a0f" />
+      <rect x="32" y="26" width="8" height="8" rx="1" fill="#0a0a0f" />
+      <rect x="28" y="12" width="8" height="10" rx="1" fill="currentColor" opacity="0.7" />
+      <path d="M4 40c4-2 8 0 12-2s8 0 12-2 8 0 12-2 8 0 12-2 8 0 12-2" stroke="currentColor" strokeWidth="1.5" opacity="0.3" />
+    </svg>
+  );
+}
+
+function DeliveryTypesSection() {
+  const deliveryTypes = [
+    {
+      icon: PlaneIcon,
+      title: "Авиа",
+      price: "от 10$",
+      period: "от 1 дня",
+      gradient: "from-red-500/20 to-orange-500/20",
+      borderHover: "hover:border-red-500/30",
+      iconColor: "text-red-400 group-hover:text-red-300",
+    },
+    {
+      icon: TrainIcon,
+      title: "ЖД",
+      price: "от 5$",
+      period: "от 15 дней",
+      gradient: "from-amber-500/20 to-yellow-500/20",
+      borderHover: "hover:border-amber-500/30",
+      iconColor: "text-amber-400 group-hover:text-amber-300",
+    },
+    {
+      icon: TruckIcon,
+      title: "Авто",
+      price: "от 2$",
+      period: "от 25 дней",
+      gradient: "from-emerald-500/20 to-green-500/20",
+      borderHover: "hover:border-emerald-500/30",
+      iconColor: "text-emerald-400 group-hover:text-emerald-300",
+    },
+    {
+      icon: ShipIcon,
+      title: "Море",
+      price: "от 1$",
+      period: "от 40 дней",
+      gradient: "from-blue-500/20 to-cyan-500/20",
+      borderHover: "hover:border-blue-500/30",
+      iconColor: "text-blue-400 group-hover:text-blue-300",
+    },
+  ];
+
+  return (
+    <section className="py-32 px-6">
+      <div className="max-w-5xl mx-auto">
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-100px" }}
+          variants={stagger}
+          className="text-center mb-16"
+        >
+          <motion.h2 variants={fadeUp} custom={0} className="text-3xl md:text-5xl font-bold text-white">
+            Работаем с любым видом доставки
+          </motion.h2>
+          <motion.p variants={fadeUp} custom={1} className="mt-4 text-white/40 text-lg">
+            Выберите оптимальный способ по цене и срокам
+          </motion.p>
+        </motion.div>
+
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-50px" }}
+          variants={stagger}
+          className="grid grid-cols-2 md:grid-cols-4 gap-5"
+        >
+          {deliveryTypes.map((type, i) => {
+            const Icon = type.icon;
+            return (
+              <motion.div
+                key={type.title}
+                variants={fadeUp}
+                custom={i}
+                className={`group relative p-6 rounded-2xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.05] ${type.borderHover} transition-all duration-300 text-center cursor-default overflow-hidden`}
+              >
+                {/* Background glow on hover */}
+                <div className={`absolute inset-0 bg-gradient-to-br ${type.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl`} />
+
+                <div className="relative z-10">
+                  <div className="flex justify-center mb-4">
+                    <div className={`${type.iconColor} transition-all duration-300 group-hover:scale-110`}>
+                      <Icon className="h-14 w-14" />
+                    </div>
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-3">{type.title}</h3>
+                  <div className="space-y-1.5">
+                    <p className="text-lg font-semibold text-white/80">
+                      {type.price} <span className="text-sm font-normal text-white/40">за кг</span>
+                    </p>
+                    <p className="text-sm text-white/40">
+                      Срок: <span className="text-white/60">{type.period}</span>
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
 function WhyUsSection() {
   const features = [
     { icon: Shield, title: "Проверенные карго", desc: "Каждая компания проходит верификацию перед подключением" },
@@ -439,6 +589,7 @@ export function LandingPage() {
 
       <HeroSection />
       <StatsSection />
+      <DeliveryTypesSection />
       <HowItWorksSection />
       <WhyUsSection />
       <FAQSection />
