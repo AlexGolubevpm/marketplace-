@@ -47,11 +47,14 @@ export default function NewRequestPage() {
 
   const [submitted, setSubmitted] = useState(false);
 
+  const [error, setError] = useState<string | null>(null);
+
   const handleSubmit = async () => {
     const session = getSession();
     const userId = session?.tg_id || session?.username || "anonymous";
 
     try {
+      setError(null);
       await createRequest({
         customer_id: userId,
         customer_name: session?.name,
@@ -65,14 +68,14 @@ export default function NewRequestPage() {
         volume_m3: form.volume_m3 || undefined,
         delivery_type_preferred: form.delivery_type,
       });
+      setSubmitted(true);
+      setTimeout(() => {
+        window.location.href = "/c/requests";
+      }, 2500);
     } catch (e) {
       console.error("Failed to create request:", e);
+      setError("Не удалось создать заявку. Попробуйте ещё раз.");
     }
-
-    setSubmitted(true);
-    setTimeout(() => {
-      window.location.href = "/c/requests";
-    }, 2500);
   };
 
   if (submitted) {
@@ -213,6 +216,11 @@ export default function NewRequestPage() {
                 Заявка будет отправлена подходящим карго-компаниям. Обычно первые предложения приходят в течение 1-2 часов.
               </p>
             </div>
+            {error && (
+              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                {error}
+              </div>
+            )}
             <div className="flex gap-3">
               <button onClick={() => setStep(2)} className="flex-1 py-3 rounded-xl border border-white/10 text-white/50 font-medium hover:bg-white/5 transition-colors">Назад</button>
               <button onClick={handleSubmit} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-500 text-white font-semibold hover:shadow-[0_0_25px_rgba(6,182,212,0.2)] transition-all active:scale-[0.98]">

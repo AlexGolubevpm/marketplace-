@@ -1,15 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
-import { eq, desc, and, sql } from "drizzle-orm";
+import { eq, desc, and, or, sql } from "drizzle-orm";
+
+// Resolve a customer identifier (tg_id, email, or UUID) to a customer UUID
+async function resolveCustomerId(identifier: string): Promise<string | null> {
+  // Check if it's already a valid UUID
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (uuidRegex.test(identifier)) {
+    return identifier;
+  }
+
+  // Look up by telegram_id or email
+  const customer = await db
+    .select({ id: schema.customers.id })
+    .from(schema.customers)
+    .where(
+      or(
+        eq(schema.customers.telegram_id, identifier),
+        eq(schema.customers.email, identifier)
+      )
+    )
+    .limit(1);
+
+  return customer[0]?.id || null;
+}
 
 // GET /api/requests?customer_id=xxx
 export async function GET(req: NextRequest) {
   try {
-    const customerId = req.nextUrl.searchParams.get("customer_id");
+    const customerIdentifier = req.nextUrl.searchParams.get("customer_id");
 
     const conditions = [];
-    if (customerId) {
-      conditions.push(eq(schema.requests.customer_id, customerId));
+    if (customerIdentifier) {
+      const resolvedId = await resolveCustomerId(customerIdentifier);
+      if (!resolvedId) {
+        // No customer found — return empty list
+        return NextResponse.json([]);
+      }
+      conditions.push(eq(schema.requests.customer_id, resolvedId));
     }
 
     const where = conditions.length > 0 ? and(...conditions) : undefined;
@@ -61,21 +89,56 @@ export async function POST(req: NextRequest) {
     const num = (countResult[0]?.count || 0) + 1;
     const display_id = `REQ-${new Date().getFullYear()}-${String(num).padStart(4, "0")}`;
 
-    // Ensure customer exists (create if not)
-    if (body.customer_id) {
+    // Resolve customer: find existing or create new
+    let customerId: string;
+    const identifier = body.customer_id || "";
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+    if (uuidRegex.test(identifier)) {
+      // Already a UUID — use directly, ensure customer record exists
+      customerId = identifier;
       const existing = await db
         .select()
         .from(schema.customers)
-        .where(eq(schema.customers.id, body.customer_id))
+        .where(eq(schema.customers.id, customerId))
         .limit(1);
 
       if (existing.length === 0) {
         await db.insert(schema.customers).values({
-          id: body.customer_id,
+          id: customerId,
           email: body.customer_email || null,
           full_name: body.customer_name || null,
           status: "active" as any,
         }).onConflictDoNothing();
+      }
+    } else {
+      // Non-UUID identifier (tg_id or email) — look up or create customer
+      const isEmail = identifier.includes("@");
+
+      const existing = await db
+        .select()
+        .from(schema.customers)
+        .where(
+          isEmail
+            ? eq(schema.customers.email, identifier)
+            : eq(schema.customers.telegram_id, identifier)
+        )
+        .limit(1);
+
+      if (existing.length > 0) {
+        customerId = existing[0].id;
+      } else {
+        // Create new customer with auto-generated UUID
+        const [newCustomer] = await db
+          .insert(schema.customers)
+          .values({
+            telegram_id: !isEmail ? identifier : null,
+            email: isEmail ? identifier : (body.customer_email || null),
+            full_name: body.customer_name || null,
+            status: "active" as any,
+          })
+          .returning();
+        customerId = newCustomer.id;
       }
     }
 
@@ -83,7 +146,7 @@ export async function POST(req: NextRequest) {
       .insert(schema.requests)
       .values({
         display_id,
-        customer_id: body.customer_id,
+        customer_id: customerId,
         origin_country: body.origin_country,
         origin_city: body.origin_city,
         destination_country: body.destination_country,
