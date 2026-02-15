@@ -30,6 +30,14 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
         httpBatchLink({
           url: `${getBaseUrl()}/api/trpc`,
           transformer: superjson,
+          headers() {
+            if (typeof window === "undefined") return {};
+            const raw = localStorage.getItem("cargo_admin_session");
+            if (raw) {
+              return { "x-admin-session": raw };
+            }
+            return {};
+          },
         }),
       ],
     })
