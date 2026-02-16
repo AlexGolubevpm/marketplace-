@@ -14,18 +14,46 @@ export default function CustomerAuthPage() {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [company, setCompany] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSession({
-      tg_id: "",
-      name: name || email.split("@")[0],
-      username: email,
-      role: "customer",
-      logged_in: true,
-      login_at: new Date().toISOString(),
-    });
-    router.push("/c/requests");
+    setError("");
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          password,
+          role: "customer",
+          mode,
+          name: name || undefined,
+          company: company || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Ошибка авторизации");
+        setLoading(false);
+        return;
+      }
+      setSession({
+        user_id: data.user_id,
+        tg_id: "",
+        name: data.name || name || email.split("@")[0],
+        username: email,
+        role: "customer",
+        logged_in: true,
+        login_at: new Date().toISOString(),
+      });
+      router.push("/c/requests");
+    } catch {
+      setError("Ошибка сети");
+      setLoading(false);
+    }
   };
 
   return (
@@ -70,6 +98,12 @@ export default function CustomerAuthPage() {
             <div className="flex-1 h-px bg-white/[0.06]" />
           </div>
 
+          {error && (
+            <div className="mb-4 px-4 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+              {error}
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-3">
             {mode === "register" && (
               <>
@@ -95,16 +129,16 @@ export default function CustomerAuthPage() {
               <input type="password" placeholder="Пароль" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8}
                 className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-white/20 focus:outline-none focus:border-cyan-500/40 transition-colors" />
             </div>
-            <button type="submit" className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-500 text-white font-semibold hover:shadow-[0_0_30px_rgba(6,182,212,0.25)] transition-all active:scale-[0.98]">
-              {mode === "login" ? "Войти" : "Создать аккаунт"}
+            <button type="submit" disabled={loading} className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-500 text-white font-semibold hover:shadow-[0_0_30px_rgba(6,182,212,0.25)] transition-all active:scale-[0.98] disabled:opacity-50">
+              {loading ? "Загрузка..." : mode === "login" ? "Войти" : "Создать аккаунт"}
             </button>
           </form>
 
           <p className="mt-6 text-center text-sm text-white/30">
             {mode === "login" ? (
-              <>Нет аккаунта? <button onClick={() => setMode("register")} className="text-cyan-400 hover:text-cyan-300">Зарегистрироваться</button></>
+              <>Нет аккаунта? <button onClick={() => { setMode("register"); setError(""); }} className="text-cyan-400 hover:text-cyan-300">Зарегистрироваться</button></>
             ) : (
-              <>Есть аккаунт? <button onClick={() => setMode("login")} className="text-cyan-400 hover:text-cyan-300">Войти</button></>
+              <>Есть аккаунт? <button onClick={() => { setMode("login"); setError(""); }} className="text-cyan-400 hover:text-cyan-300">Войти</button></>
             )}
           </p>
         </div>

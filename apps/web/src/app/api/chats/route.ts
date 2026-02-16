@@ -2,33 +2,62 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { eq, and, or, desc, sql } from "drizzle-orm";
 
-// Helper: resolve telegram_id to customer UUID (passes through UUIDs as-is)
-async function resolveCustomerId(idOrTgId: string): Promise<string | null> {
-  if (idOrTgId.includes("-")) return idOrTgId; // already a UUID
-  const [customer] = await db
-    .select({ id: schema.customers.id })
-    .from(schema.customers)
-    .where(eq(schema.customers.telegram_id, idOrTgId))
-    .limit(1);
-  return customer?.id || null;
+// Helper: resolve identifier to customer UUID (UUID, telegram_id, or email)
+async function resolveCustomerId(identifier: string): Promise<string | null> {
+  if (!identifier) return null;
+  if (identifier.includes("-")) return identifier; // already a UUID
+  // Try telegram_id first
+  if (identifier && !/\s/.test(identifier)) {
+    const [byTg] = await db
+      .select({ id: schema.customers.id })
+      .from(schema.customers)
+      .where(eq(schema.customers.telegram_id, identifier))
+      .limit(1);
+    if (byTg) return byTg.id;
+  }
+  // Try email
+  if (identifier.includes("@")) {
+    const [byEmail] = await db
+      .select({ id: schema.customers.id })
+      .from(schema.customers)
+      .where(eq(schema.customers.email, identifier))
+      .limit(1);
+    if (byEmail) return byEmail.id;
+  }
+  return null;
 }
 
-// Helper: resolve telegram_id to carrier UUID (passes through UUIDs as-is)
-async function resolveCarrierId(idOrTgId: string): Promise<string | null> {
-  if (idOrTgId.includes("-")) return idOrTgId; // already a UUID
-  const [carrier] = await db
-    .select({ id: schema.carriers.id })
-    .from(schema.carriers)
-    .where(eq(schema.carriers.telegram_id, idOrTgId))
-    .limit(1);
-  return carrier?.id || null;
+// Helper: resolve identifier to carrier UUID (UUID, telegram_id, or email)
+async function resolveCarrierId(identifier: string): Promise<string | null> {
+  if (!identifier) return null;
+  if (identifier.includes("-")) return identifier; // already a UUID
+  // Try telegram_id first
+  if (identifier && !/\s/.test(identifier)) {
+    const [byTg] = await db
+      .select({ id: schema.carriers.id })
+      .from(schema.carriers)
+      .where(eq(schema.carriers.telegram_id, identifier))
+      .limit(1);
+    if (byTg) return byTg.id;
+  }
+  // Try email
+  if (identifier.includes("@")) {
+    const [byEmail] = await db
+      .select({ id: schema.carriers.id })
+      .from(schema.carriers)
+      .where(eq(schema.carriers.contact_email, identifier))
+      .limit(1);
+    if (byEmail) return byEmail.id;
+  }
+  return null;
 }
 
-// Helper: resolve sender telegram_id to UUID based on role
-async function resolveSenderId(idOrTgId: string, role: string): Promise<string | null> {
-  if (idOrTgId.includes("-")) return idOrTgId; // already a UUID
-  if (role === "customer") return resolveCustomerId(idOrTgId);
-  if (role === "carrier") return resolveCarrierId(idOrTgId);
+// Helper: resolve sender to UUID based on role
+async function resolveSenderId(identifier: string, role: string): Promise<string | null> {
+  if (!identifier) return null;
+  if (identifier.includes("-")) return identifier; // already a UUID
+  if (role === "customer") return resolveCustomerId(identifier);
+  if (role === "carrier") return resolveCarrierId(identifier);
   return null;
 }
 

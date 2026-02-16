@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense } from "react";
+import { setSession } from "@/lib/auth";
 
 function TelegramAuthInner() {
   const params = useSearchParams();
@@ -12,26 +13,42 @@ function TelegramAuthInner() {
     const tgId = params.get("tg_id");
     const name = params.get("name");
     const username = params.get("username");
-    const role = params.get("role") || "customer";
+    const role = (params.get("role") || "customer") as "customer" | "carrier";
+    const userId = params.get("user_id");
 
     if (tgId) {
-      // Store session in localStorage
-      const session = {
-        tg_id: tgId,
-        name: name || "Пользователь",
-        username: username || "",
-        role,
-        logged_in: true,
-        login_at: new Date().toISOString(),
-      };
-      localStorage.setItem("cargo_session", JSON.stringify(session));
+      const resolveAndSave = async () => {
+        let dbUserId = userId || "";
 
-      // Redirect to appropriate cabinet
-      if (role === "carrier") {
-        router.replace("/s/requests");
-      } else {
-        router.replace("/c/requests");
-      }
+        // Resolve tg_id to DB UUID if user_id not provided
+        if (!dbUserId) {
+          try {
+            const res = await fetch(`/api/auth/resolve?tg_id=${tgId}&role=${role}`);
+            if (res.ok) {
+              const data = await res.json();
+              dbUserId = data.user_id || "";
+            }
+          } catch {}
+        }
+
+        setSession({
+          user_id: dbUserId,
+          tg_id: tgId,
+          name: name || "Пользователь",
+          username: username || "",
+          role,
+          logged_in: true,
+          login_at: new Date().toISOString(),
+        });
+
+        if (role === "carrier") {
+          router.replace("/s/requests");
+        } else {
+          router.replace("/c/requests");
+        }
+      };
+
+      resolveAndSave();
     } else {
       router.replace("/");
     }

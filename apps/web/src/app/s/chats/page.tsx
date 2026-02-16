@@ -36,12 +36,12 @@ export default function CarrierChatsPage() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const session = getSession();
+  const session = getSession("carrier");
 
   const loadConversations = useCallback(async () => {
     if (!session) return;
     try {
-      const res = await fetch(`/api/chats?carrier_id=${session.tg_id}`);
+      const res = await fetch(`/api/chats?carrier_id=${session.user_id || session.tg_id}`);
       if (res.ok) {
         const data = await res.json();
         setConversations(data);
@@ -88,7 +88,7 @@ export default function CarrierChatsPage() {
         body: JSON.stringify({
           conversation_id: activeConvo.id,
           sender_role: "carrier",
-          sender_id: session.tg_id,
+          sender_id: session.user_id || session.tg_id,
           text: newMsg.trim(),
         }),
       });
@@ -115,7 +115,7 @@ export default function CarrierChatsPage() {
           body: JSON.stringify({
             conversation_id: activeConvo.id,
             sender_role: "carrier",
-            sender_id: session.tg_id,
+            sender_id: session.user_id || session.tg_id,
             file_url: url,
             file_name: file.name,
           }),

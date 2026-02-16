@@ -18,8 +18,8 @@ export default function CustomerArchivePage() {
 
   useEffect(() => {
     async function load() {
-      const session = getSession();
-      const userId = session?.tg_id || session?.username || "anonymous";
+      const session = getSession("customer");
+      const userId = session?.user_id || session?.tg_id || session?.username || "anonymous";
       try {
         const all = await getRequests(userId);
         setRequests(all.filter((r) => ["offer_selected", "completed", "cancelled", "expired"].includes(r.status)));

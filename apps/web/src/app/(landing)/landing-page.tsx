@@ -177,12 +177,14 @@ function useSession(): SessionInfo {
   const [session, setSession] = useState<SessionInfo>(null);
   useEffect(() => {
     try {
-      const raw = localStorage.getItem("cargo_session");
-      if (raw) {
-        const s = JSON.parse(raw);
-        if (s.logged_in) {
-          setSession({ name: s.name || s.username || "User", role: s.role, href: s.role === "carrier" ? "/s/requests" : "/c/requests" });
-          return;
+      for (const key of ["cargo_session_customer", "cargo_session_carrier"]) {
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          const s = JSON.parse(raw);
+          if (s.logged_in) {
+            setSession({ name: s.name || s.username || "User", role: s.role, href: s.role === "carrier" ? "/s/requests" : "/c/requests" });
+            return;
+          }
         }
       }
     } catch {}

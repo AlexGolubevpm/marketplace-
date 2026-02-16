@@ -28,8 +28,8 @@ export default function CarrierOfferPage() {
       const req = await getRequestById(params.id as string);
       setRequest(req);
       if (req) {
-        const session = getSession();
-        const carrierId = session?.tg_id || session?.username || "carrier";
+        const session = getSession("carrier");
+        const carrierId = session?.user_id || session?.tg_id || session?.username || "carrier";
         const myOffers = await getOffersByCarrier(carrierId);
         const existing = myOffers.find((o) => o.request_id === req.id);
         if (existing) setAlreadySubmitted(true);
@@ -41,8 +41,8 @@ export default function CarrierOfferPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!request) return;
-    const session = getSession();
-    const carrierId = session?.tg_id || session?.username || "carrier";
+    const session = getSession("carrier");
+    const carrierId = session?.user_id || session?.tg_id || session?.username || "carrier";
     const carrierName = session?.name || "Carrier";
 
     const inc: string[] = [];
@@ -99,13 +99,13 @@ export default function CarrierOfferPage() {
           <p className="text-sm text-gray-400 mb-6">Клиент получит ваше предложение и сможет его выбрать.</p>
           <div className="flex gap-3 justify-center">
             <button onClick={async () => {
-              const session = getSession();
+              const session = getSession("carrier");
               if (!session || !request) return;
               try {
                 await fetch("/api/chats", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ request_id: request.id, customer_id: request.customer_id, carrier_id: session.tg_id }),
+                  body: JSON.stringify({ request_id: request.id, customer_id: request.customer_id, carrier_id: session.user_id || session.tg_id }),
                 });
                 router.push("/s/chats");
               } catch {}

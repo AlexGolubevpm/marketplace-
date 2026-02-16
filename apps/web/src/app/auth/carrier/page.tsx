@@ -15,18 +15,47 @@ export default function CarrierAuthPage() {
   const [companyName, setCompanyName] = useState("");
   const [contactName, setContactName] = useState("");
   const [phone, setPhone] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSession({
-      tg_id: "",
-      name: contactName || companyName || email.split("@")[0],
-      username: email,
-      role: "carrier",
-      logged_in: true,
-      login_at: new Date().toISOString(),
-    });
-    router.push("/s/requests");
+    setError("");
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          password,
+          role: "carrier",
+          mode,
+          name: contactName || undefined,
+          company: companyName || undefined,
+          phone: phone || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Ошибка авторизации");
+        setLoading(false);
+        return;
+      }
+      setSession({
+        user_id: data.user_id,
+        tg_id: "",
+        name: data.name || contactName || companyName || email.split("@")[0],
+        username: email,
+        role: "carrier",
+        logged_in: true,
+        login_at: new Date().toISOString(),
+      });
+      router.push("/s/requests");
+    } catch {
+      setError("Ошибка сети");
+      setLoading(false);
+    }
   };
 
   return (
@@ -54,6 +83,12 @@ export default function CarrierAuthPage() {
               <p className="text-sm text-white/40">Кабинет карго</p>
             </div>
           </div>
+
+          {error && (
+            <div className="mb-4 px-4 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+              {error}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-3">
             {mode === "register" && (
@@ -85,16 +120,16 @@ export default function CarrierAuthPage() {
               <input type="password" placeholder="Пароль" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8}
                 className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-white/20 focus:outline-none focus:border-indigo-500/40 transition-colors" />
             </div>
-            <button type="submit" className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-semibold hover:shadow-[0_0_30px_rgba(99,102,241,0.25)] transition-all active:scale-[0.98]">
-              {mode === "login" ? "Войти" : "Зарегистрировать компанию"}
+            <button type="submit" disabled={loading} className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-semibold hover:shadow-[0_0_30px_rgba(99,102,241,0.25)] transition-all active:scale-[0.98] disabled:opacity-50">
+              {loading ? "Загрузка..." : mode === "login" ? "Войти" : "Зарегистрировать компанию"}
             </button>
           </form>
 
           <p className="mt-6 text-center text-sm text-white/30">
             {mode === "login" ? (
-              <>Нет аккаунта? <button onClick={() => setMode("register")} className="text-indigo-400 hover:text-indigo-300">Подать заявку</button></>
+              <>Нет аккаунта? <button onClick={() => { setMode("register"); setError(""); }} className="text-indigo-400 hover:text-indigo-300">Подать заявку</button></>
             ) : (
-              <>Есть аккаунт? <button onClick={() => setMode("login")} className="text-indigo-400 hover:text-indigo-300">Войти</button></>
+              <>Есть аккаунт? <button onClick={() => { setMode("login"); setError(""); }} className="text-indigo-400 hover:text-indigo-300">Войти</button></>
             )}
           </p>
         </div>

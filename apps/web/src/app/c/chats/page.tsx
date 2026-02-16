@@ -36,12 +36,12 @@ export default function CustomerChatsPage() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const session = getSession();
+  const session = getSession("customer");
 
   const loadConversations = useCallback(async () => {
     if (!session) return;
     try {
-      const res = await fetch(`/api/chats?customer_id=${session.tg_id}`);
+      const res = await fetch(`/api/chats?customer_id=${session.user_id || session.tg_id}`);
       if (res.ok) {
         const data = await res.json();
         setConversations(data);
@@ -88,7 +88,7 @@ export default function CustomerChatsPage() {
         body: JSON.stringify({
           conversation_id: activeConvo.id,
           sender_role: "customer",
-          sender_id: session.tg_id,
+          sender_id: session.user_id || session.tg_id,
           text: newMsg.trim(),
         }),
       });
@@ -115,7 +115,7 @@ export default function CustomerChatsPage() {
           body: JSON.stringify({
             conversation_id: activeConvo.id,
             sender_role: "customer",
-            sender_id: session.tg_id,
+            sender_id: session.user_id || session.tg_id,
             file_url: url,
             file_name: file.name,
           }),

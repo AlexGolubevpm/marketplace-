@@ -11,10 +11,10 @@ export default function CustomerProfilePage() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    const s = getSession();
+    const s = getSession("customer");
     setSession(s);
     if (s) {
-      const userId = s.tg_id || s.username || "anonymous";
+      const userId = s.user_id || s.tg_id || s.username || "anonymous";
       getRequests(userId).then((reqs) => {
         setStats({ requests: reqs.length, orders: 0 });
       }).catch(() => {});
