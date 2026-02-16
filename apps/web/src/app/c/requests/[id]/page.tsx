@@ -102,7 +102,7 @@ export default function CustomerRequestDetailPage() {
   }
 
   if (!request) {
-    return <div className="text-center py-20 text-white/30">Заявка не найдена</div>;
+    return <div className="text-center py-20 text-gray-500">Заявка не найдена</div>;
   }
 
   const st = statusConfig[request.status] || statusConfig.new;
@@ -162,7 +162,7 @@ export default function CustomerRequestDetailPage() {
         </motion.div>
       )}
 
-      <Link href="/c/requests" className="inline-flex items-center gap-2 text-sm text-white/30 hover:text-white/60 transition-colors">
+      <Link href="/c/requests" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-600 transition-colors">
         <ArrowLeft className="h-4 w-4" /> Мои заявки
       </Link>
 
@@ -172,7 +172,7 @@ export default function CustomerRequestDetailPage() {
             <h1 className="text-xl font-bold">{request.display_id}</h1>
             <span className={`px-3 py-1 rounded-full text-xs font-medium ${st.color} ${st.bg}`}>{st.label}</span>
           </div>
-          <p className="text-sm text-white/30 mt-1">{new Date(request.created_at).toLocaleString("ru-RU")}</p>
+          <p className="text-sm text-gray-500 mt-1">{new Date(request.created_at).toLocaleString("ru-RU")}</p>
         </div>
         {!confirmed && request.status !== "cancelled" && (
           <button onClick={handleCancel} className="px-4 py-2 rounded-lg border border-red-500/20 text-red-400 text-sm hover:bg-red-500/10 transition-colors">
@@ -182,16 +182,16 @@ export default function CustomerRequestDetailPage() {
       </div>
 
       {/* Route + cargo */}
-      <div className="p-5 rounded-2xl border border-white/[0.06] bg-white/[0.02]">
+      <div className="p-5 rounded-2xl border border-gray-200 bg-white">
         <div className="flex items-center gap-2 text-lg font-semibold mb-3">
           <MapPin className="h-5 w-5 text-cyan-400" />
-          {request.origin_city}, {request.origin_country} <span className="text-white/20">→</span> {request.destination_city}, {request.destination_country}
+          {request.origin_city}, {request.origin_country} <span className="text-gray-400">→</span> {request.destination_city}, {request.destination_country}
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-          <div><span className="text-white/30">Груз:</span> <span className="font-medium">{request.cargo_description}</span></div>
-          {request.weight_kg && <div><span className="text-white/30">Вес:</span> <span className="font-medium">{parseFloat(request.weight_kg).toLocaleString()} кг</span></div>}
-          {request.volume_m3 && <div><span className="text-white/30">Объём:</span> <span className="font-medium">{request.volume_m3} м³</span></div>}
-          <div><span className="text-white/30">Доставка:</span> <span className="font-medium">{deliveryLabels[request.delivery_type_preferred || ""] || "Любой"}</span></div>
+          <div><span className="text-gray-500">Груз:</span> <span className="font-medium">{request.cargo_description}</span></div>
+          {request.weight_kg && <div><span className="text-gray-500">Вес:</span> <span className="font-medium">{parseFloat(request.weight_kg).toLocaleString()} кг</span></div>}
+          {request.volume_m3 && <div><span className="text-gray-500">Объём:</span> <span className="font-medium">{request.volume_m3} м³</span></div>}
+          <div><span className="text-gray-500">Доставка:</span> <span className="font-medium">{deliveryLabels[request.delivery_type_preferred || ""] || "Любой"}</span></div>
         </div>
       </div>
 
@@ -201,7 +201,7 @@ export default function CustomerRequestDetailPage() {
           <div className="p-5 rounded-2xl border border-green-500/20 bg-green-500/[0.03]">
             <div className="flex items-center gap-2 mb-3"><CheckCircle2 className="h-5 w-5 text-green-400" /><h2 className="font-semibold">Оффер выбран</h2></div>
             <p className="font-semibold">{selectedOffer.carrier_name || "Карго"}</p>
-            <p className="text-sm text-white/40">${getPrice(selectedOffer).toLocaleString()} / {getDays(selectedOffer)} дней / {deliveryLabels[selectedOffer.delivery_type]}</p>
+            <p className="text-sm text-gray-500">${getPrice(selectedOffer).toLocaleString()} / {getDays(selectedOffer)} дней / {deliveryLabels[selectedOffer.delivery_type]}</p>
           </div>
           {/* Dynamic timeline based on order status */}
           <div className="space-y-0 pl-4">
@@ -213,10 +213,10 @@ export default function CustomerRequestDetailPage() {
                 return (
                   <div key={s.key} className="flex items-start gap-4 pb-5">
                     <div className="flex flex-col items-center">
-                      <div className={`w-3 h-3 rounded-full ${done ? "bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.5)]" : "bg-white/10"} ${isCurrent ? "ring-2 ring-cyan-400/30" : ""}`} />
-                      {i < arr.length - 1 && <div className={`w-0.5 flex-1 mt-1 ${done && i < currentStep ? "bg-cyan-400/30" : "bg-white/[0.06]"}`} />}
+                      <div className={`w-3 h-3 rounded-full ${done ? "bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.5)]" : "bg-gray-100"} ${isCurrent ? "ring-2 ring-cyan-400/30" : ""}`} />
+                      {i < arr.length - 1 && <div className={`w-0.5 flex-1 mt-1 ${done && i < currentStep ? "bg-cyan-400/30" : "bg-gray-100"}`} />}
                     </div>
-                    <span className={`text-sm ${done ? "text-white" : "text-white/20"} ${isCurrent ? "font-semibold" : ""}`}>{s.label}</span>
+                    <span className={`text-sm ${done ? "text-gray-900" : "text-gray-400"} ${isCurrent ? "font-semibold" : ""}`}>{s.label}</span>
                   </div>
                 );
               });
@@ -225,8 +225,8 @@ export default function CustomerRequestDetailPage() {
 
           {/* Order tracking info */}
           {order?.tracking_number && (
-            <div className="p-4 rounded-2xl border border-white/[0.06] bg-white/[0.02]">
-              <p className="text-sm text-white/30 mb-1">Трек-номер</p>
+            <div className="p-4 rounded-2xl border border-gray-200 bg-white">
+              <p className="text-sm text-gray-500 mb-1">Трек-номер</p>
               <p className="font-mono font-medium">{order.tracking_number}</p>
             </div>
           )}
@@ -248,26 +248,26 @@ export default function CustomerRequestDetailPage() {
           </div>
 
           {offers.length === 0 ? (
-            <div className="p-8 rounded-2xl border border-white/[0.06] bg-white/[0.02] text-center">
+            <div className="p-8 rounded-2xl border border-gray-200 bg-white text-center">
               <div className="w-10 h-10 rounded-full bg-indigo-500/10 flex items-center justify-center mx-auto mb-3">
                 <div className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
               </div>
-              <p className="text-white/40">Ищем подходящие карго-компании...</p>
-              <p className="text-xs text-white/20 mt-1">Первые предложения обычно приходят в течение нескольких минут</p>
+              <p className="text-gray-500">Ищем подходящие карго-компании...</p>
+              <p className="text-xs text-gray-400 mt-1">Первые предложения обычно приходят в течение нескольких минут</p>
             </div>
           ) : compareMode ? (
-            <div className="overflow-x-auto rounded-2xl border border-white/[0.06]">
+            <div className="overflow-x-auto rounded-2xl border border-gray-200">
               <table className="w-full text-sm">
-                <thead><tr className="border-b border-white/[0.06] bg-white/[0.02]">
-                  <th className="text-left py-3 px-4 text-white/30 font-medium">Карго</th>
-                  <th className="text-left py-3 px-4 text-white/30 font-medium">Цена</th>
-                  <th className="text-left py-3 px-4 text-white/30 font-medium">Срок</th>
-                  <th className="text-left py-3 px-4 text-white/30 font-medium">Тип</th>
+                <thead><tr className="border-b border-gray-200 bg-white">
+                  <th className="text-left py-3 px-4 text-gray-500 font-medium">Карго</th>
+                  <th className="text-left py-3 px-4 text-gray-500 font-medium">Цена</th>
+                  <th className="text-left py-3 px-4 text-gray-500 font-medium">Срок</th>
+                  <th className="text-left py-3 px-4 text-gray-500 font-medium">Тип</th>
                   <th className="text-right py-3 px-4"></th>
                 </tr></thead>
                 <tbody>
                   {activeOffers.map((o) => (
-                    <tr key={o.id} className="border-b border-white/[0.04] hover:bg-white/[0.02]">
+                    <tr key={o.id} className="border-b border-gray-200 hover:bg-white">
                       <td className="py-3 px-4 font-medium">{o.carrier_name || "Карго"}</td>
                       <td className="py-3 px-4 text-lg font-bold">${getPrice(o).toLocaleString()}</td>
                       <td className="py-3 px-4">{getDays(o)} дн</td>
@@ -286,21 +286,21 @@ export default function CustomerRequestDetailPage() {
               {activeOffers.map((offer, i) => {
                 const DIcon = deliveryIcons[offer.delivery_type] || Truck;
                 return (
-                  <motion.div key={offer.id} variants={fadeUp} custom={i} className="p-5 rounded-2xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/[0.12] transition-all">
+                  <motion.div key={offer.id} variants={fadeUp} custom={i} className="p-5 rounded-2xl border border-gray-200 bg-white hover:bg-gray-100 hover:border-gray-300 transition-all">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                       <div className="space-y-2 flex-1">
                         <div className="flex items-center gap-3">
                           <span className="font-semibold">{offer.carrier_name || "Карго"}</span>
-                          {offer.rating && <span className="flex items-center gap-1 text-sm text-white/30"><Star className="h-3.5 w-3.5 text-yellow-500 fill-yellow-500" />{offer.rating}</span>}
+                          {offer.rating && <span className="flex items-center gap-1 text-sm text-gray-500"><Star className="h-3.5 w-3.5 text-yellow-500 fill-yellow-500" />{offer.rating}</span>}
                         </div>
                         <div className="flex items-center gap-6">
                           <div className="text-2xl font-bold">${getPrice(offer).toLocaleString()}</div>
-                          <div className="text-center"><div className="font-semibold">{getDays(offer)}</div><div className="text-xs text-white/20">дней</div></div>
-                          <div className="flex items-center gap-1 text-sm text-white/30"><DIcon className="h-4 w-4" />{deliveryLabels[offer.delivery_type]}</div>
+                          <div className="text-center"><div className="font-semibold">{getDays(offer)}</div><div className="text-xs text-gray-400">дней</div></div>
+                          <div className="flex items-center gap-1 text-sm text-gray-500"><DIcon className="h-4 w-4" />{deliveryLabels[offer.delivery_type]}</div>
                         </div>
                         {offer.includes && offer.includes.length > 0 && (
                           <div className="flex flex-wrap gap-1.5">
-                            {offer.includes.map((tag) => <span key={tag} className="px-2.5 py-1 rounded-full bg-white/[0.04] border border-white/[0.06] text-xs text-white/40">{tag}</span>)}
+                            {offer.includes.map((tag) => <span key={tag} className="px-2.5 py-1 rounded-full bg-gray-100 border border-gray-200 text-xs text-gray-500">{tag}</span>)}
                           </div>
                         )}
                       </div>
@@ -325,13 +325,13 @@ export default function CustomerRequestDetailPage() {
       {/* Confirm modal */}
       {showConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-6">
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-md p-8 rounded-2xl border border-white/[0.08] bg-[#12121a]">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-md p-8 rounded-2xl border border-gray-300 bg-white">
             <h3 className="text-xl font-bold mb-2">Подтвердить выбор?</h3>
             {(() => { const o = offers.find((x) => x.id === showConfirm); return o ? (
-              <p className="text-sm text-white/40 mb-6">Вы выбираете <strong className="text-white">{o.carrier_name || "Карго"}</strong> за <strong className="text-white">${getPrice(o).toLocaleString()}</strong>. Другие предложения будут отклонены.</p>
+              <p className="text-sm text-gray-500 mb-6">Вы выбираете <strong className="text-gray-900">{o.carrier_name || "Карго"}</strong> за <strong className="text-gray-900">${getPrice(o).toLocaleString()}</strong>. Другие предложения будут отклонены.</p>
             ) : null; })()}
             <div className="flex gap-3">
-              <button onClick={() => setShowConfirm(null)} className="flex-1 py-3 rounded-xl border border-white/10 text-white/50 font-medium hover:bg-white/5">Отмена</button>
+              <button onClick={() => setShowConfirm(null)} className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-500 font-medium hover:bg-gray-50">Отмена</button>
               <button onClick={handleConfirm} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-500 text-white font-semibold active:scale-[0.98]">Подтвердить</button>
             </div>
           </motion.div>
@@ -394,33 +394,33 @@ function DocumentsSection({ orderId, documents, onUpload, uploading, setUploadin
   };
 
   return (
-    <div className="p-5 rounded-2xl border border-white/[0.06] bg-white/[0.02]">
+    <div className="p-5 rounded-2xl border border-gray-200 bg-white">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <FileText className="h-5 w-5 text-cyan-400" />
           <h2 className="font-semibold">Документы</h2>
-          {documents.length > 0 && <span className="text-white/30 text-sm">({documents.length})</span>}
+          {documents.length > 0 && <span className="text-gray-500 text-sm">({documents.length})</span>}
         </div>
-        <label className={`px-4 py-2 rounded-lg border border-white/10 text-sm font-medium cursor-pointer hover:bg-white/5 transition-colors ${uploading ? "opacity-50 pointer-events-none" : ""}`}>
+        <label className={`px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium cursor-pointer hover:bg-gray-50 transition-colors ${uploading ? "opacity-50 pointer-events-none" : ""}`}>
           <Upload className="h-4 w-4 inline mr-1.5" />
           {uploading ? "Загрузка..." : "Загрузить"}
           <input type="file" className="hidden" onChange={handleUpload} disabled={uploading} />
         </label>
       </div>
       {documents.length === 0 ? (
-        <p className="text-sm text-white/20">Нет загруженных документов</p>
+        <p className="text-sm text-gray-400">Нет загруженных документов</p>
       ) : (
         <div className="space-y-2">
           {documents.map((doc) => (
-            <div key={doc.id} className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+            <div key={doc.id} className="flex items-center justify-between p-3 rounded-xl bg-white border border-gray-200">
               <div className="flex items-center gap-3 min-w-0">
-                <FileText className="h-4 w-4 text-white/30 flex-shrink-0" />
+                <FileText className="h-4 w-4 text-gray-500 flex-shrink-0" />
                 <div className="min-w-0">
                   <p className="text-sm font-medium truncate">{doc.file_name}</p>
-                  <p className="text-xs text-white/20">{DOC_TYPE_LABELS[doc.file_type] || doc.file_type} · {new Date(doc.created_at).toLocaleDateString("ru-RU")}</p>
+                  <p className="text-xs text-gray-400">{DOC_TYPE_LABELS[doc.file_type] || doc.file_type} · {new Date(doc.created_at).toLocaleDateString("ru-RU")}</p>
                 </div>
               </div>
-              <a href={doc.file_url} download className="p-2 rounded-lg hover:bg-white/5 transition-colors flex-shrink-0">
+              <a href={doc.file_url} download className="p-2 rounded-lg hover:bg-gray-50 transition-colors flex-shrink-0">
                 <Download className="h-4 w-4 text-cyan-400" />
               </a>
             </div>

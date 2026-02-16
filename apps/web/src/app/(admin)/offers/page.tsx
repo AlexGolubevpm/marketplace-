@@ -139,7 +139,7 @@ export default function OffersPage() {
       {loading && offers.length === 0 ? (
         <div className="space-y-2">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-16 rounded-lg bg-white/[0.02] animate-pulse" />
+            <div key={i} className="h-16 rounded-lg bg-white animate-pulse" />
           ))}
         </div>
       ) : offers.length === 0 ? (
@@ -150,7 +150,7 @@ export default function OffersPage() {
           onAction={() => setShowCreate(true)}
         />
       ) : (
-        <div className="rounded-lg border border-white/[0.06] overflow-hidden">
+        <div className="rounded-lg border border-gray-200 overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>

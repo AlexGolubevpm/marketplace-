@@ -34,23 +34,23 @@ export default function SettingsPage() {
         </TabsList>
 
         <TabsContent value="sla">
-          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
+          <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-white/[0.06]">
-                  <th className="text-left py-3 px-4 text-white/30 font-medium">Метрика</th>
-                  <th className="text-left py-3 px-4 text-white/30 font-medium">Порог</th>
-                  <th className="text-left py-3 px-4 text-white/30 font-medium">Ед.</th>
-                  <th className="text-left py-3 px-4 text-white/30 font-medium">Уровень</th>
-                  <th className="text-left py-3 px-4 text-white/30 font-medium">Статус</th>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left py-3 px-4 text-gray-500 font-medium">Метрика</th>
+                  <th className="text-left py-3 px-4 text-gray-500 font-medium">Порог</th>
+                  <th className="text-left py-3 px-4 text-gray-500 font-medium">Ед.</th>
+                  <th className="text-left py-3 px-4 text-gray-500 font-medium">Уровень</th>
+                  <th className="text-left py-3 px-4 text-gray-500 font-medium">Статус</th>
                 </tr>
               </thead>
               <tbody>
                 {slaConfigs.map((config) => (
-                  <tr key={config.id} className="border-b border-white/[0.04] hover:bg-white/[0.02]">
+                  <tr key={config.id} className="border-b border-gray-200 hover:bg-gray-50">
                     <td className="py-3 px-4">{config.metric}</td>
-                    <td className="py-3 px-4"><Input defaultValue={config.threshold_value} className="w-20 h-8 bg-white/[0.04] border-white/[0.08]" /></td>
-                    <td className="py-3 px-4 text-white/30">{config.threshold_unit}</td>
+                    <td className="py-3 px-4"><Input defaultValue={config.threshold_value} className="w-20 h-8 bg-gray-100 border-gray-300" /></td>
+                    <td className="py-3 px-4 text-gray-500">{config.threshold_unit}</td>
                     <td className="py-3 px-4">
                       <Badge variant={config.severity === "critical" ? "danger" : "warning"}>{config.severity}</Badge>
                     </td>
@@ -65,11 +65,11 @@ export default function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="general">
-          <div className="max-w-md p-6 rounded-xl border border-white/[0.06] bg-white/[0.02] space-y-4">
+          <div className="max-w-md p-6 rounded-xl border border-gray-200 bg-white space-y-4">
             <div>
-              <label className="text-sm text-white/30">Таймзона</label>
+              <label className="text-sm text-gray-500">Таймзона</label>
               <Select defaultValue="europe_moscow">
-                <SelectTrigger className="mt-1 bg-white/[0.04] border-white/[0.08]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="mt-1 bg-gray-100 border-gray-300"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="europe_moscow">Europe/Moscow (UTC+3)</SelectItem>
                   <SelectItem value="asia_shanghai">Asia/Shanghai (UTC+8)</SelectItem>
@@ -78,9 +78,9 @@ export default function SettingsPage() {
               </Select>
             </div>
             <div>
-              <label className="text-sm text-white/30">Валюта по умолчанию</label>
+              <label className="text-sm text-gray-500">Валюта по умолчанию</label>
               <Select defaultValue="USD">
-                <SelectTrigger className="mt-1 bg-white/[0.04] border-white/[0.08]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="mt-1 bg-gray-100 border-gray-300"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="USD">USD</SelectItem>
                   <SelectItem value="EUR">EUR</SelectItem>
