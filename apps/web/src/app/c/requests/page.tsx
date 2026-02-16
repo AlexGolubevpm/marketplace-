@@ -13,7 +13,7 @@ const fadeUp = {
 };
 
 const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
-  draft: { label: "Черновик", color: "text-white/40", bg: "bg-white/10" },
+  draft: { label: "Черновик", color: "text-gray-500", bg: "bg-gray-100" },
   new: { label: "Новая", color: "text-blue-400", bg: "bg-blue-500/10" },
   matching: { label: "Ищем карго...", color: "text-indigo-400", bg: "bg-indigo-500/10" },
   offers_received: { label: "Есть офферы", color: "text-yellow-400", bg: "bg-yellow-500/10" },
@@ -50,7 +50,7 @@ export default function CustomerRequestsPage() {
     return (
       <div className="space-y-3">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="h-28 rounded-2xl bg-white/[0.02] border border-white/[0.06] animate-pulse" />
+          <div key={i} className="h-28 rounded-2xl bg-white border border-gray-200 animate-pulse" />
         ))}
       </div>
     );
@@ -71,11 +71,11 @@ export default function CustomerRequestsPage() {
 
       {active.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-white/[0.04] flex items-center justify-center mb-4">
-            <Inbox className="h-8 w-8 text-white/10" />
+          <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
+            <Inbox className="h-8 w-8 text-gray-300" />
           </div>
-          <p className="text-white/40 text-lg mb-2">Пока нет заявок</p>
-          <p className="text-white/20 text-sm mb-6">Создайте первую заявку и получите предложения от карго-компаний</p>
+          <p className="text-gray-500 text-lg mb-2">Пока нет заявок</p>
+          <p className="text-gray-400 text-sm mb-6">Создайте первую заявку и получите предложения от карго-компаний</p>
           <Link href="/c/requests/new">
             <button className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-500 text-white font-medium">
               <Plus className="h-4 w-4" /> Создать заявку
@@ -89,16 +89,16 @@ export default function CustomerRequestsPage() {
             return (
               <motion.div key={req.id} variants={fadeUp} custom={i}>
                 <Link href={`/c/requests/${req.id}`}>
-                  <div className="group p-5 rounded-2xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/[0.12] transition-all cursor-pointer">
+                  <div className="group p-5 rounded-2xl border border-gray-200 bg-white hover:bg-gray-100 hover:border-gray-300 transition-all cursor-pointer">
                     <div className="flex items-start justify-between">
                       <div className="space-y-3 flex-1">
                         <div className="flex items-center gap-2 text-lg font-semibold">
                           <MapPin className="h-4 w-4 text-cyan-400" />
                           {req.origin_city || req.origin_country}
-                          <span className="text-white/20">→</span>
+                          <span className="text-gray-400">→</span>
                           {req.destination_city || req.destination_country}
                         </div>
-                        <div className="flex items-center gap-4 text-sm text-white/30">
+                        <div className="flex items-center gap-4 text-sm text-gray-500">
                           {req.weight_kg && (
                             <span className="flex items-center gap-1">
                               <Package className="h-3.5 w-3.5" />
@@ -122,7 +122,7 @@ export default function CustomerRequestsPage() {
                           )}
                         </div>
                       </div>
-                      <ChevronRight className="h-5 w-5 text-white/10 group-hover:text-white/30 transition-colors mt-1" />
+                      <ChevronRight className="h-5 w-5 text-gray-300 group-hover:text-gray-500 transition-colors mt-1" />
                     </div>
                   </div>
                 </Link>

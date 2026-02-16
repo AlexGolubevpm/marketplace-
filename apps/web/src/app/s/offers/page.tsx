@@ -14,7 +14,7 @@ const fadeUp = {
 const statusMap: Record<string, { label: string; color: string; bg: string; icon: any }> = {
   active: { label: "Ожидает", color: "text-blue-400", bg: "bg-blue-500/10", icon: Clock3 },
   selected: { label: "Выбран!", color: "text-green-400", bg: "bg-green-500/10", icon: CheckCircle2 },
-  rejected: { label: "Не выбран", color: "text-white/30", bg: "bg-white/[0.04]", icon: XCircle },
+  rejected: { label: "Не выбран", color: "text-gray-500", bg: "bg-gray-100", icon: XCircle },
   expired: { label: "Истёк", color: "text-orange-400", bg: "bg-orange-500/10", icon: Clock },
 };
 
@@ -127,15 +127,15 @@ export default function CarrierOffersPage() {
     setUploading(false);
   };
 
-  if (loading) return <div className="space-y-3">{[1,2].map((i) => <div key={i} className="h-20 rounded-2xl bg-white/[0.02] border border-white/[0.06] animate-pulse" />)}</div>;
+  if (loading) return <div className="space-y-3">{[1,2].map((i) => <div key={i} className="h-20 rounded-2xl bg-white border border-gray-200 animate-pulse" />)}</div>;
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Мои офферы</h1>
       {offers.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
-          <Inbox className="h-8 w-8 text-white/10 mb-3" />
-          <p className="text-white/30">Вы ещё не отправляли офферов</p>
+          <Inbox className="h-8 w-8 text-gray-300 mb-3" />
+          <p className="text-gray-500">Вы ещё не отправляли офферов</p>
         </div>
       ) : (
         <motion.div initial="hidden" animate="visible" className="space-y-3">
@@ -149,23 +149,23 @@ export default function CarrierOffersPage() {
 
             return (
               <motion.div key={offer.id} variants={fadeUp} custom={i}>
-                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
+                <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
                   <div
-                    className={`p-5 ${offer.status === "selected" ? "cursor-pointer hover:bg-white/[0.02]" : ""}`}
+                    className={`p-5 ${offer.status === "selected" ? "cursor-pointer hover:bg-gray-50" : ""}`}
                     onClick={() => offer.status === "selected" && setExpandedOffer(isExpanded ? null : offer.id)}
                   >
                     <div className="flex items-center justify-between">
                       <div className="space-y-1">
-                        <div className="flex items-center gap-4 text-sm text-white/30">
-                          <span className="text-white font-semibold">${price.toLocaleString()}</span>
+                        <div className="flex items-center gap-4 text-sm text-gray-500">
+                          <span className="text-gray-900 font-semibold">${price.toLocaleString()}</span>
                           <span>{offer.estimated_days || "—"} дней</span>
                           <span>{deliveryLabels[offer.delivery_type] || offer.delivery_type}</span>
                           <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{new Date(offer.created_at).toLocaleDateString("ru-RU")}</span>
                         </div>
                         {order && (
-                          <div className="flex items-center gap-3 text-xs text-white/20">
+                          <div className="flex items-center gap-3 text-xs text-gray-400">
                             <span>Заказ: {order.display_id}</span>
-                            <span className="px-2 py-0.5 rounded bg-white/5">{ORDER_STATUS_LABELS[order.status] || order.status}</span>
+                            <span className="px-2 py-0.5 rounded bg-gray-50">{ORDER_STATUS_LABELS[order.status] || order.status}</span>
                             {order.tracking_number && <span className="font-mono">{order.tracking_number}</span>}
                           </div>
                         )}
@@ -178,14 +178,14 @@ export default function CarrierOffersPage() {
 
                   {/* Expanded: documents */}
                   {isExpanded && order && (
-                    <div className="px-5 pb-5 border-t border-white/[0.04]">
+                    <div className="px-5 pb-5 border-t border-gray-200">
                       <div className="flex items-center justify-between mt-4 mb-3">
                         <div className="flex items-center gap-2">
                           <FileText className="h-4 w-4 text-cyan-400" />
                           <span className="text-sm font-semibold">Документы</span>
-                          {docs.length > 0 && <span className="text-white/30 text-xs">({docs.length})</span>}
+                          {docs.length > 0 && <span className="text-gray-500 text-xs">({docs.length})</span>}
                         </div>
-                        <label className={`inline-flex items-center px-3 py-1.5 rounded-lg border border-white/10 text-xs font-medium cursor-pointer hover:bg-white/5 transition-colors ${uploading ? "opacity-50 pointer-events-none" : ""}`}>
+                        <label className={`inline-flex items-center px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium cursor-pointer hover:bg-gray-50 transition-colors ${uploading ? "opacity-50 pointer-events-none" : ""}`}>
                           <Upload className="h-3.5 w-3.5 mr-1" />
                           {uploading ? "..." : "Загрузить"}
                           <input type="file" className="hidden" disabled={uploading} onChange={(e) => {
@@ -196,19 +196,19 @@ export default function CarrierOffersPage() {
                         </label>
                       </div>
                       {docs.length === 0 ? (
-                        <p className="text-xs text-white/20">Нет документов</p>
+                        <p className="text-xs text-gray-400">Нет документов</p>
                       ) : (
                         <div className="space-y-1.5">
                           {docs.map((doc) => (
-                            <div key={doc.id} className="flex items-center justify-between p-2.5 rounded-lg bg-white/[0.02] border border-white/[0.04]">
+                            <div key={doc.id} className="flex items-center justify-between p-2.5 rounded-lg bg-white border border-gray-200">
                               <div className="flex items-center gap-2.5 min-w-0">
-                                <FileText className="h-3.5 w-3.5 text-white/30 flex-shrink-0" />
+                                <FileText className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />
                                 <div className="min-w-0">
                                   <p className="text-xs font-medium truncate">{doc.file_name}</p>
-                                  <p className="text-[10px] text-white/20">{DOC_TYPE_LABELS[doc.file_type] || doc.file_type} · {doc.uploaded_by_role} · {new Date(doc.created_at).toLocaleDateString("ru-RU")}</p>
+                                  <p className="text-[10px] text-gray-400">{DOC_TYPE_LABELS[doc.file_type] || doc.file_type} · {doc.uploaded_by_role} · {new Date(doc.created_at).toLocaleDateString("ru-RU")}</p>
                                 </div>
                               </div>
-                              <a href={doc.file_url} download className="p-1.5 rounded hover:bg-white/5 flex-shrink-0">
+                              <a href={doc.file_url} download className="p-1.5 rounded hover:bg-gray-50 flex-shrink-0">
                                 <Download className="h-3.5 w-3.5 text-cyan-400" />
                               </a>
                             </div>

@@ -34,25 +34,25 @@ export default function CustomerArchivePage() {
 
       {requests.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-white/[0.04] flex items-center justify-center mb-4">
-            <Archive className="h-8 w-8 text-white/10" />
+          <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
+            <Archive className="h-8 w-8 text-gray-300" />
           </div>
-          <p className="text-white/30">Завершённые и отменённые заявки появятся здесь</p>
+          <p className="text-gray-500">Завершённые и отменённые заявки появятся здесь</p>
         </div>
       ) : (
         <div className="space-y-3">
           {requests.map((req) => {
-            const st = statusConfig[req.status] || { label: req.status, color: "text-white/30", bg: "bg-white/5" };
+            const st = statusConfig[req.status] || { label: req.status, color: "text-gray-500", bg: "bg-white/5" };
             return (
               <Link key={req.id} href={`/c/requests/${req.id}`}>
-                <div className="p-4 rounded-2xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] transition-all cursor-pointer mb-3">
+                <div className="p-4 rounded-2xl border border-gray-200 bg-white hover:bg-gray-50 transition-all cursor-pointer mb-3">
                   <div className="flex items-center justify-between">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 font-medium">
-                        <MapPin className="h-3.5 w-3.5 text-white/20" />
+                        <MapPin className="h-3.5 w-3.5 text-gray-400" />
                         {req.origin_city} → {req.destination_city}
                       </div>
-                      <div className="flex items-center gap-3 text-xs text-white/20">
+                      <div className="flex items-center gap-3 text-xs text-gray-400">
                         <span>{new Date(req.created_at).toLocaleDateString("ru-RU")}</span>
                         <span className={`px-2 py-0.5 rounded-full ${st.color} ${st.bg}`}>{st.label}</span>
                       </div>
