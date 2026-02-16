@@ -9,6 +9,7 @@
     "migrate": "drizzle-kit migrate",
     "push": "drizzle-kit push",
     "studio": "drizzle-kit studio",
+    "build": "true",
     "type-check": "tsc --noEmit",
     "lint": "tsc --noEmit"
   },
