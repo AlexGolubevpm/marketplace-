@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowLeft, MapPin, Package, DollarSign, Send, CheckCircle2, MessageSquare } from "lucide-react";
-import { getRequestById, createOffer, getOffersByCarrier, type Request } from "@/lib/store";
+import { ArrowLeft, MapPin, DollarSign, Send, CheckCircle2, MessageSquare, FileText } from "lucide-react";
+import { getRequestById, createOffer, getOffersByCarrier, type Request, type Offer } from "@/lib/store";
 import { getSession } from "@/lib/auth";
 
 const inputClass = "w-full px-4 py-3 rounded-xl bg-white border border-gray-200 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-red-300 focus:ring-2 focus:ring-red-100 transition-colors";
@@ -15,7 +15,7 @@ export default function CarrierOfferPage() {
   const router = useRouter();
   const [request, setRequest] = useState<Request | null>(null);
   const [submitted, setSubmitted] = useState(false);
-  const [alreadySubmitted, setAlreadySubmitted] = useState(false);
+  const [existingOffer, setExistingOffer] = useState<Offer | null>(null);
   const [price, setPrice] = useState("");
   const [daysMin, setDaysMin] = useState("");
   const [daysMax, setDaysMax] = useState("");
@@ -32,7 +32,7 @@ export default function CarrierOfferPage() {
         const carrierId = session?.user_id || session?.tg_id || session?.username || "carrier";
         const myOffers = await getOffersByCarrier(carrierId);
         const existing = myOffers.find((o) => o.request_id === req.id);
-        if (existing) setAlreadySubmitted(true);
+        if (existing) setExistingOffer(existing);
       }
     }
     load();
@@ -52,7 +52,7 @@ export default function CarrierOfferPage() {
     if (includes.insurance) inc.push("Страховка");
 
     try {
-      await createOffer({
+      const newOffer = await createOffer({
         request_id: request.id,
         carrier_id: carrierId,
         carrier_name: carrierName,
@@ -64,6 +64,7 @@ export default function CarrierOfferPage() {
         conditions: comment,
         includes: inc,
       });
+      setExistingOffer(newOffer);
       setSubmitted(true);
     } catch (e) {
       console.error("Failed to create offer:", e);
@@ -83,7 +84,7 @@ export default function CarrierOfferPage() {
       <div className="p-5 rounded-2xl border border-gray-200 bg-white">
         <div className="flex items-center gap-2 text-lg font-bold mb-3">
           <MapPin className="h-5 w-5 text-indigo-400" />
-          {request.origin_city}, {request.origin_country} <span className="text-gray-400">→</span> {request.destination_city}, {request.destination_country}
+          {request.origin_city}, {request.origin_country} <span className="text-gray-400">&rarr;</span> {request.destination_city}, {request.destination_country}
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
           <div><span className="text-gray-500">Груз:</span> <span className="font-medium">{request.cargo_description}</span></div>
@@ -92,12 +93,17 @@ export default function CarrierOfferPage() {
         </div>
       </div>
 
-      {submitted || alreadySubmitted ? (
+      {submitted || existingOffer ? (
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="p-8 rounded-2xl border border-green-500/20 bg-green-500/[0.03] text-center">
           <CheckCircle2 className="h-12 w-12 text-green-400 mx-auto mb-4" />
-          <h2 className="text-xl font-bold mb-2">{alreadySubmitted && !submitted ? "Оффер уже отправлен" : "Оффер отправлен"}</h2>
+          <h2 className="text-xl font-bold mb-2">{existingOffer && !submitted ? "Оффер уже отправлен" : "Оффер отправлен"}</h2>
           <p className="text-sm text-gray-400 mb-6">Клиент получит ваше предложение и сможет его выбрать.</p>
-          <div className="flex gap-3 justify-center">
+          <div className="flex gap-3 justify-center flex-wrap">
+            {existingOffer && (
+              <button onClick={() => router.push(`/s/offers/${existingOffer.id}`)} className="px-6 py-3 rounded-xl bg-indigo-500 text-white font-medium hover:bg-indigo-600 transition-colors flex items-center gap-2">
+                <FileText className="h-4 w-4" /> Детали оффера
+              </button>
+            )}
             <button onClick={async () => {
               const session = getSession("carrier");
               if (!session || !request) return;
