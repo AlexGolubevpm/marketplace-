@@ -25,7 +25,7 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
   const branding = useBranding();
 
   useEffect(() => {
-    const s = getSession();
+    const s = getSession("customer");
     if (!s || s.role !== "customer") {
       router.replace("/auth/customer");
       return;
@@ -35,7 +35,7 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
   }, [router]);
 
   const handleLogout = () => {
-    clearSession();
+    clearSession("customer");
     router.replace("/");
   };
 

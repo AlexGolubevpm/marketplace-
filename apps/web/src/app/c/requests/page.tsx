@@ -29,8 +29,8 @@ export default function CustomerRequestsPage() {
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const session = getSession();
-    const userId = session?.tg_id || session?.username || "anonymous";
+    const session = getSession("customer");
+    const userId = session?.user_id || session?.tg_id || session?.username || "anonymous";
     try {
       const data = await getRequests(userId);
       setRequests(data);

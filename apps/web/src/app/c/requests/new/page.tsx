@@ -50,8 +50,8 @@ export default function NewRequestPage() {
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async () => {
-    const session = getSession();
-    const userId = session?.tg_id || session?.username || "anonymous";
+    const session = getSession("customer");
+    const userId = session?.user_id || session?.tg_id || session?.username || "anonymous";
 
     try {
       setError(null);

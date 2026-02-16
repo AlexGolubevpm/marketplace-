@@ -67,8 +67,8 @@ export default function CarrierOffersPage() {
 
   const load = useCallback(async () => {
     try {
-      const session = getSession();
-      const carrierId = session?.tg_id || session?.username || "carrier";
+      const session = getSession("carrier");
+      const carrierId = session?.user_id || session?.tg_id || session?.username || "carrier";
       const data = await getOffersByCarrier(carrierId);
       setOffers(data);
 

@@ -20,8 +20,8 @@ export default function CarrierRequestsPage() {
 
   const load = useCallback(async () => {
     try {
-      const session = getSession();
-      const carrierId = session?.tg_id || session?.username || "carrier";
+      const session = getSession("carrier");
+      const carrierId = session?.user_id || session?.tg_id || session?.username || "carrier";
       const [allReqs, myOffers] = await Promise.all([
         getCarrierRequests(),
         getOffersByCarrier(carrierId),

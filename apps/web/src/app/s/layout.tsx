@@ -23,7 +23,7 @@ export default function CarrierLayout({ children }: { children: React.ReactNode 
   const branding = useBranding();
 
   useEffect(() => {
-    const s = getSession();
+    const s = getSession("carrier");
     if (!s || s.role !== "carrier") {
       router.replace("/auth/carrier");
       return;
@@ -33,7 +33,7 @@ export default function CarrierLayout({ children }: { children: React.ReactNode 
   }, [router]);
 
   const handleLogout = () => {
-    clearSession();
+    clearSession("carrier");
     router.replace("/");
   };
 

@@ -134,7 +134,7 @@ export default function CustomerRequestDetailPage() {
 
   const startChat = async (carrierId: string) => {
     if (!request) return;
-    const session = getSession();
+    const session = getSession("customer");
     if (!session) return;
     try {
       const res = await fetch("/api/chats", {
@@ -142,7 +142,7 @@ export default function CustomerRequestDetailPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           request_id: request.id,
-          customer_id: session.tg_id,
+          customer_id: session.user_id || session.tg_id,
           carrier_id: carrierId,
         }),
       });
