@@ -236,9 +236,9 @@ function Navbar({ branding }: { branding: any }) {
   const session = useSession();
   return (
     <nav className="fixed top-0 w-full z-50 border-b border-gray-100 bg-white/80 backdrop-blur-xl">
-      <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+      <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
-          <CngoLogo className="h-9 w-auto" logoUrl={branding.logo_url || undefined} />
+          <CngoLogo className="h-[72px] w-auto" logoUrl={branding.logo_url || undefined} />
           <span className="text-gray-900 font-bold text-lg tracking-tight">{branding.logo_text}</span>
         </Link>
         <div className="hidden md:flex items-center gap-8">
@@ -550,7 +550,7 @@ function Footer({ branding }: { branding: any }) {
     <footer className="py-10 px-6 border-t border-gray-100">
       <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
         <Link href="/" className="flex items-center gap-2">
-          <CngoLogo className="h-8 w-auto" logoUrl={branding.logo_url || undefined} />
+          <CngoLogo className="h-[72px] w-auto" logoUrl={branding.logo_url || undefined} />
           <span className="text-gray-900 font-bold text-lg tracking-tight">{branding.logo_text}</span>
         </Link>
         <div className="flex items-center gap-6 text-sm text-gray-400">

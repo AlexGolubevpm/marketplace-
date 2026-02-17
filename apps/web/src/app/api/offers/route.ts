@@ -42,8 +42,26 @@ export async function GET(req: NextRequest) {
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 
     const rows = await db
-      .select()
+      .select({
+        id: schema.offers.id,
+        display_id: schema.offers.display_id,
+        request_id: schema.offers.request_id,
+        carrier_id: schema.offers.carrier_id,
+        price: schema.offers.price,
+        currency: schema.offers.currency,
+        estimated_days: schema.offers.estimated_days,
+        delivery_type: schema.offers.delivery_type,
+        conditions: schema.offers.conditions,
+        status: schema.offers.status,
+        selected_at: schema.offers.selected_at,
+        created_at: schema.offers.created_at,
+        carrier_name: schema.carriers.name,
+        carrier_contact: schema.carriers.contact_name,
+        carrier_phone: schema.carriers.contact_phone,
+        carrier_email: schema.carriers.contact_email,
+      })
       .from(schema.offers)
+      .leftJoin(schema.carriers, eq(schema.offers.carrier_id, schema.carriers.id))
       .where(where)
       .orderBy(desc(schema.offers.created_at))
       .limit(100);

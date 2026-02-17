@@ -39,11 +39,11 @@ const navItems = [
 function AdminSidebarHeader({ collapsed }: { collapsed: boolean }) {
   const { logo_url, logo_text } = useBranding();
   return (
-    <div className="flex h-14 items-center gap-2 border-b border-gray-200 px-4">
+    <div className="flex h-20 items-center gap-2 border-b border-gray-200 px-4">
       {logo_url ? (
-        <img src={logo_url} alt="Logo" className="h-8 w-8 shrink-0 object-contain" />
+        <img src={logo_url} alt="Logo" className="h-[72px] w-auto shrink-0 object-contain" />
       ) : (
-        <div className="h-8 w-8 shrink-0" />
+        <div className="h-[72px] w-auto shrink-0" />
       )}
       {!collapsed && <span className="font-semibold text-gray-900">{logo_text || "Admin"}</span>}
     </div>

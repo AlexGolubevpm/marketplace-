@@ -43,8 +43,33 @@ export async function GET(req: NextRequest) {
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 
     const rows = await db
-      .select()
+      .select({
+        id: schema.requests.id,
+        display_id: schema.requests.display_id,
+        customer_id: schema.requests.customer_id,
+        origin_country: schema.requests.origin_country,
+        origin_city: schema.requests.origin_city,
+        destination_country: schema.requests.destination_country,
+        destination_city: schema.requests.destination_city,
+        cargo_description: schema.requests.cargo_description,
+        weight_kg: schema.requests.weight_kg,
+        volume_m3: schema.requests.volume_m3,
+        cargo_type: schema.requests.cargo_type,
+        delivery_type_preferred: schema.requests.delivery_type_preferred,
+        budget_min: schema.requests.budget_min,
+        budget_max: schema.requests.budget_max,
+        status: schema.requests.status,
+        source: schema.requests.source,
+        sla_violated: schema.requests.sla_violated,
+        created_at: schema.requests.created_at,
+        updated_at: schema.requests.updated_at,
+        customer_name: schema.customers.full_name,
+        customer_company: schema.customers.company_name,
+        customer_email: schema.customers.email,
+        customer_phone: schema.customers.phone,
+      })
       .from(schema.requests)
+      .leftJoin(schema.customers, eq(schema.requests.customer_id, schema.customers.id))
       .where(where)
       .orderBy(desc(schema.requests.created_at))
       .limit(100);
