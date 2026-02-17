@@ -76,7 +76,7 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <Select value={period} onValueChange={setPeriod}>
+        <Select value={period} onValueChange={(v) => setPeriod(v as typeof period)}>
           <SelectTrigger className="w-[140px] bg-white border-gray-200">
             <SelectValue />
           </SelectTrigger>
