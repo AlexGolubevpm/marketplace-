@@ -24,7 +24,7 @@ const periodLabels: Record<string, string> = {
 };
 
 export default function DashboardPage() {
-  const [period, setPeriod] = useState("30d");
+  const [period, setPeriod] = useState<"today" | "7d" | "30d" | "90d" | "year">("30d");
   const { data, isLoading } = trpc.analytics.dashboard.useQuery({ period });
 
   const kpis = [
