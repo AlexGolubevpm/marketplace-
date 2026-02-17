@@ -8,4 +8,5 @@ export * from "./notifications";
 export * from "./content";
 export * from "./sessions";
 export * from "./knowledgebase";
+export * from "./knowledge";
 export * from "./chats";

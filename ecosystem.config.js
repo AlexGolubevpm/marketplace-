@@ -1,6 +1,36 @@
 /**
  * PM2 Ecosystem Configuration
  */
+const fs = require("fs");
+const path = require("path");
+
+// Read .env file and parse key=value pairs
+function loadEnv(filePath) {
+  const env = {};
+  try {
+    const content = fs.readFileSync(filePath, "utf-8");
+    for (const line of content.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const eqIndex = trimmed.indexOf("=");
+      if (eqIndex === -1) continue;
+      const key = trimmed.slice(0, eqIndex).trim();
+      const value = trimmed.slice(eqIndex + 1).trim();
+      env[key] = value;
+    }
+  } catch {}
+  return env;
+}
+
+const rootEnv = loadEnv(path.join(__dirname, ".env"));
+const webEnv = loadEnv(path.join(__dirname, "apps/web/.env"));
+const botEnv = loadEnv(path.join(__dirname, "apps/bot/.env"));
+
+// Merge: file .env values override, process.env as fallback
+const DATABASE_URL = webEnv.DATABASE_URL || rootEnv.DATABASE_URL || process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/cargo_marketplace";
+const TELEGRAM_BOT_TOKEN = botEnv.TELEGRAM_BOT_TOKEN || rootEnv.TELEGRAM_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || "";
+const APP_URL = webEnv.NEXT_PUBLIC_APP_URL || rootEnv.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://cargomarketplace.ru";
+
 module.exports = {
   apps: [
     {
@@ -13,7 +43,8 @@ module.exports = {
       env: {
         NODE_ENV: "production",
         PORT: 3000,
-        DATABASE_URL: process.env.DATABASE_URL || "",
+        DATABASE_URL,
+        NEXT_PUBLIC_APP_URL: APP_URL,
       },
       max_restarts: 10,
       min_uptime: "10s",
@@ -30,6 +61,9 @@ module.exports = {
       exec_mode: "fork",
       env: {
         NODE_ENV: "production",
+        TELEGRAM_BOT_TOKEN,
+        NEXT_PUBLIC_APP_URL: APP_URL,
+        DATABASE_URL,
       },
       max_restarts: 10,
       min_uptime: "5s",

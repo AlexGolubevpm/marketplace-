@@ -40,6 +40,59 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 bot.use(session({ initial: (): SessionData => ({}) }));
 
 // ============================================
+// Helpers
+// ============================================
+const COUNTRY_NAMES: Record<string, string> = {
+  CN: "Китай", TR: "Турция", DE: "Германия", IT: "Италия",
+  RU: "Россия", KZ: "Казахстан", UZ: "Узбекистан", KG: "Кыргызстан",
+};
+const DELIVERY_LABELS: Record<string, string> = {
+  air: "Авиа ✈️", sea: "Море 🚢", rail: "ЖД 🚂", road: "Авто 🚛", any: "Любой",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  new: "🔵 Новая",
+  matching: "🔵 Подбор карго",
+  offers_received: "🟡 Есть офферы",
+  offer_selected: "🟢 Оффер выбран",
+  expired: "⚪ Истекла",
+  closed: "⚪ Закрыта",
+  cancelled: "⚪ Отменена",
+  duplicate: "⚪ Дубликат",
+  resubmitted: "🔵 Повторная",
+};
+
+const OFFER_STATUS_LABELS: Record<string, string> = {
+  active: "⏳ Ожидает",
+  selected: "✅ Выбран",
+  rejected: "❌ Не выбран",
+  expired: "⚪ Истёк",
+};
+
+function buildAuthUrl(user: { id: number; first_name: string; last_name?: string; username?: string }, role: string): string {
+  const name = user.first_name + (user.last_name ? " " + user.last_name : "");
+  return `${APP_URL}/auth/telegram?tg_id=${user.id}&name=${encodeURIComponent(name)}&username=${encodeURIComponent(user.username || "")}&role=${role}`;
+}
+
+function escMd(text: string): string {
+  return text.replace(/[.\-!()#+=|{}>/\\]/g, "\\$&");
+}
+
+async function api(path: string, options?: RequestInit): Promise<any> {
+  const url = `${APP_URL}${path}`;
+  try {
+    const res = await fetch(url, {
+      ...options,
+      headers: { "Content-Type": "application/json", ...options?.headers },
+    });
+    return await res.json();
+  } catch (err) {
+    console.error(`API error ${path}:`, err);
+    return null;
+  }
+}
+
+// ============================================
 // /start command
 // ============================================
 bot.command("start", async (ctx) => {
@@ -48,8 +101,7 @@ bot.command("start", async (ctx) => {
   // Handle deep link login from website
   if (payload === "login_customer") {
     ctx.session.role = "customer";
-    const user = ctx.from!;
-    const authUrl = `${APP_URL}/auth/telegram?tg_id=${user.id}&name=${encodeURIComponent(user.first_name + (user.last_name ? " " + user.last_name : ""))}&username=${encodeURIComponent(user.username || "")}&role=customer`;
+    const authUrl = buildAuthUrl(ctx.from!, "customer");
 
     const keyboard = new InlineKeyboard()
       .url("🌐 Войти в кабинет клиента", authUrl)
@@ -57,7 +109,7 @@ bot.command("start", async (ctx) => {
       .text("📝 Создать заявку в боте", "new_request");
 
     await ctx.reply(
-      `👋 Привет, *${ctx.from!.first_name}*\\!\n\nНажмите кнопку ниже, чтобы войти в личный кабинет:`,
+      `👋 Привет, *${escMd(ctx.from!.first_name)}*\\!\n\nНажмите кнопку ниже, чтобы войти в личный кабинет:`,
       { parse_mode: "MarkdownV2", reply_markup: keyboard }
     );
     return;
@@ -65,8 +117,7 @@ bot.command("start", async (ctx) => {
 
   if (payload === "login_carrier") {
     ctx.session.role = "carrier";
-    const user = ctx.from!;
-    const authUrl = `${APP_URL}/auth/telegram?tg_id=${user.id}&name=${encodeURIComponent(user.first_name + (user.last_name ? " " + user.last_name : ""))}&username=${encodeURIComponent(user.username || "")}&role=carrier`;
+    const authUrl = buildAuthUrl(ctx.from!, "carrier");
 
     const keyboard = new InlineKeyboard()
       .url("🌐 Войти в кабинет карго", authUrl)
@@ -74,7 +125,7 @@ bot.command("start", async (ctx) => {
       .text("📋 Посмотреть заявки", "carrier_new_requests");
 
     await ctx.reply(
-      `🚚 Привет, *${ctx.from!.first_name}*\\!\n\nНажмите кнопку ниже, чтобы войти в кабинет карго:`,
+      `🚚 Привет, *${escMd(ctx.from!.first_name)}*\\!\n\nНажмите кнопку ниже, чтобы войти в кабинет карго:`,
       { parse_mode: "MarkdownV2", reply_markup: keyboard }
     );
     return;
@@ -154,12 +205,11 @@ bot.callbackQuery("new_request", async (ctx) => {
 bot.callbackQuery(/^country_from_(.+)$/, async (ctx) => {
   await ctx.answerCallbackQuery();
   const country = ctx.match![1];
-  const names: Record<string, string> = { CN: "Китай", TR: "Турция", DE: "Германия", IT: "Италия" };
   ctx.session.requestDraft = { ...ctx.session.requestDraft, origin_country: country };
   ctx.session.step = "origin_city";
 
   await ctx.reply(
-    `✅ Страна: *${names[country] || country}*\n\n🏙 Напишите *город отправления*:`,
+    `✅ Страна: *${COUNTRY_NAMES[country] || country}*\n\n🏙 Напишите *город отправления*:`,
     { parse_mode: "MarkdownV2" }
   );
 });
@@ -167,12 +217,11 @@ bot.callbackQuery(/^country_from_(.+)$/, async (ctx) => {
 bot.callbackQuery(/^country_to_(.+)$/, async (ctx) => {
   await ctx.answerCallbackQuery();
   const country = ctx.match![1];
-  const names: Record<string, string> = { RU: "Россия", KZ: "Казахстан", UZ: "Узбекистан", KG: "Кыргызстан" };
   ctx.session.requestDraft = { ...ctx.session.requestDraft, destination_country: country };
   ctx.session.step = "destination_city";
 
   await ctx.reply(
-    `✅ Страна: *${names[country] || country}*\n\n🏙 Напишите *город назначения*:`,
+    `✅ Страна: *${COUNTRY_NAMES[country] || country}*\n\n🏙 Напишите *город назначения*:`,
     { parse_mode: "MarkdownV2" }
   );
 });
@@ -180,7 +229,6 @@ bot.callbackQuery(/^country_to_(.+)$/, async (ctx) => {
 bot.callbackQuery(/^delivery_(.+)$/, async (ctx) => {
   await ctx.answerCallbackQuery();
   const type = ctx.match![1];
-  const labels: Record<string, string> = { air: "Авиа", sea: "Море", rail: "ЖД", road: "Авто", any: "Любой" };
   ctx.session.requestDraft = { ...ctx.session.requestDraft, delivery_type: type };
 
   await showRequestSummary(ctx);
@@ -188,17 +236,15 @@ bot.callbackQuery(/^delivery_(.+)$/, async (ctx) => {
 
 async function showRequestSummary(ctx: MyContext) {
   const d = ctx.session.requestDraft || {};
-  const countries: Record<string, string> = { CN: "Китай", TR: "Турция", DE: "Германия", IT: "Италия", RU: "Россия", KZ: "Казахстан", UZ: "Узбекистан", KG: "Кыргызстан" };
-  const deliveryLabels: Record<string, string> = { air: "Авиа ✈️", sea: "Море 🚢", rail: "ЖД 🚂", road: "Авто 🚛", any: "Любой" };
 
   const text = [
     `📋 *Ваша заявка:*\n`,
-    `📍 *Откуда:* ${countries[d.origin_country || ""] || d.origin_country}, ${d.origin_city}`,
-    `📍 *Куда:* ${countries[d.destination_country || ""] || d.destination_country}, ${d.destination_city}`,
+    `📍 *Откуда:* ${COUNTRY_NAMES[d.origin_country || ""] || d.origin_country}, ${d.origin_city}`,
+    `📍 *Куда:* ${COUNTRY_NAMES[d.destination_country || ""] || d.destination_country}, ${d.destination_city}`,
     `📦 *Груз:* ${d.cargo_description}`,
     `⚖️ *Вес:* ${d.weight_kg} кг`,
     d.volume_m3 ? `📐 *Объём:* ${d.volume_m3} м³` : "",
-    `🚚 *Доставка:* ${deliveryLabels[d.delivery_type || "any"] || d.delivery_type}`,
+    `🚚 *Доставка:* ${DELIVERY_LABELS[d.delivery_type || "any"] || d.delivery_type}`,
   ].filter(Boolean).join("\n");
 
   const keyboard = new InlineKeyboard()
@@ -207,26 +253,50 @@ async function showRequestSummary(ctx: MyContext) {
     .text("✏️ Изменить", "new_request")
     .text("❌ Отменить", "back_customer_menu");
 
-  await ctx.reply(text.replace(/[.\-!()]/g, "\\$&"), {
+  await ctx.reply(escMd(text), {
     parse_mode: "MarkdownV2",
     reply_markup: keyboard,
   });
 }
 
+// --- Submit Request (REAL API CALL) ---
 bot.callbackQuery("submit_request", async (ctx) => {
-  await ctx.answerCallbackQuery("✅ Заявка отправлена!");
+  await ctx.answerCallbackQuery();
   const d = ctx.session.requestDraft || {};
+  const tgId = String(ctx.from!.id);
+  const userName = ctx.from!.first_name + (ctx.from!.last_name ? " " + ctx.from!.last_name : "");
 
-  // Generate mock display ID
-  const displayId = `REQ-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+  const result = await api("/api/requests", {
+    method: "POST",
+    body: JSON.stringify({
+      customer_id: tgId,
+      customer_name: userName,
+      origin_country: d.origin_country,
+      origin_city: d.origin_city,
+      destination_country: d.destination_country,
+      destination_city: d.destination_city,
+      cargo_description: d.cargo_description,
+      weight_kg: d.weight_kg ? parseFloat(d.weight_kg) : null,
+      volume_m3: d.volume_m3 ? parseFloat(d.volume_m3) : null,
+      delivery_type_preferred: d.delivery_type !== "any" ? d.delivery_type : null,
+      source: "telegram_bot",
+    }),
+  });
 
-  await ctx.reply(
-    `🎉 *Заявка ${displayId} создана\\!*\n\n` +
-    `Мы отправили её подходящим карго\\-компаниям\\.\n` +
-    `Ожидайте офферы — обычно первые ответы приходят *в течение 1\\-2 часов*\\.\n\n` +
-    `Мы пришлём уведомление, когда появятся предложения\\!`,
-    { parse_mode: "MarkdownV2" }
-  );
+  if (result && result.display_id) {
+    await ctx.reply(
+      `🎉 *Заявка ${escMd(result.display_id)} создана\\!*\n\n` +
+      `Мы отправили её подходящим карго\\-компаниям\\.\n` +
+      `Ожидайте офферы — обычно первые ответы приходят *в течение 1\\-2 часов*\\.\n\n` +
+      `Мы пришлём уведомление, когда появятся предложения\\!`,
+      { parse_mode: "MarkdownV2" }
+    );
+  } else {
+    await ctx.reply(
+      "❌ Не удалось создать заявку\\. Попробуйте ещё раз или создайте через личный кабинет\\.",
+      { parse_mode: "MarkdownV2" }
+    );
+  }
 
   ctx.session.requestDraft = {};
   ctx.session.step = undefined;
@@ -234,30 +304,39 @@ bot.callbackQuery("submit_request", async (ctx) => {
   setTimeout(() => showCustomerMenu(ctx), 1000);
 });
 
-// --- My Requests ---
+// --- My Requests (REAL API CALL) ---
 bot.callbackQuery("my_requests", async (ctx) => {
   await ctx.answerCallbackQuery();
-  const user = ctx.from!;
-  const authUrl = `${APP_URL}/auth/telegram?tg_id=${user.id}&name=${encodeURIComponent(user.first_name + (user.last_name ? " " + user.last_name : ""))}&username=${encodeURIComponent(user.username || "")}&role=customer`;
+  const tgId = String(ctx.from!.id);
+  const authUrl = buildAuthUrl(ctx.from!, "customer");
 
-  // Mock data
-  const requests = [
-    { id: "REQ-2026-0142", route: "Shenzhen → Moscow", status: "Есть офферы (3)", statusEmoji: "🟡" },
-    { id: "REQ-2026-0139", route: "Istanbul → Almaty", status: "В доставке", statusEmoji: "🟣" },
-    { id: "REQ-2026-0135", route: "Guangzhou → Tashkent", status: "Завершено", statusEmoji: "🟢" },
-  ];
+  const requests = await api(`/api/requests?customer_id=${tgId}`);
 
-  let text = "📋 *Ваши заявки:*\n\n";
-  requests.forEach((r) => {
-    text += `${r.statusEmoji} *${r.id}*\n${r.route}\nСтатус: ${r.status}\n\n`;
-  });
+  let text: string;
+  if (!requests || !Array.isArray(requests) || requests.length === 0) {
+    text = "📋 *Ваши заявки:*\n\nУ вас пока нет заявок\\. Создайте первую\\!";
+  } else {
+    text = "📋 *Ваши заявки:*\n\n";
+    const shown = requests.slice(0, 5);
+    for (const r of shown) {
+      const statusLabel = STATUS_LABELS[r.status] || r.status;
+      const route = `${COUNTRY_NAMES[r.origin_country] || r.origin_country}, ${r.origin_city} → ${COUNTRY_NAMES[r.destination_country] || r.destination_country}, ${r.destination_city}`;
+      const offerInfo = r.offer_count > 0 ? ` \\(${r.offer_count} офферов\\)` : "";
+      text += `${statusLabel} *${escMd(r.display_id)}*\n${escMd(route)}${offerInfo}\n\n`;
+    }
+    if (requests.length > 5) {
+      text += `_\\.\\.\\. и ещё ${requests.length - 5}_\n`;
+    }
+  }
 
   const keyboard = new InlineKeyboard()
     .url("🌐 Подробнее в кабинете", authUrl)
     .row()
+    .text("📝 Новая заявка", "new_request")
+    .row()
     .text("◀️ Назад", "back_customer_menu");
 
-  await ctx.reply(text.replace(/[.\-!()]/g, "\\$&"), {
+  await ctx.reply(text, {
     parse_mode: "MarkdownV2",
     reply_markup: keyboard,
   });
@@ -266,8 +345,7 @@ bot.callbackQuery("my_requests", async (ctx) => {
 // --- Open Cabinet ---
 bot.callbackQuery("open_cabinet", async (ctx) => {
   await ctx.answerCallbackQuery();
-  const user = ctx.from!;
-  const authUrl = `${APP_URL}/auth/telegram?tg_id=${user.id}&name=${encodeURIComponent(user.first_name + (user.last_name ? " " + user.last_name : ""))}&username=${encodeURIComponent(user.username || "")}&role=customer`;
+  const authUrl = buildAuthUrl(ctx.from!, "customer");
 
   const keyboard = new InlineKeyboard()
     .url("🌐 Войти в кабинет", authUrl)
@@ -318,51 +396,80 @@ async function showCarrierMenu(ctx: MyContext) {
   );
 }
 
+// --- Carrier: New Requests (REAL API CALL) ---
 bot.callbackQuery("carrier_new_requests", async (ctx) => {
   await ctx.answerCallbackQuery();
+  const authUrl = buildAuthUrl(ctx.from!, "carrier");
 
-  const requests = [
-    { id: "REQ-2026-0142", route: "Shenzhen → Moscow", weight: "1 500 кг", deadline: "15 фев" },
-    { id: "REQ-2026-0141", route: "Guangzhou → Almaty", weight: "800 кг", deadline: "14 фев" },
-    { id: "REQ-2026-0140", route: "Istanbul → Novosibirsk", weight: "2 300 кг", deadline: "14 фев" },
-  ];
+  // Fetch requests with status new or matching (available for offers)
+  const requests = await api("/api/requests");
 
-  let text = "📋 *Новые заявки для вас:*\n\n";
-  requests.forEach((r) => {
-    text += `📦 *${r.id}*\n${r.route} | ${r.weight}\n⏰ Дедлайн: ${r.deadline}\n\n`;
-  });
+  let text: string;
+  if (!requests || !Array.isArray(requests) || requests.length === 0) {
+    text = "📋 *Новые заявки:*\n\nСейчас нет доступных заявок\\. Проверьте позже\\!";
+  } else {
+    // Show only new/matching requests
+    const available = requests.filter((r: any) => ["new", "matching", "offers_received"].includes(r.status));
+    if (available.length === 0) {
+      text = "📋 *Новые заявки:*\n\nСейчас нет доступных заявок\\. Проверьте позже\\!";
+    } else {
+      text = "📋 *Новые заявки для вас:*\n\n";
+      const shown = available.slice(0, 5);
+      for (const r of shown) {
+        const route = `${COUNTRY_NAMES[r.origin_country] || r.origin_country}, ${r.origin_city} → ${COUNTRY_NAMES[r.destination_country] || r.destination_country}, ${r.destination_city}`;
+        const weight = r.weight_kg ? `${r.weight_kg} кг` : "—";
+        const created = new Date(r.created_at);
+        const dateStr = `${created.getDate()}.${String(created.getMonth() + 1).padStart(2, "0")}`;
+        text += `📦 *${escMd(r.display_id)}*\n${escMd(route)} | ${escMd(weight)}\n📅 ${dateStr}\n\n`;
+      }
+      if (available.length > 5) {
+        text += `_\\.\\.\\. и ещё ${available.length - 5} заявок_\n`;
+      }
+    }
+  }
 
   const keyboard = new InlineKeyboard()
-    .url("🌐 Ответить в кабинете", `${APP_URL}/s/requests`)
+    .url("🌐 Ответить в кабинете", authUrl)
     .row()
     .text("◀️ Назад", "back_carrier_menu");
 
-  await ctx.reply(text.replace(/[.\-!()]/g, "\\$&"), {
+  await ctx.reply(text, {
     parse_mode: "MarkdownV2",
     reply_markup: keyboard,
   });
 });
 
+// --- Carrier: My Offers (REAL API CALL) ---
 bot.callbackQuery("carrier_my_offers", async (ctx) => {
   await ctx.answerCallbackQuery();
+  const tgId = String(ctx.from!.id);
+  const authUrl = buildAuthUrl(ctx.from!, "carrier");
 
-  const offers = [
-    { route: "Istanbul → Moscow", price: "$3,800", status: "✅ Выбран" },
-    { route: "Shenzhen → Ekaterinburg", price: "$5,500", status: "⏳ Ожидает" },
-    { route: "Yiwu → Bishkek", price: "$2,900", status: "❌ Не выбран" },
-  ];
+  const offers = await api(`/api/offers?carrier_id=${tgId}`);
 
-  let text = "📊 *Ваши офферы:*\n\n";
-  offers.forEach((o) => {
-    text += `${o.status}\n${o.route} — ${o.price}\n\n`;
-  });
+  let text: string;
+  if (!offers || !Array.isArray(offers) || offers.length === 0) {
+    text = "📊 *Ваши офферы:*\n\nУ вас пока нет офферов\\. Просмотрите заявки и отправьте предложение\\!";
+  } else {
+    text = "📊 *Ваши офферы:*\n\n";
+    const shown = offers.slice(0, 5);
+    for (const o of shown) {
+      const statusLabel = OFFER_STATUS_LABELS[o.status] || o.status;
+      const price = o.price ? `$${o.price}` : "—";
+      const days = o.estimated_days ? `${o.estimated_days} дн` : "";
+      text += `${statusLabel}\n*${escMd(o.display_id)}* — ${escMd(price)}${days ? `, ${escMd(days)}` : ""}\n\n`;
+    }
+    if (offers.length > 5) {
+      text += `_\\.\\.\\. и ещё ${offers.length - 5}_\n`;
+    }
+  }
 
   const keyboard = new InlineKeyboard()
-    .url("🌐 Подробнее в кабинете", `${APP_URL}/s/offers`)
+    .url("🌐 Подробнее в кабинете", authUrl)
     .row()
     .text("◀️ Назад", "back_carrier_menu");
 
-  await ctx.reply(text.replace(/[.\-!()]/g, "\\$&"), {
+  await ctx.reply(text, {
     parse_mode: "MarkdownV2",
     reply_markup: keyboard,
   });
@@ -370,8 +477,7 @@ bot.callbackQuery("carrier_my_offers", async (ctx) => {
 
 bot.callbackQuery("carrier_open_cabinet", async (ctx) => {
   await ctx.answerCallbackQuery();
-  const user = ctx.from!;
-  const authUrl = `${APP_URL}/auth/telegram?tg_id=${user.id}&name=${encodeURIComponent(user.first_name + (user.last_name ? " " + user.last_name : ""))}&username=${encodeURIComponent(user.username || "")}&role=carrier`;
+  const authUrl = buildAuthUrl(ctx.from!, "carrier");
 
   const keyboard = new InlineKeyboard()
     .url("🌐 Войти в кабинет", authUrl)

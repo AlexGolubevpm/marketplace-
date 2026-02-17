@@ -45,6 +45,10 @@ interface Offer {
   status: string;
   selected_at: string | null;
   created_at: string;
+  carrier_name: string | null;
+  carrier_contact: string | null;
+  carrier_phone: string | null;
+  carrier_email: string | null;
 }
 
 const deliveryLabels: Record<string, string> = {
@@ -133,7 +137,7 @@ export default function OffersPage() {
       </PageHeader>
 
       {error && (
-        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>
+        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-600 text-sm">{error}</div>
       )}
 
       {loading && offers.length === 0 ? (
@@ -156,10 +160,10 @@ export default function OffersPage() {
               <TableRow>
                 <TableHead>ID</TableHead>
                 <TableHead>Заявка</TableHead>
+                <TableHead>Карго</TableHead>
                 <TableHead>Цена</TableHead>
                 <TableHead>Срок (дн)</TableHead>
                 <TableHead>Тип</TableHead>
-                <TableHead>Условия</TableHead>
                 <TableHead>Статус</TableHead>
                 <TableHead>Дата</TableHead>
               </TableRow>
@@ -168,19 +172,27 @@ export default function OffersPage() {
               {offers.map((offer) => (
                 <TableRow key={offer.id}>
                   <TableCell className="font-mono text-sm">{offer.display_id}</TableCell>
-                  <TableCell className="font-mono text-sm text-cyan-400">{offer.request_id.slice(0, 8)}...</TableCell>
+                  <TableCell className="font-mono text-sm text-blue-600">{offer.request_id.slice(0, 8)}...</TableCell>
+                  <TableCell>
+                    <div>
+                      <div className="font-medium text-sm text-gray-900">{offer.carrier_name || "—"}</div>
+                      {offer.carrier_contact && (
+                        <div className="text-xs text-gray-500">{offer.carrier_contact}</div>
+                      )}
+                      {offer.carrier_email && (
+                        <div className="text-xs text-gray-400">{offer.carrier_email}</div>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell className="font-medium">
                     ${parseFloat(offer.price).toLocaleString()} {offer.currency !== "USD" ? offer.currency : ""}
                   </TableCell>
                   <TableCell>{offer.estimated_days}</TableCell>
                   <TableCell>{deliveryLabels[offer.delivery_type] || offer.delivery_type}</TableCell>
-                  <TableCell className="text-sm text-white/40 max-w-[200px] truncate">
-                    {offer.conditions || "—"}
-                  </TableCell>
                   <TableCell>
                     <StatusBadge status={offer.status} type="offer" />
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-sm">
+                  <TableCell className="text-gray-500 text-sm">
                     {new Date(offer.created_at).toLocaleDateString("ru-RU")}
                   </TableCell>
                 </TableRow>

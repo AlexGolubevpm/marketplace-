@@ -79,10 +79,10 @@ export function KnowledgeBasePublic() {
     <div className="min-h-screen bg-white text-gray-900 antialiased">
       {/* Nav */}
       <nav className="fixed top-0 w-full z-50 border-b border-gray-100 bg-white/80 backdrop-blur-xl">
-        <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="max-w-5xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link href="/" className="flex items-center gap-2">
-              <BrandedLogo className="h-9 w-9" />
+              <BrandedLogo className="h-[72px] w-auto" />
               <span className="text-gray-900 font-bold text-lg hidden sm:block">{branding.logo_text}</span>
             </Link>
             <ChevronRight className="h-4 w-4 text-gray-300 hidden sm:block" />
@@ -208,7 +208,7 @@ export function KnowledgeBasePublic() {
       <footer className="py-12 px-6 border-t border-gray-100">
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
           <Link href="/" className="flex items-center gap-2">
-            <BrandedLogo className="h-8 w-8" />
+            <BrandedLogo className="h-[72px] w-auto" />
             <span className="text-gray-900 font-semibold">{branding.logo_text}</span>
           </Link>
           <div className="flex items-center gap-8 text-sm text-gray-400">

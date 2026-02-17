@@ -48,9 +48,9 @@ export default function CarrierLayout({ children }: { children: React.ReactNode 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 pb-20 md:pb-0">
       <nav className="sticky top-0 z-50 border-b border-gray-200 bg-white/80 backdrop-blur-xl">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <BrandedLogo className="h-8 w-8" />
+            <BrandedLogo className="h-[72px] w-auto" />
             <span className="font-semibold text-gray-900 hidden sm:block">{branding.logo_text || "Carrier"}</span>
           </Link>
           <div className="hidden md:flex items-center gap-1">

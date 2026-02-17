@@ -23,7 +23,7 @@ export function useBranding() {
  * Logo component. Pass logoUrl to render the image.
  * No hardcoded SVG fallback — renders empty placeholder if no logoUrl.
  */
-export function CngoLogo({ className = "h-10 w-10", logoUrl }: { className?: string; logoUrl?: string }) {
+export function CngoLogo({ className = "h-[72px] w-auto", logoUrl }: { className?: string; logoUrl?: string }) {
   if (logoUrl) {
     return <img src={logoUrl} alt="Logo" className={`${className} object-contain`} />;
   }
@@ -33,7 +33,7 @@ export function CngoLogo({ className = "h-10 w-10", logoUrl }: { className?: str
 /**
  * Self-contained logo that auto-fetches branding from DB. Use in layouts.
  */
-export function BrandedLogo({ className = "h-10 w-10" }: { className?: string }) {
+export function BrandedLogo({ className = "h-[72px] w-auto" }: { className?: string }) {
   const { logo_url } = useBranding();
   if (!logo_url) return <div className={className} />;
   return <img src={logo_url} alt="Logo" className={`${className} object-contain`} />;
