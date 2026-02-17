@@ -1,10 +1,16 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { TRPCProvider } from "@/trpc/provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
-const inter = Inter({ subsets: ["latin", "cyrillic"] });
+const inter = localFont({
+  src: "./fonts/Inter-Variable.woff2",
+  weight: "100 900",
+  style: "normal",
+  variable: "--font-inter",
+  fallback: ["system-ui", "Arial", "sans-serif"],
+});
 
 export const metadata: Metadata = {
   title: "Cargo Marketplace — Admin",
