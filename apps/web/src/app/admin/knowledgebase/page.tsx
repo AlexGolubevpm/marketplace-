@@ -43,9 +43,9 @@ type Article = {
   id: string; title: string; slug: string; description: string | null;
   category_id: string | null; content: string; status: "draft" | "published";
   author_name: string | null; reviewer_name: string | null; is_featured: boolean;
-  canonical_override: string | null; redirects_from: string[];
-  faq_items: Array<{ question: string; answer: string }>;
-  sources: Array<{ title: string; url: string }>;
+  canonical_override: string | null; redirects_from: string[] | null;
+  faq_items: Array<{ question: string; answer: string }> | null;
+  sources: Array<{ title: string; url: string }> | null;
   sort_order: number; tag_ids?: string[];
 };
 
@@ -485,7 +485,7 @@ function ArticlesTab() {
       </div>
       <div className="space-y-2">
         {articles.map((a) => (
-          <Card key={a.id} className="hover:border-primary/30 cursor-pointer transition-colors" onClick={() => setEditing({ ...a, tag_ids: [], redirects_from: a.redirects_from ?? undefined })}>
+          <Card key={a.id} className="hover:border-primary/30 cursor-pointer transition-colors" onClick={() => setEditing({ ...a, tag_ids: [] })}>
             <CardContent className="flex items-center justify-between p-4">
               <div className="flex items-center gap-3">
                 <BookOpen className="h-5 w-5 text-muted-foreground" />
