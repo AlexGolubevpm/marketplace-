@@ -4,6 +4,14 @@ import Link from "next/link";
 import { ChevronRight, BookOpen, Clock } from "lucide-react";
 import { getCategoryBySlug, getRedirect } from "@/lib/knowledge-queries";
 
+function pluralArticles(n: number): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return `${n} статья`;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return `${n} статьи`;
+  return `${n} статей`;
+}
+
 export const revalidate = 3600;
 
 interface Props {
@@ -106,7 +114,7 @@ export default async function CategoryPage({ params }: Props) {
             {data.description && (
               <p className="text-gray-300 text-lg leading-relaxed">{data.description}</p>
             )}
-            <p className="mt-4 text-gray-400 text-sm">{data.articles.length} статей</p>
+            <p className="mt-4 text-gray-400 text-sm">{pluralArticles(data.articles.length)}</p>
           </div>
         </div>
 

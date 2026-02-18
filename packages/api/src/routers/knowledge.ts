@@ -332,6 +332,7 @@ export const knowledgeRouter = router({
         .insert(knowledgeCategories)
         .values(input)
         .returning();
+      ctx.revalidate?.("/knowledge", "layout");
       return cat;
     }),
 
@@ -373,6 +374,7 @@ export const knowledgeRouter = router({
         .set({ ...data, updated_at: new Date() })
         .where(eq(knowledgeCategories.id, id))
         .returning();
+      ctx.revalidate?.("/knowledge", "layout");
       return cat;
     }),
 
@@ -383,6 +385,7 @@ export const knowledgeRouter = router({
       await ctx.db
         .delete(knowledgeCategories)
         .where(eq(knowledgeCategories.id, input.id));
+      ctx.revalidate?.("/knowledge", "layout");
       return { success: true };
     }),
 
@@ -473,6 +476,7 @@ export const knowledgeRouter = router({
         }
       }
 
+      ctx.revalidate?.("/knowledge", "layout");
       return article;
     }),
 
@@ -560,6 +564,7 @@ export const knowledgeRouter = router({
         }
       }
 
+      ctx.revalidate?.("/knowledge", "layout");
       return article;
     }),
 
@@ -570,6 +575,7 @@ export const knowledgeRouter = router({
       await ctx.db
         .delete(knowledgeArticles)
         .where(eq(knowledgeArticles.id, input.id));
+      ctx.revalidate?.("/knowledge", "layout");
       return { success: true };
     }),
 

@@ -11,6 +11,8 @@ export type Context = {
     full_name: string;
     role: AdminRole;
   } | null;
+  /** Revalidate Next.js ISR cache for a path (only available in Next.js context) */
+  revalidate?: (path: string, type?: "page" | "layout") => void;
 };
 
 const t = initTRPC.context<Context>().create({

@@ -1,4 +1,5 @@
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
+import { revalidatePath } from "next/cache";
 import { appRouter, type Context } from "@cargo/api";
 
 let db: any = null;
@@ -44,7 +45,7 @@ const handler = (req: Request) =>
       const database = getDb();
       const admin = extractAdmin(req);
       if (!database) console.error("[tRPC] Database is NULL — DB not connected!");
-      return { db: database, admin };
+      return { db: database, admin, revalidate: revalidatePath };
     },
     onError: ({ path, error }) => {
       console.error(`[tRPC] Error in ${path}:`, error.message);
