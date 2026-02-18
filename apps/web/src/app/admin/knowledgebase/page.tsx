@@ -485,7 +485,7 @@ function ArticlesTab() {
       </div>
       <div className="space-y-2">
         {articles.map((a) => (
-          <Card key={a.id} className="hover:border-primary/30 cursor-pointer transition-colors" onClick={() => setEditing({ ...a, tag_ids: [] })}>
+          <Card key={a.id} className="hover:border-primary/30 cursor-pointer transition-colors" onClick={() => setEditing({ ...a, tag_ids: [], redirects_from: a.redirects_from ?? undefined })}>
             <CardContent className="flex items-center justify-between p-4">
               <div className="flex items-center gap-3">
                 <BookOpen className="h-5 w-5 text-muted-foreground" />
