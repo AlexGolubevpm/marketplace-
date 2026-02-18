@@ -38,10 +38,15 @@ const handler = (req: Request) =>
     endpoint: "/api/trpc",
     req,
     router: appRouter,
-    createContext: (): Context => ({
-      db: getDb(),
-      admin: extractAdmin(req),
-    }),
+    createContext: (): Context => {
+      const database = getDb();
+      const admin = extractAdmin(req);
+      if (!database) console.error("[tRPC] Database is NULL — DB not connected!");
+      return { db: database, admin };
+    },
+    onError: ({ path, error }) => {
+      console.error(`[tRPC] Error in ${path}:`, error.message);
+    },
   });
 
 export { handler as GET, handler as POST };
