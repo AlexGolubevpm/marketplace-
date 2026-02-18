@@ -143,7 +143,7 @@ export default function RequestDetailPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <Link href="/requests" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-600">
+        <Link href="/admin/requests" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-600">
           <ArrowLeft className="h-4 w-4" /> Назад
         </Link>
         <div className="space-y-4">
@@ -158,7 +158,7 @@ export default function RequestDetailPage() {
   if (error || !request) {
     return (
       <div className="space-y-6">
-        <Link href="/requests" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-600">
+        <Link href="/admin/requests" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-600">
           <ArrowLeft className="h-4 w-4" /> Назад
         </Link>
         <div className="p-6 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-center">
@@ -171,7 +171,7 @@ export default function RequestDetailPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <Link href="/requests" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-600">
+        <Link href="/admin/requests" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-600">
           <ArrowLeft className="h-4 w-4" /> Назад к заявкам
         </Link>
         <Button variant="outline" size="sm" onClick={load}>

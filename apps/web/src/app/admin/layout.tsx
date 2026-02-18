@@ -23,17 +23,17 @@ import {
 import { BrandedLogo, useBranding } from "@/components/cngo-logo";
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/requests", label: "Заявки", icon: ClipboardList },
-  { href: "/offers", label: "Офферы", icon: DollarSign },
-  { href: "/orders", label: "Заказы", icon: Package },
-  { href: "/carriers", label: "Карго", icon: Truck },
-  { href: "/customers", label: "Клиенты", icon: Users },
-  { href: "/chats", label: "Чаты", icon: MessageSquare },
-  { href: "/analytics", label: "Аналитика", icon: BarChart3 },
-  { href: "/knowledge", label: "База знаний", icon: BookOpen },
-  { href: "/content", label: "Контент лендинга", icon: FileEdit },
-  { href: "/settings", label: "Настройки", icon: Settings },
+  { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/admin/requests", label: "Заявки", icon: ClipboardList },
+  { href: "/admin/offers", label: "Офферы", icon: DollarSign },
+  { href: "/admin/orders", label: "Заказы", icon: Package },
+  { href: "/admin/carriers", label: "Карго", icon: Truck },
+  { href: "/admin/customers", label: "Клиенты", icon: Users },
+  { href: "/admin/chats", label: "Чаты", icon: MessageSquare },
+  { href: "/admin/analytics", label: "Аналитика", icon: BarChart3 },
+  { href: "/admin/knowledgebase", label: "База знаний", icon: BookOpen },
+  { href: "/admin/content", label: "Контент лендинга", icon: FileEdit },
+  { href: "/admin/settings", label: "Настройки", icon: Settings },
 ];
 
 function AdminSidebarHeader({ collapsed }: { collapsed: boolean }) {

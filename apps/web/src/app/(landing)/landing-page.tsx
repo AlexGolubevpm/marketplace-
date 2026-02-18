@@ -193,7 +193,7 @@ function useSession(): SessionInfo {
       if (raw) {
         const s = JSON.parse(raw);
         if (s.logged_in) {
-          setSession({ name: s.login || "Admin", role: "admin", href: "/dashboard" });
+          setSession({ name: s.login || "Admin", role: "admin", href: "/admin/dashboard" });
           return;
         }
       }
@@ -245,7 +245,7 @@ function Navbar({ branding }: { branding: any }) {
           <a href="#delivery" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Доставка</a>
           <a href="#how-it-works" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Как работает</a>
           <a href="#why-us" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Преимущества</a>
-          <Link href="/knowledge-base" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">База знаний</Link>
+          <Link href="/knowledge" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">База знаний</Link>
         </div>
         <div className="flex items-center gap-3">
           {session ? (
@@ -554,7 +554,7 @@ function Footer({ branding }: { branding: any }) {
           <span className="text-gray-900 font-bold text-lg tracking-tight">{branding.logo_text}</span>
         </Link>
         <div className="flex items-center gap-6 text-sm text-gray-400">
-          <Link href="/knowledge-base" className="hover:text-gray-900 transition-colors">База знаний</Link>
+          <Link href="/knowledge" className="hover:text-gray-900 transition-colors">База знаний</Link>
           <Link href="/auth/customer" className="hover:text-gray-900 transition-colors">Вход для клиентов</Link>
           <Link href="/auth/carrier" className="hover:text-gray-900 transition-colors">Вход для карго</Link>
         </div>
