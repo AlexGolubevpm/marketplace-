@@ -448,7 +448,6 @@ export const knowledgeRouter = router({
         .insert(knowledgeArticles)
         .values({
           ...articleData,
-          created_by: ctx.admin?.id,
           published_at:
             articleData.status === "published" ? new Date() : undefined,
         })

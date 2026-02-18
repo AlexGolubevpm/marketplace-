@@ -22,8 +22,10 @@ function extractAdmin(req: Request): Context["admin"] {
     if (!header) return null;
     const session = JSON.parse(header);
     if (!session.logged_in) return null;
+    // Require a real DB id — if missing, force re-login
+    if (!session.id) return null;
     return {
-      id: session.id || "00000000-0000-0000-0000-000000000000",
+      id: session.id,
       email: session.email || session.login || "admin",
       full_name: session.full_name || session.login || "Admin",
       role: session.role || "super_admin",
