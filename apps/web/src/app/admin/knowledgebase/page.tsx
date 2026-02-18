@@ -234,24 +234,41 @@ function ArticlesTab() {
   const [editing, setEditing] = useState<Partial<Article> | null>(null);
   const [faqInput, setFaqInput] = useState<{ q: string; a: string }>({ q: "", a: "" });
   const [sourceInput, setSourceInput] = useState<{ title: string; url: string }>({ title: "", url: "" });
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const { data: articles = [] } = trpc.knowledge.adminListArticles.useQuery({});
   const { data: categories = [] } = trpc.knowledge.adminListCategories.useQuery();
   const { data: tags = [] } = trpc.knowledge.adminListTags.useQuery();
 
   const createA = trpc.knowledge.adminCreateArticle.useMutation({
-    onSuccess: () => { utils.knowledge.adminListArticles.invalidate(); setEditing(null); },
+    onSuccess: () => { utils.knowledge.adminListArticles.invalidate(); setSaveError(null); setEditing(null); },
+    onError: (err) => { setSaveError(err.message); },
   });
   const updateA = trpc.knowledge.adminUpdateArticle.useMutation({
-    onSuccess: () => { utils.knowledge.adminListArticles.invalidate(); setEditing(null); },
+    onSuccess: () => { utils.knowledge.adminListArticles.invalidate(); setSaveError(null); setEditing(null); },
+    onError: (err) => { setSaveError(err.message); },
   });
   const deleteA = trpc.knowledge.adminDeleteArticle.useMutation({
-    onSuccess: () => { utils.knowledge.adminListArticles.invalidate(); setEditing(null); },
+    onSuccess: () => { utils.knowledge.adminListArticles.invalidate(); setSaveError(null); setEditing(null); },
+    onError: (err) => { setSaveError(err.message); },
   });
 
-  function handleSave() {
-    if (!editing?.title || !editing?.content) return;
+  // Fetch full article with tag_ids when editing existing article
+  function openArticle(article: typeof articles[number]) {
+    utils.knowledge.adminGetArticle.fetch({ id: article.id }).then((full) => {
+      if (full) setEditing({ ...full, tag_ids: full.tag_ids ?? [] });
+      else setEditing({ ...article, tag_ids: [] });
+    }).catch(() => {
+      setEditing({ ...article, tag_ids: [] });
+    });
+  }
+
+  function handleSave(statusOverride?: "draft" | "published") {
+    if (!editing?.title) { setSaveError("Укажите заголовок статьи"); return; }
+    if (!editing?.content) { setSaveError("Укажите содержимое статьи"); return; }
+    setSaveError(null);
     const slug = editing.slug || slugify(editing.title);
+    const status = statusOverride ?? editing.status ?? "draft";
     const base = {
       title: editing.title,
       slug,
@@ -260,7 +277,7 @@ function ArticlesTab() {
       content: editing.content ?? "",
       faq_items: editing.faq_items ?? [],
       sources: editing.sources ?? [],
-      status: editing.status ?? "draft",
+      status,
       author_name: editing.author_name ?? undefined,
       reviewer_name: editing.reviewer_name ?? undefined,
       is_featured: editing.is_featured ?? false,
@@ -385,13 +402,25 @@ function ArticlesTab() {
           <div className="space-y-4">
             {/* Publish */}
             <Card><CardContent className="pt-5 space-y-4">
+              {saveError && (
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+                  <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                  <span>{saveError}</span>
+                </div>
+              )}
               <div>
                 <Label className="text-xs uppercase tracking-wide text-muted-foreground">Статус</Label>
                 <div className="flex gap-2 mt-2">
                   <Button size="sm" variant={editing.status === "draft" ? "default" : "outline"} className="flex-1 text-xs" onClick={() => setEditing({ ...editing, status: "draft" })}>
                     Черновик
                   </Button>
-                  <Button size="sm" variant={editing.status === "published" ? "default" : "outline"} className="flex-1 text-xs bg-green-600 hover:bg-green-700 text-white" onClick={() => setEditing({ ...editing, status: "published" })}>
+                  <Button
+                    size="sm"
+                    variant={editing.status === "published" ? "default" : "outline"}
+                    className="flex-1 text-xs bg-green-600 hover:bg-green-700 text-white"
+                    disabled={createA.isPending || updateA.isPending}
+                    onClick={() => handleSave("published")}
+                  >
                     Опубликовать
                   </Button>
                 </div>
@@ -403,7 +432,7 @@ function ArticlesTab() {
                 </button>
               </div>
               <div className="flex items-center gap-2 pt-2 border-t">
-                <Button className="flex-1" onClick={handleSave} disabled={createA.isPending || updateA.isPending}>
+                <Button className="flex-1" onClick={() => handleSave()} disabled={createA.isPending || updateA.isPending}>
                   <Save className="h-4 w-4 mr-2" /> Сохранить
                 </Button>
               </div>
@@ -485,7 +514,7 @@ function ArticlesTab() {
       </div>
       <div className="space-y-2">
         {articles.map((a) => (
-          <Card key={a.id} className="hover:border-primary/30 cursor-pointer transition-colors" onClick={() => setEditing({ ...a, tag_ids: [] })}>
+          <Card key={a.id} className="hover:border-primary/30 cursor-pointer transition-colors" onClick={() => openArticle(a)}>
             <CardContent className="flex items-center justify-between p-4">
               <div className="flex items-center gap-3">
                 <BookOpen className="h-5 w-5 text-muted-foreground" />
