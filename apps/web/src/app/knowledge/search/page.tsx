@@ -27,27 +27,31 @@ export default async function SearchPage({ searchParams }: Props) {
   }> = [];
 
   if (query.length >= 2) {
-    const likeQ = `%${query}%`;
-    results = await db
-      .select({
-        id: knowledgeArticles.id,
-        title: knowledgeArticles.title,
-        slug: knowledgeArticles.slug,
-        description: knowledgeArticles.description,
-        category_id: knowledgeArticles.category_id,
-      })
-      .from(knowledgeArticles)
-      .where(
-        and(
-          eq(knowledgeArticles.status, "published"),
-          sql`(
-            ${knowledgeArticles.title} ILIKE ${likeQ}
-            OR ${knowledgeArticles.description} ILIKE ${likeQ}
-            OR ${knowledgeArticles.content} ILIKE ${likeQ}
-          )`
+    try {
+      const likeQ = `%${query}%`;
+      results = await db
+        .select({
+          id: knowledgeArticles.id,
+          title: knowledgeArticles.title,
+          slug: knowledgeArticles.slug,
+          description: knowledgeArticles.description,
+          category_id: knowledgeArticles.category_id,
+        })
+        .from(knowledgeArticles)
+        .where(
+          and(
+            eq(knowledgeArticles.status, "published"),
+            sql`(
+              ${knowledgeArticles.title} ILIKE ${likeQ}
+              OR ${knowledgeArticles.description} ILIKE ${likeQ}
+              OR ${knowledgeArticles.content} ILIKE ${likeQ}
+            )`
+          )
         )
-      )
-      .limit(20);
+        .limit(20);
+    } catch (e) {
+      console.warn("[knowledge] search failed:", (e as Error).message);
+    }
   }
 
   return (
