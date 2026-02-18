@@ -22,15 +22,15 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/requests", label: "Заявки", icon: ClipboardList },
-  { href: "/offers", label: "Офферы", icon: DollarSign },
-  { href: "/orders", label: "Заказы", icon: Package },
-  { href: "/carriers", label: "Карго", icon: Truck },
-  { href: "/customers", label: "Клиенты", icon: Users },
-  { href: "/analytics", label: "Аналитика", icon: BarChart3 },
-  { href: "/content", label: "Контент", icon: FileText },
-  { href: "/settings", label: "Настройки", icon: Settings },
+  { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/admin/requests", label: "Заявки", icon: ClipboardList },
+  { href: "/admin/offers", label: "Офферы", icon: DollarSign },
+  { href: "/admin/orders", label: "Заказы", icon: Package },
+  { href: "/admin/carriers", label: "Карго", icon: Truck },
+  { href: "/admin/customers", label: "Клиенты", icon: Users },
+  { href: "/admin/analytics", label: "Аналитика", icon: BarChart3 },
+  { href: "/admin/content", label: "Контент", icon: FileText },
+  { href: "/admin/settings", label: "Настройки", icon: Settings },
 ];
 
 export function Sidebar() {
