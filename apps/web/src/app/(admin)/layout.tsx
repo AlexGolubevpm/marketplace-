@@ -31,7 +31,7 @@ const navItems = [
   { href: "/customers", label: "Клиенты", icon: Users },
   { href: "/chats", label: "Чаты", icon: MessageSquare },
   { href: "/analytics", label: "Аналитика", icon: BarChart3 },
-  { href: "/knowledge", label: "База знаний", icon: BookOpen },
+  { href: "/knowledgebase", label: "База знаний", icon: BookOpen },
   { href: "/content", label: "Контент лендинга", icon: FileEdit },
   { href: "/settings", label: "Настройки", icon: Settings },
 ];
