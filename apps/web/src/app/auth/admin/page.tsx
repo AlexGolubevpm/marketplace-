@@ -37,7 +37,7 @@ export default function AdminLoginPage() {
         sig: data.sig,
         login_at: new Date().toISOString(),
       }));
-      router.push("/dashboard");
+      router.push("/admin/dashboard");
     } catch {
       setError("Ошибка сети");
     } finally {
