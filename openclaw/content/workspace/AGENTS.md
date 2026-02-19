@@ -5,24 +5,24 @@
 
 ## API для работы с базой знаний
 
-**Базовый URL:** `http://web:3000`
+**Базовый URL:** `http://host.docker.internal:3000`
 **Заголовок авторизации:** `X-Bot-Key: ${BOT_API_KEY}`
 
 ### Получить список категорий
 ```
-GET http://web:3000/api/knowledge-publish?type=categories
+GET http://host.docker.internal:3000/api/knowledge-publish?type=categories
 Headers: X-Bot-Key: ${BOT_API_KEY}
 ```
 
 ### Получить список тегов
 ```
-GET http://web:3000/api/knowledge-publish?type=tags
+GET http://host.docker.internal:3000/api/knowledge-publish?type=tags
 Headers: X-Bot-Key: ${BOT_API_KEY}
 ```
 
 ### Создать категорию
 ```
-POST http://web:3000/api/knowledge-publish
+POST http://host.docker.internal:3000/api/knowledge-publish
 Headers: X-Bot-Key: ${BOT_API_KEY}, Content-Type: application/json
 Body: {
   "type": "category",
@@ -37,7 +37,7 @@ Body: {
 
 ### Создать тег
 ```
-POST http://web:3000/api/knowledge-publish
+POST http://host.docker.internal:3000/api/knowledge-publish
 Headers: X-Bot-Key: ${BOT_API_KEY}, Content-Type: application/json
 Body: {
   "type": "tag",
@@ -49,7 +49,7 @@ Body: {
 
 ### Создать статью
 ```
-POST http://web:3000/api/knowledge-publish
+POST http://host.docker.internal:3000/api/knowledge-publish
 Headers: X-Bot-Key: ${BOT_API_KEY}, Content-Type: application/json
 Body: {
   "type": "article",

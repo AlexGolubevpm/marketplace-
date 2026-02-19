@@ -1,0 +1,50 @@
+version: "3.8"
+
+# Отдельный compose для OpenClaw ботов.
+# Используется когда web-приложение запущено через PM2 (не Docker).
+# OpenClaw обращается к PM2-приложению через host.docker.internal:3000
+
+services:
+
+  # ================================
+  # OpenClaw — Content Manager Bot
+  # @Cargo_content_manager282bot
+  # Публикует статьи / категории / теги в базу знаний
+  # ================================
+  openclaw-content:
+    image: ghcr.io/openclaw/openclaw:latest
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # доступ к PM2-приложению на хосте
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_CONTENT_BOT_TOKEN}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      BOT_API_KEY: ${BOT_API_KEY}
+      CARGO_API_URL: http://host.docker.internal:3000
+    volumes:
+      - ./openclaw/content/openclaw.json:/root/.openclaw/openclaw.json:ro
+      - ./openclaw/content/workspace:/root/.openclaw/workspace
+      - openclaw_content_data:/root/.openclaw/sessions
+
+  # ================================
+  # OpenClaw — Product Manager / Analyst Bot
+  # @CargoProductManager_888bot
+  # Анализирует приложение, отвечает на вопросы, даёт советы
+  # ================================
+  openclaw-analyst:
+    image: ghcr.io/openclaw/openclaw:latest
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_ANALYST_BOT_TOKEN}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+    volumes:
+      - ./openclaw/analyst/openclaw.json:/root/.openclaw/openclaw.json:ro
+      - ./openclaw/analyst/workspace:/root/.openclaw/workspace
+      - openclaw_analyst_data:/root/.openclaw/sessions
+      - ./:/app:ro                              # кодовая база только для чтения
+
+volumes:
+  openclaw_content_data:
+  openclaw_analyst_data:
