@@ -1,7 +1,7 @@
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { revalidatePath } from "next/cache";
 import { appRouter, type Context } from "@cargo/api";
-import { verifyAdminSession } from "@/app/api/admin-auth/route";
+import { verifyAdminSession } from "@/lib/admin-session";
 
 let db: any = null;
 
