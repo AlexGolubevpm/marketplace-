@@ -1,29 +1,20 @@
 {
   "channels": {
     "telegram": {
-      "token": "${TELEGRAM_ANALYST_BOT_TOKEN}"
+      "enabled": true,
+      "botToken": "${TELEGRAM_BOT_TOKEN}"
     }
   },
-  "models": {
+  "agents": {
     "defaults": {
-      "primary": "openrouter/deepseek/deepseek-r1-0528",
-      "fallback": ["openrouter/deepseek/deepseek-r1"]
-    },
-    "mode": "merge",
-    "providers": {
-      "openrouter": {
-        "baseUrl": "https://openrouter.ai/api/v1",
-        "apiKey": "${OPENROUTER_API_KEY}",
-        "api": "openai-completions",
-        "models": [
-          { "id": "deepseek/deepseek-r1-0528", "name": "DeepSeek R1 0528 (бесплатная)" },
-          { "id": "deepseek/deepseek-r1", "name": "DeepSeek R1 (бесплатная)" }
-        ]
+      "model": {
+        "primary": "openrouter/deepseek/deepseek-r1-0528",
+        "fallbacks": ["openrouter/deepseek/deepseek-r1"]
+      },
+      "heartbeat": {
+        "every": "24h",
+        "target": "last"
       }
     }
-  },
-  "heartbeat": {
-    "interval": "0 9 * * 1-5",
-    "prompt": "Доброе утро! Проверь файлы в /workspace/codebase — посмотри на структуру проекта, последние изменения и дай 2-3 конкретных совета по улучшению продукта на основе кода."
   }
 }
