@@ -18,8 +18,8 @@ async function getRedirectMap(): Promise<Map<string, string>> {
   return redirectMap;
 }
 
-/** Bust the in-process redirect cache (called externally or via POST). */
-export function bustRedirectCache() {
+/** Bust the in-process redirect cache. */
+function bustRedirectCache() {
   redirectMap = null;
   cacheBuiltAt = 0;
 }
