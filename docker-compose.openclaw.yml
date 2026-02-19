@@ -23,9 +23,9 @@ services:
       BOT_API_KEY: ${BOT_API_KEY}
       CARGO_API_URL: http://host.docker.internal:3000
     volumes:
-      - ./openclaw/content/openclaw.json:/root/.openclaw/openclaw.json:ro
-      - ./openclaw/content/workspace:/root/.openclaw/workspace
-      - openclaw_content_data:/root/.openclaw/sessions
+      - ./openclaw/content/openclaw.json:/home/node/.openclaw/openclaw.json:ro
+      - ./openclaw/content/workspace:/home/node/.openclaw/workspace
+      - openclaw_content_data:/home/node/.openclaw/sessions
 
   # ================================
   # OpenClaw — Product Manager / Analyst Bot
@@ -41,10 +41,10 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_ANALYST_BOT_TOKEN}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
     volumes:
-      - ./openclaw/analyst/openclaw.json:/root/.openclaw/openclaw.json:ro
-      - ./openclaw/analyst/workspace:/root/.openclaw/workspace
-      - openclaw_analyst_data:/root/.openclaw/sessions
-      - ./:/workspace/codebase:ro              # кодовая база только для чтения
+      - ./openclaw/analyst/openclaw.json:/home/node/.openclaw/openclaw.json:ro
+      - ./openclaw/analyst/workspace:/home/node/.openclaw/workspace
+      - openclaw_analyst_data:/home/node/.openclaw/sessions
+      - ./:/workspace/codebase:ro
 
 volumes:
   openclaw_content_data:
