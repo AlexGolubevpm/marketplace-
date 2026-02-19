@@ -1,6 +1,7 @@
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { revalidatePath } from "next/cache";
 import { appRouter, type Context } from "@cargo/api";
+import { verifyAdminSession } from "@/app/api/admin-auth/route";
 
 let db: any = null;
 
@@ -23,8 +24,20 @@ function extractAdmin(req: Request): Context["admin"] {
     if (!header) return null;
     const session = JSON.parse(header);
     if (!session.logged_in) return null;
-    // Require a real DB id — if missing, force re-login
     if (!session.id) return null;
+
+    // Verify HMAC signature — reject tampered sessions
+    if (
+      !session.sig ||
+      !verifyAdminSession(
+        { id: session.id, email: session.email || "", role: session.role || "" },
+        session.sig
+      )
+    ) {
+      console.warn("[tRPC] Admin session HMAC verification failed");
+      return null;
+    }
+
     return {
       id: session.id,
       email: session.email || session.login || "admin",
@@ -36,6 +49,14 @@ function extractAdmin(req: Request): Context["admin"] {
   }
 }
 
+function getClientIp(req: Request): string {
+  return (
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    req.headers.get("x-real-ip") ||
+    "unknown"
+  );
+}
+
 const handler = (req: Request) =>
   fetchRequestHandler({
     endpoint: "/api/trpc",
@@ -45,7 +66,12 @@ const handler = (req: Request) =>
       const database = getDb();
       const admin = extractAdmin(req);
       if (!database) console.error("[tRPC] Database is NULL — DB not connected!");
-      return { db: database, admin, revalidate: revalidatePath };
+      return {
+        db: database,
+        admin,
+        revalidate: revalidatePath,
+        clientIp: getClientIp(req),
+      };
     },
     onError: ({ path, error }) => {
       console.error(`[tRPC] Error in ${path}:`, error.message);

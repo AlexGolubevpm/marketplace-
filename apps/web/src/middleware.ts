@@ -8,15 +8,23 @@ import { NextRequest, NextResponse } from "next/server";
  * Runs only on /knowledge/* paths to minimize overhead.
  */
 export const config = {
-  matcher: ["/knowledge/:path*"],
+  matcher: ["/knowledge/:path*", "/knowledge-base/:path*", "/knowledge-base"],
 };
 
 // In-memory cache: { path -> { to, expires } }
 const redirectCache = new Map<string, { to: string; expires: number }>();
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL_MS = 60 * 1000; // 60 seconds
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+
+  // Redirect legacy /knowledge-base → /knowledge (301)
+  if (pathname === "/knowledge-base" || pathname.startsWith("/knowledge-base/")) {
+    return NextResponse.redirect(
+      new URL("/knowledge", request.url),
+      { status: 301 }
+    );
+  }
 
   // Skip internal paths
   if (

@@ -34,6 +34,7 @@ export default function AdminLoginPage() {
         email: data.email,
         full_name: data.full_name,
         role: data.role,
+        sig: data.sig,
         login_at: new Date().toISOString(),
       }));
       router.push("/dashboard");

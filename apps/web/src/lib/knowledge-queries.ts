@@ -6,7 +6,7 @@
  * even when the database is unavailable (e.g. CI/CD, fresh deploy).
  * On the first real request ISR will populate the pages from the DB.
  */
-import { eq, and, asc, desc, inArray, sql } from "drizzle-orm";
+import { eq, and, asc, desc, inArray, sql, getTableColumns } from "drizzle-orm";
 import {
   knowledgeCategories,
   knowledgeArticles,
@@ -17,7 +17,7 @@ import {
 import { db } from "./db";
 
 export type KnowledgeCategory = typeof knowledgeCategories.$inferSelect & {
-  article_count?: number;
+  article_count: number;
 };
 export type KnowledgeArticle = typeof knowledgeArticles.$inferSelect;
 export type KnowledgeTag = typeof knowledgeTags.$inferSelect;
@@ -26,23 +26,22 @@ export type KnowledgeRedirect = typeof knowledgeRedirects.$inferSelect;
 // ── Categories ─────────────────────────────────────────────────────────────────
 export async function getPublishedCategories(): Promise<KnowledgeCategory[]> {
   try {
-    const categories = await db
-      .select()
-      .from(knowledgeCategories)
-      .where(eq(knowledgeCategories.is_active, true))
-      .orderBy(asc(knowledgeCategories.order));
-
-    const counts = await db
+    return await db
       .select({
-        category_id: knowledgeArticles.category_id,
-        count: sql<number>`count(*)`.mapWith(Number),
+        ...getTableColumns(knowledgeCategories),
+        article_count: sql<number>`count(${knowledgeArticles.id})`.mapWith(Number),
       })
-      .from(knowledgeArticles)
-      .where(eq(knowledgeArticles.status, "published"))
-      .groupBy(knowledgeArticles.category_id);
-
-    const countMap = Object.fromEntries(counts.map((c) => [c.category_id, c.count]));
-    return categories.map((cat) => ({ ...cat, article_count: countMap[cat.id] ?? 0 }));
+      .from(knowledgeCategories)
+      .leftJoin(
+        knowledgeArticles,
+        and(
+          eq(knowledgeArticles.category_id, knowledgeCategories.id),
+          eq(knowledgeArticles.status, "published")
+        )
+      )
+      .where(eq(knowledgeCategories.is_active, true))
+      .groupBy(knowledgeCategories.id)
+      .orderBy(asc(knowledgeCategories.order));
   } catch (e) {
     console.warn("[knowledge] getPublishedCategories failed:", (e as Error).message);
     return [];
@@ -98,49 +97,45 @@ export async function getArticleBySlug(slug: string) {
 
     if (!article) return null;
 
-    const category = article.category_id
-      ? await db
-          .select()
-          .from(knowledgeCategories)
-          .where(eq(knowledgeCategories.id, article.category_id))
-          .limit(1)
-          .then((r) => r[0] ?? null)
-      : null;
-
-    const tagJoins = await db
-      .select({ tag_id: knowledgeArticleTags.tag_id })
-      .from(knowledgeArticleTags)
-      .where(eq(knowledgeArticleTags.article_id, article.id));
-
-    const tags =
-      tagJoins.length > 0
-        ? await db
+    // Parallel fetch: category, tags (single JOIN), related articles
+    const [category, tags, related] = await Promise.all([
+      article.category_id
+        ? db
             .select()
-            .from(knowledgeTags)
-            .where(inArray(knowledgeTags.id, tagJoins.map((j) => j.tag_id)))
-        : [];
+            .from(knowledgeCategories)
+            .where(eq(knowledgeCategories.id, article.category_id))
+            .limit(1)
+            .then((r) => r[0] ?? null)
+        : Promise.resolve(null),
 
-    const related = article.category_id
-      ? await db
-          .select({
-            id: knowledgeArticles.id,
-            title: knowledgeArticles.title,
-            slug: knowledgeArticles.slug,
-            description: knowledgeArticles.description,
-            published_at: knowledgeArticles.published_at,
-            category_id: knowledgeArticles.category_id,
-          })
-          .from(knowledgeArticles)
-          .where(
-            and(
-              eq(knowledgeArticles.category_id, article.category_id),
-              eq(knowledgeArticles.status, "published"),
-              sql`${knowledgeArticles.id} != ${article.id}`
+      db
+        .select(getTableColumns(knowledgeTags))
+        .from(knowledgeArticleTags)
+        .innerJoin(knowledgeTags, eq(knowledgeTags.id, knowledgeArticleTags.tag_id))
+        .where(eq(knowledgeArticleTags.article_id, article.id)),
+
+      article.category_id
+        ? db
+            .select({
+              id: knowledgeArticles.id,
+              title: knowledgeArticles.title,
+              slug: knowledgeArticles.slug,
+              description: knowledgeArticles.description,
+              published_at: knowledgeArticles.published_at,
+              category_id: knowledgeArticles.category_id,
+            })
+            .from(knowledgeArticles)
+            .where(
+              and(
+                eq(knowledgeArticles.category_id, article.category_id),
+                eq(knowledgeArticles.status, "published"),
+                sql`${knowledgeArticles.id} != ${article.id}`
+              )
             )
-          )
-          .orderBy(desc(knowledgeArticles.published_at))
-          .limit(4)
-      : [];
+            .orderBy(desc(knowledgeArticles.published_at))
+            .limit(4)
+        : Promise.resolve([]),
+    ]);
 
     return { ...article, category, tags, related };
   } catch (e) {
@@ -237,7 +232,7 @@ export async function getAllFaqArticles() {
       .where(
         and(
           eq(knowledgeArticles.status, "published"),
-          sql`jsonb_array_length(${knowledgeArticles.faq_items}) > 0`
+          sql`${knowledgeArticles.faq_items} IS NOT NULL AND jsonb_array_length(${knowledgeArticles.faq_items}) > 0`
         )
       );
   } catch (e) {
