@@ -1,0 +1,29 @@
+{
+  "channels": {
+    "telegram": {
+      "token": "${TELEGRAM_ANALYST_BOT_TOKEN}"
+    }
+  },
+  "models": {
+    "defaults": {
+      "primary": "openrouter/anthropic/claude-sonnet-4-5",
+      "fallback": ["openrouter/deepseek/deepseek-r1"]
+    },
+    "mode": "merge",
+    "providers": {
+      "openrouter": {
+        "baseUrl": "https://openrouter.ai/api/v1",
+        "apiKey": "${OPENROUTER_API_KEY}",
+        "api": "openai-completions",
+        "models": [
+          { "id": "anthropic/claude-sonnet-4-5", "name": "Claude Sonnet 4.5" },
+          { "id": "deepseek/deepseek-r1", "name": "DeepSeek R1 (для кода)" }
+        ]
+      }
+    }
+  },
+  "heartbeat": {
+    "interval": "0 9 * * 1-5",
+    "prompt": "Доброе утро! Проверь файлы в /app — посмотри на структуру проекта, последние изменения и дай 2-3 конкретных совета по улучшению продукта на основе кода."
+  }
+}

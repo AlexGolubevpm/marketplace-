@@ -1,0 +1,25 @@
+{
+  "channels": {
+    "telegram": {
+      "token": "${TELEGRAM_CONTENT_BOT_TOKEN}"
+    }
+  },
+  "models": {
+    "defaults": {
+      "primary": "openrouter/anthropic/claude-sonnet-4-5",
+      "fallback": ["openrouter/anthropic/claude-haiku-4-5"]
+    },
+    "mode": "merge",
+    "providers": {
+      "openrouter": {
+        "baseUrl": "https://openrouter.ai/api/v1",
+        "apiKey": "${OPENROUTER_API_KEY}",
+        "api": "openai-completions",
+        "models": [
+          { "id": "anthropic/claude-sonnet-4-5", "name": "Claude Sonnet 4.5" },
+          { "id": "anthropic/claude-haiku-4-5", "name": "Claude Haiku 4.5" }
+        ]
+      }
+    }
+  }
+}
