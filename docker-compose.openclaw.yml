@@ -14,17 +14,18 @@ services:
   # ================================
   openclaw-content:
     image: ghcr.io/openclaw/openclaw:latest
+    user: "0:0"
     restart: unless-stopped
-    entrypoint: ["sh", "-c", "cp /config/openclaw.json /home/node/.openclaw/openclaw.json && exec openclaw start"]
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
+      HOME: /home/node
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_CONTENT_BOT_TOKEN}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
       BOT_API_KEY: ${BOT_API_KEY}
       CARGO_API_URL: http://host.docker.internal:3000
     volumes:
-      - ./openclaw/content/openclaw.json:/config/openclaw.json:ro
+      - ./openclaw/content/openclaw.json:/home/node/.openclaw/openclaw.json
       - ./openclaw/content/workspace:/home/node/.openclaw/workspace
       - openclaw_content_home:/home/node/.openclaw
 
@@ -35,15 +36,16 @@ services:
   # ================================
   openclaw-analyst:
     image: ghcr.io/openclaw/openclaw:latest
+    user: "0:0"
     restart: unless-stopped
-    entrypoint: ["sh", "-c", "cp /config/openclaw.json /home/node/.openclaw/openclaw.json && exec openclaw start"]
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
+      HOME: /home/node
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_ANALYST_BOT_TOKEN}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
     volumes:
-      - ./openclaw/analyst/openclaw.json:/config/openclaw.json:ro
+      - ./openclaw/analyst/openclaw.json:/home/node/.openclaw/openclaw.json
       - ./openclaw/analyst/workspace:/home/node/.openclaw/workspace
       - openclaw_analyst_home:/home/node/.openclaw
       - ./:/workspace/codebase:ro
