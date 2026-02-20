@@ -19,6 +19,7 @@ import {
   BookOpen,
   FileEdit,
   MessageSquare,
+  Bot,
 } from "lucide-react";
 import { BrandedLogo, useBranding } from "@/components/cngo-logo";
 
@@ -32,6 +33,7 @@ const navItems = [
   { href: "/admin/chats", label: "Чаты", icon: MessageSquare },
   { href: "/admin/analytics", label: "Аналитика", icon: BarChart3 },
   { href: "/admin/knowledgebase", label: "База знаний", icon: BookOpen },
+  { href: "/admin/bots", label: "AI Боты", icon: Bot },
   { href: "/admin/content", label: "Контент лендинга", icon: FileEdit },
   { href: "/admin/settings", label: "Настройки", icon: Settings },
 ];
