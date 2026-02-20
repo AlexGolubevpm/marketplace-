@@ -241,16 +241,16 @@ function ArticlesTab() {
   const { data: tags = [] } = trpc.knowledge.adminListTags.useQuery();
 
   const createA = trpc.knowledge.adminCreateArticle.useMutation({
-    onSuccess: () => { utils.knowledge.adminListArticles.invalidate(); setSaveError(null); setEditing(null); },
-    onError: (err) => { setSaveError(err.message); },
+    onSuccess: (data) => { console.log("[KB] Article created:", data); utils.knowledge.adminListArticles.invalidate(); setSaveError(null); setEditing(null); },
+    onError: (err) => { console.error("[KB] Create article error:", err.message, err); setSaveError(err.message); },
   });
   const updateA = trpc.knowledge.adminUpdateArticle.useMutation({
-    onSuccess: () => { utils.knowledge.adminListArticles.invalidate(); setSaveError(null); setEditing(null); },
-    onError: (err) => { setSaveError(err.message); },
+    onSuccess: (data) => { console.log("[KB] Article updated:", data); utils.knowledge.adminListArticles.invalidate(); setSaveError(null); setEditing(null); },
+    onError: (err) => { console.error("[KB] Update article error:", err.message, err); setSaveError(err.message); },
   });
   const deleteA = trpc.knowledge.adminDeleteArticle.useMutation({
-    onSuccess: () => { utils.knowledge.adminListArticles.invalidate(); setSaveError(null); setEditing(null); },
-    onError: (err) => { setSaveError(err.message); },
+    onSuccess: () => { console.log("[KB] Article deleted"); utils.knowledge.adminListArticles.invalidate(); setSaveError(null); setEditing(null); },
+    onError: (err) => { console.error("[KB] Delete article error:", err.message, err); setSaveError(err.message); },
   });
 
   // Fetch full article with tag_ids when editing existing article
@@ -264,11 +264,13 @@ function ArticlesTab() {
   }
 
   function handleSave(statusOverride?: "draft" | "published") {
-    if (!editing?.title) { setSaveError("Укажите заголовок статьи"); return; }
-    if (!editing?.content) { setSaveError("Укажите содержимое статьи"); return; }
+    console.log("[KB] handleSave called, statusOverride:", statusOverride, "editing:", { id: editing?.id, title: editing?.title, content: editing?.content?.slice(0, 50), status: editing?.status, category_id: editing?.category_id });
+    if (!editing?.title) { setSaveError("Укажите заголовок статьи"); console.warn("[KB] Blocked: empty title"); return; }
+    if (!editing?.content) { setSaveError("Укажите содержимое статьи"); console.warn("[KB] Blocked: empty content"); return; }
     setSaveError(null);
     const slug = editing.slug || slugify(editing.title);
     const status = statusOverride ?? editing.status ?? "draft";
+    console.log("[KB] Sending mutation, isNew:", !editing.id, "status:", status, "slug:", slug);
     const base = {
       title: editing.title,
       slug,

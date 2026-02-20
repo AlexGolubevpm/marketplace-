@@ -1,20 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { eq } from "drizzle-orm";
+import bcrypt from "bcryptjs";
+
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
+const BCRYPT_ROUNDS = 12;
+
+function validateEmail(email: string): boolean {
+  return EMAIL_REGEX.test(email.trim().toLowerCase());
+}
 
 // POST /api/auth — login or register by email for customer/carrier
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { email, password, role, mode, name, company } = body;
+    const { email: rawEmail, password, role, mode, name, company } = body;
 
-    if (!email || !password || !role) {
+    if (!rawEmail || !password || !role) {
       return NextResponse.json({ error: "email, password, role required" }, { status: 400 });
+    }
+
+    const email = rawEmail.trim().toLowerCase();
+
+    if (!validateEmail(email)) {
+      return NextResponse.json({ error: "Некорректный формат email" }, { status: 400 });
+    }
+
+    if (typeof password !== "string" || password.length < 8) {
+      return NextResponse.json({ error: "Пароль должен быть не менее 8 символов" }, { status: 400 });
     }
 
     if (role === "customer") {
       if (mode === "register") {
-        // Check if customer with this email already exists
         const [existing] = await db
           .select({ id: schema.customers.id })
           .from(schema.customers)
@@ -25,12 +42,13 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ error: "Пользователь с таким email уже существует" }, { status: 409 });
         }
 
-        // Create new customer
+        const password_hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+
         const [customer] = await db
           .insert(schema.customers)
           .values({
             email,
-            password_hash: password,
+            password_hash,
             full_name: name || email.split("@")[0],
             company_name: company || null,
           })
@@ -50,11 +68,12 @@ export async function POST(req: NextRequest) {
         .where(eq(schema.customers.email, email))
         .limit(1);
 
-      if (!customer) {
+      if (!customer || !customer.password_hash) {
         return NextResponse.json({ error: "Неверный email или пароль" }, { status: 401 });
       }
 
-      if (customer.password_hash !== password) {
+      const valid = await bcrypt.compare(password, customer.password_hash);
+      if (!valid) {
         return NextResponse.json({ error: "Неверный email или пароль" }, { status: 401 });
       }
 
@@ -73,11 +92,13 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ error: "Карго с таким email уже существует" }, { status: 409 });
         }
 
+        const password_hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+
         const [carrier] = await db
           .insert(schema.carriers)
           .values({
             contact_email: email,
-            password_hash: password,
+            password_hash,
             name: company || email.split("@")[0],
             contact_name: name || email.split("@")[0],
             contact_phone: body.phone || "",
@@ -98,11 +119,12 @@ export async function POST(req: NextRequest) {
         .where(eq(schema.carriers.contact_email, email))
         .limit(1);
 
-      if (!carrier) {
+      if (!carrier || !carrier.password_hash) {
         return NextResponse.json({ error: "Неверный email или пароль" }, { status: 401 });
       }
 
-      if (carrier.password_hash !== password) {
+      const valid = await bcrypt.compare(password, carrier.password_hash);
+      if (!valid) {
         return NextResponse.json({ error: "Неверный email или пароль" }, { status: 401 });
       }
 

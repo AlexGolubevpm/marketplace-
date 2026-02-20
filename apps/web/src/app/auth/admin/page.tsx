@@ -11,18 +11,37 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (login === "admin" && password === "admin123") {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/admin-auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ login, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Ошибка входа");
+        return;
+      }
       localStorage.setItem("cargo_admin_session", JSON.stringify({
         logged_in: true,
-        login: "admin",
-        role: "super_admin",
+        id: data.id,
+        email: data.email,
+        full_name: data.full_name,
+        role: data.role,
+        sig: data.sig,
         login_at: new Date().toISOString(),
       }));
-      router.push("/dashboard");
-    } else {
-      setError("Неверный логин или пароль");
+      router.push("/admin/dashboard");
+    } catch {
+      setError("Ошибка сети");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -68,8 +87,8 @@ export default function AdminLoginPage() {
               />
             </div>
             {error && <p className="text-sm text-red-400">{error}</p>}
-            <button type="submit" className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-500 text-white font-semibold hover:shadow-[0_0_30px_rgba(6,182,212,0.25)] transition-all active:scale-[0.98]">
-              Войти
+            <button type="submit" disabled={loading} className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-500 text-white font-semibold hover:shadow-[0_0_30px_rgba(6,182,212,0.25)] transition-all active:scale-[0.98] disabled:opacity-50">
+              {loading ? "Вход..." : "Войти"}
             </button>
           </form>
         </div>

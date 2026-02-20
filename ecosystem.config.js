@@ -30,6 +30,9 @@ const botEnv = loadEnv(path.join(__dirname, "apps/bot/.env"));
 const DATABASE_URL = webEnv.DATABASE_URL || rootEnv.DATABASE_URL || process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/cargo_marketplace";
 const TELEGRAM_BOT_TOKEN = botEnv.TELEGRAM_BOT_TOKEN || rootEnv.TELEGRAM_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || "";
 const APP_URL = webEnv.NEXT_PUBLIC_APP_URL || rootEnv.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://cargomarketplace.ru";
+const JWT_SECRET = webEnv.JWT_SECRET || rootEnv.JWT_SECRET || process.env.JWT_SECRET || "";
+const YANDEX_CLIENT_ID = webEnv.YANDEX_CLIENT_ID || rootEnv.YANDEX_CLIENT_ID || process.env.YANDEX_CLIENT_ID || "";
+const YANDEX_CLIENT_SECRET = webEnv.YANDEX_CLIENT_SECRET || rootEnv.YANDEX_CLIENT_SECRET || process.env.YANDEX_CLIENT_SECRET || "";
 
 module.exports = {
   apps: [
@@ -45,6 +48,9 @@ module.exports = {
         PORT: 3000,
         DATABASE_URL,
         NEXT_PUBLIC_APP_URL: APP_URL,
+        JWT_SECRET,
+        YANDEX_CLIENT_ID,
+        YANDEX_CLIENT_SECRET,
       },
       max_restarts: 10,
       min_uptime: "10s",

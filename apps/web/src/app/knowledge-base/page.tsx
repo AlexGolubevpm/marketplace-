@@ -1,11 +1,9 @@
-import { KnowledgeBasePublic } from "./kb-public";
+import { redirect } from "next/navigation";
 
-export const metadata = {
-  title: "База знаний — Импорт из Китая в Россию | Cargo Market",
-  description:
-    "Полное руководство по импорту товаров из Китая в Россию: документы, таможня, ТН ВЭД, НДС, логистика, сертификация ЕАС и маркировка.",
-};
-
+/**
+ * Legacy /knowledge-base page — permanently redirect to the new SEO-optimized /knowledge hub.
+ * Middleware also handles the 301, but this is a safety net for direct renders.
+ */
 export default function Page() {
-  return <KnowledgeBasePublic />;
+  redirect("/knowledge");
 }

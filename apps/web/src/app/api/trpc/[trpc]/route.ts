@@ -1,5 +1,7 @@
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
+import { revalidatePath } from "next/cache";
 import { appRouter, type Context } from "@cargo/api";
+import { verifyAdminSession } from "@/lib/admin-session";
 
 let db: any = null;
 
@@ -22,8 +24,22 @@ function extractAdmin(req: Request): Context["admin"] {
     if (!header) return null;
     const session = JSON.parse(header);
     if (!session.logged_in) return null;
+    if (!session.id) return null;
+
+    // Verify HMAC signature — reject tampered sessions
+    if (
+      !session.sig ||
+      !verifyAdminSession(
+        { id: session.id, email: session.email || "", role: session.role || "" },
+        session.sig
+      )
+    ) {
+      console.warn("[tRPC] Admin session HMAC verification failed");
+      return null;
+    }
+
     return {
-      id: session.id || "00000000-0000-0000-0000-000000000000",
+      id: session.id,
       email: session.email || session.login || "admin",
       full_name: session.full_name || session.login || "Admin",
       role: session.role || "super_admin",
@@ -33,15 +49,33 @@ function extractAdmin(req: Request): Context["admin"] {
   }
 }
 
+function getClientIp(req: Request): string {
+  return (
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    req.headers.get("x-real-ip") ||
+    "unknown"
+  );
+}
+
 const handler = (req: Request) =>
   fetchRequestHandler({
     endpoint: "/api/trpc",
     req,
     router: appRouter,
-    createContext: (): Context => ({
-      db: getDb(),
-      admin: extractAdmin(req),
-    }),
+    createContext: (): Context => {
+      const database = getDb();
+      const admin = extractAdmin(req);
+      if (!database) console.error("[tRPC] Database is NULL — DB not connected!");
+      return {
+        db: database,
+        admin,
+        revalidate: revalidatePath,
+        clientIp: getClientIp(req),
+      };
+    },
+    onError: ({ path, error }) => {
+      console.error(`[tRPC] Error in ${path}:`, error.message);
+    },
   });
 
 export { handler as GET, handler as POST };

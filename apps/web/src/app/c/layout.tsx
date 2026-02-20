@@ -13,7 +13,7 @@ const navItems = [
   { href: "/c/requests/new", label: "Создать", icon: PlusCircle },
   { href: "/c/archive", label: "Архив", icon: Archive },
   { href: "/c/chats", label: "Чаты", icon: MessageSquare },
-  { href: "/knowledge-base", label: "База знаний", icon: BookOpen },
+  { href: "/knowledge", label: "База знаний", icon: BookOpen },
   { href: "/c/profile", label: "Профиль", icon: User },
 ];
 

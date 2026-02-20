@@ -10,6 +10,14 @@ import {
 
 export const revalidate = 3600; // ISR: revalidate every hour
 
+function pluralArticles(n: number): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return `${n} статья`;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return `${n} статьи`;
+  return `${n} статей`;
+}
+
 export const metadata: Metadata = {
   title: "База знаний — доставка из Китая | Cargo Marketplace",
   description:
@@ -126,7 +134,7 @@ export default async function KnowledgePage() {
                         {cat.title}
                       </p>
                       <p className="text-xs text-gray-500 mt-0.5">
-                        {cat.article_count} статей
+                        {pluralArticles(cat.article_count ?? 0)}
                       </p>
                     </div>
                   </Link>
@@ -175,7 +183,7 @@ export default async function KnowledgePage() {
                       )}
                       <div className="mt-3 flex items-center justify-between">
                         <span className="text-xs text-gray-400">
-                          {cat.article_count} статей
+                          {pluralArticles(cat.article_count ?? 0)}
                         </span>
                         <span className="text-xs font-medium text-red-600 group-hover:underline">
                           Читать →

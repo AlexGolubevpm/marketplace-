@@ -1,0 +1,16 @@
+{
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "botToken": "${TELEGRAM_BOT_TOKEN}"
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "openrouter/deepseek/deepseek-r1-0528",
+        "fallbacks": ["openrouter/deepseek/deepseek-r1"]
+      }
+    }
+  }
+}

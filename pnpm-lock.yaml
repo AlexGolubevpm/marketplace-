@@ -111,6 +111,9 @@ importers:
       '@trpc/server':
         specifier: ^11.0.0
         version: 11.10.0(typescript@5.9.3)
+      bcryptjs:
+        specifier: ^3.0.3
+        version: 3.0.3
       class-variance-authority:
         specifier: ^0.7.0
         version: 0.7.1
@@ -132,6 +135,9 @@ importers:
       next:
         specifier: ^15.1.0
         version: 15.5.12(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      nodemailer:
+        specifier: ^8.0.1
+        version: 8.0.1
       postgres:
         specifier: ^3.4.0
         version: 3.4.8
@@ -160,9 +166,15 @@ importers:
         specifier: ^3.24.0
         version: 3.25.76
     devDependencies:
+      '@types/bcryptjs':
+        specifier: ^3.0.0
+        version: 3.0.0
       '@types/node':
         specifier: ^22.10.0
         version: 22.19.11
+      '@types/nodemailer':
+        specifier: ^7.0.10
+        version: 7.0.10
       '@types/react':
         specifier: ^19.0.0
         version: 19.2.14
@@ -1630,6 +1642,10 @@ packages:
     peerDependencies:
       typescript: '>=5.7.2'
 
+  '@types/bcryptjs@3.0.0':
+    resolution: {integrity: sha512-WRZOuCuaz8UcZZE4R5HXTco2goQSI2XxjGY3hbM/xDvwmqFWd4ivooImsMx65OKM6CtNKbnZ5YL+YwAwK7c1dg==}
+    deprecated: This is a stub types definition. bcryptjs provides its own type definitions, so you do not need this installed.
+
   '@types/chai@5.2.3':
     resolution: {integrity: sha512-Mw558oeA9fFbv65/y4mHtXDs9bPnFMZAL/jxdPFUpOHHIXX91mcgEHbS5Lahr+pwZFR8A7GQleRWeI6cGFC2UA==}
 
@@ -1668,6 +1684,9 @@ packages:
 
   '@types/node@22.19.11':
     resolution: {integrity: sha512-BH7YwL6rA93ReqeQS1c4bsPpcfOmJasG+Fkr6Y59q83f9M1WcBRHR2vM+P9eOisYRcN3ujQoiZY8uk5W+1WL8w==}
+
+  '@types/nodemailer@7.0.10':
+    resolution: {integrity: sha512-tP+9WggTFN22Zxh0XFyst7239H0qwiRCogsk7v9aQS79sYAJY+WEbTHbNYcxUMaalHKmsNpxmoTe35hBEMMd6g==}
 
   '@types/react-dom@19.2.3':
     resolution: {integrity: sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ==}
@@ -1737,6 +1756,10 @@ packages:
 
   baseline-browser-mapping@2.9.19:
     resolution: {integrity: sha512-ipDqC8FrAl/76p2SSWKSI+H9tFwm7vYqXQrItCuiVPt26Km0jS+NzSsBWAaBusvSbQcfJG+JitdMm+wZAgTYqg==}
+    hasBin: true
+
+  bcryptjs@3.0.3:
+    resolution: {integrity: sha512-GlF5wPWnSa/X5LKM1o0wz0suXIINz1iHRLvTS+sLyi7XPbe5ycmYI3DlZqVGZZtDgl4DmasFg7gOB3JYbphV5g==}
     hasBin: true
 
   binary-extensions@2.3.0:
@@ -2257,6 +2280,10 @@ packages:
 
   node-releases@2.0.27:
     resolution: {integrity: sha512-nmh3lCkYZ3grZvqcCH+fjmQ7X+H0OeZgP40OierEaAptX4XofMh5kwNbWh7lBduUzCcV/8kZ+NDLCwm2iorIlA==}
+
+  nodemailer@8.0.1:
+    resolution: {integrity: sha512-5kcldIXmaEjZcHR6F28IKGSgpmZHaF1IXLWFTG+Xh3S+Cce4MiakLtWY+PlBU69fLbRa8HlaGIrC/QolUpHkhg==}
+    engines: {node: '>=6.0.0'}
 
   normalize-path@3.0.0:
     resolution: {integrity: sha512-6eZs5Ls3WtCisHWp9S2GUy8dqkpGi4BVSz3GaqiE6ezub0512ESztXUwUB6C6IKbQkY2Pnb/mD4WYojCRwcwLA==}
@@ -3788,6 +3815,10 @@ snapshots:
     dependencies:
       typescript: 5.9.3
 
+  '@types/bcryptjs@3.0.0':
+    dependencies:
+      bcryptjs: 3.0.3
+
   '@types/chai@5.2.3':
     dependencies:
       '@types/deep-eql': 4.0.2
@@ -3824,6 +3855,10 @@ snapshots:
   '@types/node@22.19.11':
     dependencies:
       undici-types: 6.21.0
+
+  '@types/nodemailer@7.0.10':
+    dependencies:
+      '@types/node': 22.19.11
 
   '@types/react-dom@19.2.3(@types/react@19.2.14)':
     dependencies:
@@ -3901,6 +3936,8 @@ snapshots:
       postcss-value-parser: 4.2.0
 
   baseline-browser-mapping@2.9.19: {}
+
+  bcryptjs@3.0.3: {}
 
   binary-extensions@2.3.0: {}
 
@@ -4384,6 +4421,8 @@ snapshots:
     optional: true
 
   node-releases@2.0.27: {}
+
+  nodemailer@8.0.1: {}
 
   normalize-path@3.0.0: {}
 

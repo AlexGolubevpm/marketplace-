@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { eq, asc, desc, and, inArray, sql } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
+import { eq, asc, desc, and, inArray, sql, getTableColumns } from "drizzle-orm";
 import { router, publicProcedure, protectedProcedure, withRole } from "../trpc";
 import {
   knowledgeCategories,
@@ -13,6 +14,32 @@ import {
 const faqItemSchema = z.object({ question: z.string(), answer: z.string() });
 const sourceSchema = z.object({ title: z.string(), url: z.string() });
 
+// ── Rate limiter for search ─────────────────────────────────────────────────────
+const SEARCH_RATE_WINDOW = 60_000; // 1 minute
+const SEARCH_RATE_MAX = 30; // max requests per window per IP
+const searchBuckets = new Map<string, number[]>();
+
+// Sweep stale buckets every 5 min to avoid memory leaks
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, ts] of searchBuckets) {
+    const recent = ts.filter((t) => now - t < SEARCH_RATE_WINDOW);
+    if (recent.length === 0) searchBuckets.delete(ip);
+    else searchBuckets.set(ip, recent);
+  }
+}, 5 * 60_000);
+
+function checkSearchRate(ip: string): boolean {
+  const now = Date.now();
+  const timestamps = (searchBuckets.get(ip) ?? []).filter(
+    (t) => now - t < SEARCH_RATE_WINDOW
+  );
+  if (timestamps.length >= SEARCH_RATE_MAX) return false;
+  timestamps.push(now);
+  searchBuckets.set(ip, timestamps);
+  return true;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // PUBLIC PROCEDURES
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -20,30 +47,22 @@ const sourceSchema = z.object({ title: z.string(), url: z.string() });
 export const knowledgeRouter = router({
   // ── Categories (public) ─────────────────────────────────────────────────────
   getCategories: publicProcedure.query(async ({ ctx }) => {
-    const categories = await ctx.db
-      .select()
-      .from(knowledgeCategories)
-      .where(eq(knowledgeCategories.is_active, true))
-      .orderBy(asc(knowledgeCategories.order));
-
-    // Count published articles per category
-    const counts = await ctx.db
+    return ctx.db
       .select({
-        category_id: knowledgeArticles.category_id,
-        count: sql<number>`count(*)`.mapWith(Number),
+        ...getTableColumns(knowledgeCategories),
+        article_count: sql<number>`count(${knowledgeArticles.id})`.mapWith(Number),
       })
-      .from(knowledgeArticles)
-      .where(eq(knowledgeArticles.status, "published"))
-      .groupBy(knowledgeArticles.category_id);
-
-    const countMap = Object.fromEntries(
-      counts.map((c) => [c.category_id, c.count])
-    );
-
-    return categories.map((cat) => ({
-      ...cat,
-      article_count: countMap[cat.id] ?? 0,
-    }));
+      .from(knowledgeCategories)
+      .leftJoin(
+        knowledgeArticles,
+        and(
+          eq(knowledgeArticles.category_id, knowledgeCategories.id),
+          eq(knowledgeArticles.status, "published")
+        )
+      )
+      .where(eq(knowledgeCategories.is_active, true))
+      .groupBy(knowledgeCategories.id)
+      .orderBy(asc(knowledgeCategories.order));
   }),
 
   getCategoryBySlug: publicProcedure
@@ -93,56 +112,44 @@ export const knowledgeRouter = router({
 
       if (!article) return null;
 
-      // Fetch category
-      const category = article.category_id
-        ? await ctx.db
-            .select()
-            .from(knowledgeCategories)
-            .where(eq(knowledgeCategories.id, article.category_id))
-            .limit(1)
-            .then((r) => r[0] ?? null)
-        : null;
-
-      // Fetch tags
-      const tagJoins = await ctx.db
-        .select({ tag_id: knowledgeArticleTags.tag_id })
-        .from(knowledgeArticleTags)
-        .where(eq(knowledgeArticleTags.article_id, article.id));
-
-      const tags =
-        tagJoins.length > 0
-          ? await ctx.db
+      // Parallel fetch: category, tags (single JOIN), related
+      const [category, tags, related] = await Promise.all([
+        article.category_id
+          ? ctx.db
               .select()
-              .from(knowledgeTags)
+              .from(knowledgeCategories)
+              .where(eq(knowledgeCategories.id, article.category_id))
+              .limit(1)
+              .then((r) => r[0] ?? null)
+          : Promise.resolve(null),
+
+        ctx.db
+          .select(getTableColumns(knowledgeTags))
+          .from(knowledgeArticleTags)
+          .innerJoin(knowledgeTags, eq(knowledgeTags.id, knowledgeArticleTags.tag_id))
+          .where(eq(knowledgeArticleTags.article_id, article.id)),
+
+        article.category_id
+          ? ctx.db
+              .select({
+                id: knowledgeArticles.id,
+                title: knowledgeArticles.title,
+                slug: knowledgeArticles.slug,
+                description: knowledgeArticles.description,
+                published_at: knowledgeArticles.published_at,
+              })
+              .from(knowledgeArticles)
               .where(
-                inArray(
-                  knowledgeTags.id,
-                  tagJoins.map((j) => j.tag_id)
+                and(
+                  eq(knowledgeArticles.category_id, article.category_id),
+                  eq(knowledgeArticles.status, "published"),
+                  sql`${knowledgeArticles.id} != ${article.id}`
                 )
               )
-          : [];
-
-      // Fetch related articles (same category, published)
-      const related = article.category_id
-        ? await ctx.db
-            .select({
-              id: knowledgeArticles.id,
-              title: knowledgeArticles.title,
-              slug: knowledgeArticles.slug,
-              description: knowledgeArticles.description,
-              published_at: knowledgeArticles.published_at,
-            })
-            .from(knowledgeArticles)
-            .where(
-              and(
-                eq(knowledgeArticles.category_id, article.category_id),
-                eq(knowledgeArticles.status, "published"),
-                sql`${knowledgeArticles.id} != ${article.id}`
-              )
-            )
-            .orderBy(desc(knowledgeArticles.published_at))
-            .limit(4)
-        : [];
+              .orderBy(desc(knowledgeArticles.published_at))
+              .limit(4)
+          : Promise.resolve([]),
+      ]);
 
       return { ...article, category, tags, related };
     }),
@@ -245,16 +252,23 @@ export const knowledgeRouter = router({
       .where(
         and(
           eq(knowledgeArticles.status, "published"),
-          sql`jsonb_array_length(${knowledgeArticles.faq_items}) > 0`
+          sql`${knowledgeArticles.faq_items} IS NOT NULL AND jsonb_array_length(${knowledgeArticles.faq_items}) > 0`
         )
       );
     return articles;
   }),
 
-  // Search
+  // Search (rate-limited)
   search: publicProcedure
     .input(z.object({ q: z.string().min(1), limit: z.number().default(20) }))
     .query(async ({ ctx, input }) => {
+      const ip = ctx.clientIp ?? "unknown";
+      if (!checkSearchRate(ip)) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: "Слишком много запросов. Попробуйте через минуту.",
+        });
+      }
       const q = `%${input.q}%`;
       return ctx.db
         .select({
@@ -288,27 +302,18 @@ export const knowledgeRouter = router({
 
   // ── Categories (admin) ──────────────────────────────────────────────────────
   adminListCategories: protectedProcedure.query(async ({ ctx }) => {
-    const categories = await ctx.db
-      .select()
-      .from(knowledgeCategories)
-      .orderBy(asc(knowledgeCategories.order));
-
-    const counts = await ctx.db
+    return ctx.db
       .select({
-        category_id: knowledgeArticles.category_id,
-        count: sql<number>`count(*)`.mapWith(Number),
+        ...getTableColumns(knowledgeCategories),
+        article_count: sql<number>`count(${knowledgeArticles.id})`.mapWith(Number),
       })
-      .from(knowledgeArticles)
-      .groupBy(knowledgeArticles.category_id);
-
-    const countMap = Object.fromEntries(
-      counts.map((c) => [c.category_id, c.count])
-    );
-
-    return categories.map((cat) => ({
-      ...cat,
-      article_count: countMap[cat.id] ?? 0,
-    }));
+      .from(knowledgeCategories)
+      .leftJoin(
+        knowledgeArticles,
+        eq(knowledgeArticles.category_id, knowledgeCategories.id)
+      )
+      .groupBy(knowledgeCategories.id)
+      .orderBy(asc(knowledgeCategories.order));
   }),
 
   adminCreateCategory: protectedProcedure
@@ -332,6 +337,7 @@ export const knowledgeRouter = router({
         .insert(knowledgeCategories)
         .values(input)
         .returning();
+      ctx.revalidate?.("/knowledge", "layout");
       return cat;
     }),
 
@@ -373,6 +379,7 @@ export const knowledgeRouter = router({
         .set({ ...data, updated_at: new Date() })
         .where(eq(knowledgeCategories.id, id))
         .returning();
+      ctx.revalidate?.("/knowledge", "layout");
       return cat;
     }),
 
@@ -383,6 +390,7 @@ export const knowledgeRouter = router({
       await ctx.db
         .delete(knowledgeCategories)
         .where(eq(knowledgeCategories.id, input.id));
+      ctx.revalidate?.("/knowledge", "layout");
       return { success: true };
     }),
 
@@ -448,7 +456,6 @@ export const knowledgeRouter = router({
         .insert(knowledgeArticles)
         .values({
           ...articleData,
-          created_by: ctx.admin?.id,
           published_at:
             articleData.status === "published" ? new Date() : undefined,
         })
@@ -474,6 +481,7 @@ export const knowledgeRouter = router({
         }
       }
 
+      ctx.revalidate?.("/knowledge", "layout");
       return article;
     }),
 
@@ -561,6 +569,7 @@ export const knowledgeRouter = router({
         }
       }
 
+      ctx.revalidate?.("/knowledge", "layout");
       return article;
     }),
 
@@ -571,6 +580,7 @@ export const knowledgeRouter = router({
       await ctx.db
         .delete(knowledgeArticles)
         .where(eq(knowledgeArticles.id, input.id));
+      ctx.revalidate?.("/knowledge", "layout");
       return { success: true };
     }),
 
