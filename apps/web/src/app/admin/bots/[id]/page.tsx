@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { trpc } from "@/trpc/client";
 import { PageHeader } from "@/components/page-header";
@@ -14,7 +14,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowLeft,
   Save,
-  Bot,
   Eye,
   EyeOff,
   Plus,
@@ -22,11 +21,24 @@ import {
   FileCode,
   Copy,
   Check,
+  Webhook,
+  RefreshCw,
+  Trash2,
+  MessageSquare,
+  AlertCircle,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
+
+type Skill = {
+  name: string;
+  description: string;
+  triggers: string[];
+  code: string;
+};
 
 export default function BotDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const botId = params.id as string;
 
   const utils = trpc.useUtils();
@@ -39,33 +51,70 @@ export default function BotDetailPage() {
       setTimeout(() => setSaved(false), 2000);
     },
   });
-  const { data: generatedConfig } = trpc.bots.generateConfig.useQuery(
+  const { data: generatedConfig, refetch: refetchConfig } = trpc.bots.generateConfig.useQuery(
     { id: botId },
     { enabled: !!bot }
   );
+  const { data: webhookInfo, refetch: refetchWebhook } = trpc.bots.getWebhookInfo.useQuery(
+    { id: botId },
+    { enabled: !!bot }
+  );
+  const { data: logs, refetch: refetchLogs } = trpc.bots.getLogs.useQuery(
+    { bot_id: botId, limit: 100 },
+    { enabled: !!bot }
+  );
+
+  const setWebhookMutation = trpc.bots.setWebhook.useMutation({
+    onSuccess: () => {
+      refetchWebhook();
+      setWebhookResult({ ok: true, message: "Webhook успешно установлен" });
+    },
+    onError: (e) => {
+      setWebhookResult({ ok: false, message: e.message });
+    },
+  });
+
+  const clearLogsMutation = trpc.bots.clearLogs.useMutation({
+    onSuccess: () => refetchLogs(),
+  });
 
   const [saved, setSaved] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
 
-  // Form state
+  // General
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [telegramToken, setTelegramToken] = useState("");
   const [telegramUsername, setTelegramUsername] = useState("");
   const [showToken, setShowToken] = useState(false);
+
+  // Model
   const [openrouterKey, setOpenrouterKey] = useState("");
   const [showApiKey, setShowApiKey] = useState(false);
   const [modelPrimary, setModelPrimary] = useState("");
   const [modelFallbacks, setModelFallbacks] = useState<string[]>([]);
   const [newFallback, setNewFallback] = useState("");
   const [heartbeat, setHeartbeat] = useState("");
+  const [maxTokens, setMaxTokens] = useState<string>("");
+  const [temperature, setTemperature] = useState<string>("");
+
+  // Prompts
   const [soulMd, setSoulMd] = useState("");
   const [agentsMd, setAgentsMd] = useState("");
+
+  // Skills
+  const [skills, setSkills] = useState<Skill[]>([]);
+  const [expandedSkill, setExpandedSkill] = useState<number | null>(null);
+
+  // Env
   const [extraEnv, setExtraEnv] = useState<Record<string, string>>({});
   const [newEnvKey, setNewEnvKey] = useState("");
   const [newEnvValue, setNewEnvValue] = useState("");
 
-  // Initialize form from bot data
+  // Webhook
+  const [webhookUrl, setWebhookUrl] = useState("");
+  const [webhookResult, setWebhookResult] = useState<{ ok: boolean; message: string } | null>(null);
+
   useEffect(() => {
     if (bot) {
       setName(bot.name);
@@ -76,9 +125,13 @@ export default function BotDetailPage() {
       setModelPrimary(bot.model_primary);
       setModelFallbacks((bot.model_fallbacks as string[]) || []);
       setHeartbeat(bot.heartbeat_interval || "");
+      setMaxTokens(bot.max_tokens != null ? String(bot.max_tokens) : "");
+      setTemperature(bot.temperature != null ? String(bot.temperature) : "");
       setSoulMd(bot.soul_md || "");
       setAgentsMd(bot.agents_md || "");
+      setSkills((bot.skills as Skill[]) || []);
       setExtraEnv((bot.extra_env as Record<string, string>) || {});
+      setWebhookUrl((bot as any).webhook_url || "");
     }
   }, [bot]);
 
@@ -101,30 +154,21 @@ export default function BotDetailPage() {
       model_primary: modelPrimary,
       model_fallbacks: modelFallbacks,
       heartbeat_interval: heartbeat || undefined,
+      max_tokens: maxTokens ? parseInt(maxTokens, 10) : null,
+      temperature: temperature !== "" ? parseFloat(temperature) : null,
     });
   };
 
-  const handleSavePrompt = () => {
-    handleSave({ soul_md: soulMd });
-  };
-
-  const handleSaveInstructions = () => {
-    handleSave({ agents_md: agentsMd });
-  };
-
-  const handleSaveEnv = () => {
-    handleSave({ extra_env: extraEnv });
-  };
+  const handleSavePrompt = () => handleSave({ soul_md: soulMd });
+  const handleSaveInstructions = () => handleSave({ agents_md: agentsMd });
+  const handleSaveSkills = () => handleSave({ skills });
+  const handleSaveEnv = () => handleSave({ extra_env: extraEnv });
 
   const addFallback = () => {
     if (newFallback && !modelFallbacks.includes(newFallback)) {
       setModelFallbacks([...modelFallbacks, newFallback]);
       setNewFallback("");
     }
-  };
-
-  const removeFallback = (idx: number) => {
-    setModelFallbacks(modelFallbacks.filter((_, i) => i !== idx));
   };
 
   const addEnvVar = () => {
@@ -135,24 +179,42 @@ export default function BotDetailPage() {
     }
   };
 
-  const removeEnvVar = (key: string) => {
-    const next = { ...extraEnv };
-    delete next[key];
-    setExtraEnv(next);
+  const addSkill = () => {
+    const newSkill: Skill = {
+      name: `skill-${skills.length + 1}`,
+      description: "",
+      triggers: ["/skill"],
+      code: `export const meta = {\n  name: "skill-${skills.length + 1}",\n  description: "",\n  triggers: ["/skill"],\n};\n\nexport async function run({ message, llm, http, reply, env }) {\n  await reply("Hello!");\n}\n`,
+    };
+    setSkills([...skills, newSkill]);
+    setExpandedSkill(skills.length);
   };
 
-  const copyConfig = async () => {
-    if (generatedConfig) {
-      await navigator.clipboard.writeText(generatedConfig.openclawJson);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
+  const updateSkill = (idx: number, patch: Partial<Skill>) => {
+    setSkills(skills.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
+  };
+
+  const removeSkill = (idx: number) => {
+    setSkills(skills.filter((_, i) => i !== idx));
+    setExpandedSkill(null);
+  };
+
+  const copyText = async (text: string, key: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopied(key);
+    setTimeout(() => setCopied(null), 2000);
   };
 
   const maskToken = (token: string) => {
     if (!token) return "";
     if (token.length <= 8) return "****";
     return token.substring(0, 4) + "****" + token.substring(token.length - 4);
+  };
+
+  const handleSetWebhook = () => {
+    if (!webhookUrl) return;
+    setWebhookResult(null);
+    setWebhookMutation.mutate({ id: botId, webhook_url: webhookUrl });
   };
 
   if (isLoading) {
@@ -217,12 +279,17 @@ export default function BotDetailPage() {
       )}
 
       <Tabs defaultValue="general">
-        <TabsList>
+        <TabsList className="flex-wrap">
           <TabsTrigger value="general">Основное</TabsTrigger>
           <TabsTrigger value="model">Модель</TabsTrigger>
-          <TabsTrigger value="prompt">Промпт (SOUL.md)</TabsTrigger>
-          <TabsTrigger value="instructions">Инструкции (AGENTS.md)</TabsTrigger>
+          <TabsTrigger value="prompt">SOUL.md</TabsTrigger>
+          <TabsTrigger value="instructions">AGENTS.md</TabsTrigger>
+          <TabsTrigger value="skills">Навыки</TabsTrigger>
           <TabsTrigger value="env">Переменные</TabsTrigger>
+          <TabsTrigger value="webhook">Webhook</TabsTrigger>
+          <TabsTrigger value="logs">
+            Логи {logs && logs.length > 0 && <span className="ml-1 text-xs text-gray-400">({logs.length})</span>}
+          </TabsTrigger>
           <TabsTrigger value="config">Конфиг</TabsTrigger>
         </TabsList>
 
@@ -247,19 +314,12 @@ export default function BotDetailPage() {
                 <Input
                   type={showToken ? "text" : "password"}
                   value={showToken ? telegramToken : maskToken(telegramToken)}
-                  onChange={(e) => {
-                    if (showToken) setTelegramToken(e.target.value);
-                  }}
+                  onChange={(e) => { if (showToken) setTelegramToken(e.target.value); }}
                   onFocus={() => setShowToken(true)}
                   placeholder="123456:ABC-DEF..."
                   className="font-mono"
                 />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowToken(!showToken)}
-                  className="shrink-0"
-                >
+                <Button variant="outline" size="sm" onClick={() => setShowToken(!showToken)} className="shrink-0">
                   {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </Button>
               </div>
@@ -291,19 +351,12 @@ export default function BotDetailPage() {
                 <Input
                   type={showApiKey ? "text" : "password"}
                   value={showApiKey ? openrouterKey : maskToken(openrouterKey)}
-                  onChange={(e) => {
-                    if (showApiKey) setOpenrouterKey(e.target.value);
-                  }}
+                  onChange={(e) => { if (showApiKey) setOpenrouterKey(e.target.value); }}
                   onFocus={() => setShowApiKey(true)}
                   placeholder="sk-or-..."
                   className="font-mono"
                 />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowApiKey(!showApiKey)}
-                  className="shrink-0"
-                >
+                <Button variant="outline" size="sm" onClick={() => setShowApiKey(!showApiKey)} className="shrink-0">
                   {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </Button>
               </div>
@@ -338,12 +391,8 @@ export default function BotDetailPage() {
               <Label>Fallback модели</Label>
               {modelFallbacks.map((fb, idx) => (
                 <div key={idx} className="flex items-center gap-2">
-                  <Input
-                    value={fb}
-                    readOnly
-                    className="font-mono text-sm bg-gray-50"
-                  />
-                  <Button variant="ghost" size="sm" onClick={() => removeFallback(idx)}>
+                  <Input value={fb} readOnly className="font-mono text-sm bg-gray-50" />
+                  <Button variant="ghost" size="sm" onClick={() => setModelFallbacks(modelFallbacks.filter((_, i) => i !== idx))}>
                     <X className="h-4 w-4 text-red-400" />
                   </Button>
                 </div>
@@ -359,6 +408,35 @@ export default function BotDetailPage() {
                 <Button variant="outline" size="sm" onClick={addFallback} disabled={!newFallback}>
                   <Plus className="h-4 w-4" />
                 </Button>
+              </div>
+            </div>
+
+            {/* max_tokens + temperature */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Max Tokens</Label>
+                <Input
+                  type="number"
+                  value={maxTokens}
+                  onChange={(e) => setMaxTokens(e.target.value)}
+                  placeholder="31000"
+                  min={1}
+                  max={200000}
+                />
+                <p className="text-xs text-gray-400">Контекстное окно ответа. Пусто = дефолт модели</p>
+              </div>
+              <div className="space-y-2">
+                <Label>Temperature</Label>
+                <Input
+                  type="number"
+                  value={temperature}
+                  onChange={(e) => setTemperature(e.target.value)}
+                  placeholder="0.7"
+                  min={0}
+                  max={2}
+                  step={0.1}
+                />
+                <p className="text-xs text-gray-400">0 — точный, 1 — творческий, 2 — максимум</p>
               </div>
             </div>
 
@@ -385,16 +463,14 @@ export default function BotDetailPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-semibold text-gray-900">SOUL.md — Личность бота</h3>
-                <p className="text-sm text-gray-500">
-                  Определяет характер, стиль общения и экспертизу бота
-                </p>
+                <p className="text-sm text-gray-500">Определяет характер, стиль общения и экспертизу бота</p>
               </div>
               <Badge variant="info">Markdown</Badge>
             </div>
             <Textarea
               value={soulMd}
               onChange={(e) => setSoulMd(e.target.value)}
-              placeholder={`# Личность — Название роли\n\nОписание персоны бота.\n\n## Характер\n- Свойство 1\n- Свойство 2\n\n## Стиль общения\n- Коротко если вопрос простой\n- Развёрнуто если тема сложная`}
+              placeholder={`# Личность — Название роли\n\n## Характер\n- ...\n\n## Стиль общения\n- Коротко если вопрос простой`}
               className="font-mono text-sm min-h-[400px]"
             />
             <Button onClick={handleSavePrompt} disabled={updateMutation.isPending}>
@@ -410,16 +486,14 @@ export default function BotDetailPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-semibold text-gray-900">AGENTS.md — Инструкции</h3>
-                <p className="text-sm text-gray-500">
-                  Операционные инструкции: доступ к API, алгоритм работы, ограничения
-                </p>
+                <p className="text-sm text-gray-500">Операционные инструкции: доступ к API, алгоритм работы, ограничения</p>
               </div>
               <Badge variant="info">Markdown</Badge>
             </div>
             <Textarea
               value={agentsMd}
               onChange={(e) => setAgentsMd(e.target.value)}
-              placeholder={`# Инструкции — Название Agent\n\n## Доступ к API\nБазовый URL: ...\n\n## Алгоритм работы\n1. Шаг 1\n2. Шаг 2\n\n## Ограничения\n- Ограничение 1`}
+              placeholder={`# Инструкции — Agent\n\n## Доступ к API\nБазовый URL: ...\n\n## Алгоритм работы\n1. Шаг 1`}
               className="font-mono text-sm min-h-[400px]"
             />
             <Button onClick={handleSaveInstructions} disabled={updateMutation.isPending}>
@@ -429,14 +503,123 @@ export default function BotDetailPage() {
           </div>
         </TabsContent>
 
+        {/* === Skills tab === */}
+        <TabsContent value="skills">
+          <div className="p-6 rounded-xl border border-gray-200 bg-white space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-gray-900">Навыки (Skills)</h3>
+                <p className="text-sm text-gray-500">
+                  JS-скрипты, расширяющие возможности бота. Каждый навык запускается по команде-триггеру.
+                </p>
+              </div>
+              <Button variant="outline" size="sm" onClick={addSkill}>
+                <Plus className="h-4 w-4 mr-1" /> Добавить навык
+              </Button>
+            </div>
+
+            {skills.length === 0 && (
+              <div className="text-center py-8 text-gray-400 text-sm border border-dashed border-gray-200 rounded-lg">
+                Нет навыков. Добавьте первый навык, чтобы расширить возможности бота.
+              </div>
+            )}
+
+            {skills.map((skill, idx) => (
+              <div key={idx} className="border border-gray-200 rounded-lg overflow-hidden">
+                <div
+                  className="flex items-center justify-between p-3 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors"
+                  onClick={() => setExpandedSkill(expandedSkill === idx ? null : idx)}
+                >
+                  <div className="flex items-center gap-3">
+                    <FileCode className="h-4 w-4 text-gray-400" />
+                    <span className="font-mono text-sm font-medium">{skill.name || "Без названия"}</span>
+                    <div className="flex gap-1">
+                      {skill.triggers.map((t, ti) => (
+                        <span key={ti} className="text-xs bg-blue-50 text-blue-600 border border-blue-100 px-1.5 py-0.5 rounded font-mono">
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => { e.stopPropagation(); removeSkill(idx); }}
+                    >
+                      <X className="h-4 w-4 text-red-400" />
+                    </Button>
+                    {expandedSkill === idx ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
+                  </div>
+                </div>
+
+                {expandedSkill === idx && (
+                  <div className="p-4 space-y-3 border-t border-gray-100">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Название (имя файла)</Label>
+                        <Input
+                          value={skill.name}
+                          onChange={(e) => updateSkill(idx, { name: e.target.value.replace(/[^a-z0-9-]/g, "") })}
+                          placeholder="my-skill"
+                          className="font-mono text-sm"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Триггеры (через запятую)</Label>
+                        <Input
+                          value={skill.triggers.join(", ")}
+                          onChange={(e) => updateSkill(idx, { triggers: e.target.value.split(",").map((t) => t.trim()).filter(Boolean) })}
+                          placeholder="/cmd1, /cmd2"
+                          className="font-mono text-sm"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Описание</Label>
+                      <Input
+                        value={skill.description}
+                        onChange={(e) => updateSkill(idx, { description: e.target.value })}
+                        placeholder="Что делает этот навык..."
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs">Код (JavaScript ES module)</Label>
+                        <button
+                          onClick={() => copyText(skill.code, `skill-${idx}`)}
+                          className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1"
+                        >
+                          {copied === `skill-${idx}` ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                          {copied === `skill-${idx}` ? "Скопировано" : "Копировать"}
+                        </button>
+                      </div>
+                      <Textarea
+                        value={skill.code}
+                        onChange={(e) => updateSkill(idx, { code: e.target.value })}
+                        className="font-mono text-xs min-h-[200px] bg-gray-950 text-green-400 border-gray-700"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {skills.length > 0 && (
+              <Button onClick={handleSaveSkills} disabled={updateMutation.isPending}>
+                <Save className="h-4 w-4 mr-2" />
+                {updateMutation.isPending ? "Сохранение..." : "Сохранить навыки"}
+              </Button>
+            )}
+          </div>
+        </TabsContent>
+
         {/* === Environment variables tab === */}
         <TabsContent value="env">
           <div className="max-w-xl p-6 rounded-xl border border-gray-200 bg-white space-y-4">
             <div>
               <h3 className="font-semibold text-gray-900">Переменные окружения</h3>
-              <p className="text-sm text-gray-500">
-                Дополнительные ENV-переменные для контейнера бота
-              </p>
+              <p className="text-sm text-gray-500">Дополнительные ENV-переменные для контейнера бота</p>
             </div>
 
             {Object.entries(extraEnv).map(([key, value]) => (
@@ -447,7 +630,7 @@ export default function BotDetailPage() {
                   onChange={(e) => setExtraEnv({ ...extraEnv, [key]: e.target.value })}
                   className="font-mono text-sm"
                 />
-                <Button variant="ghost" size="sm" onClick={() => removeEnvVar(key)}>
+                <Button variant="ghost" size="sm" onClick={() => { const n = { ...extraEnv }; delete n[key]; setExtraEnv(n); }}>
                   <X className="h-4 w-4 text-red-400" />
                 </Button>
               </div>
@@ -479,39 +662,216 @@ export default function BotDetailPage() {
           </div>
         </TabsContent>
 
-        {/* === Generated config tab === */}
-        <TabsContent value="config">
+        {/* === Webhook tab === */}
+        <TabsContent value="webhook">
+          <div className="max-w-xl p-6 rounded-xl border border-gray-200 bg-white space-y-6">
+            <div>
+              <h3 className="font-semibold text-gray-900">Telegram Webhook</h3>
+              <p className="text-sm text-gray-500">
+                Укажите URL и нажмите «Установить» — бот зарегистрирует webhook в Telegram.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Webhook URL</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={webhookUrl}
+                  onChange={(e) => setWebhookUrl(e.target.value)}
+                  placeholder="https://your-domain.com/api/bot/webhook"
+                  className="font-mono text-sm"
+                />
+                <Button
+                  onClick={handleSetWebhook}
+                  disabled={!webhookUrl || setWebhookMutation.isPending}
+                  className="shrink-0"
+                >
+                  <Webhook className="h-4 w-4 mr-2" />
+                  {setWebhookMutation.isPending ? "Устанавливаю..." : "Установить"}
+                </Button>
+              </div>
+              <p className="text-xs text-gray-400">
+                Должен быть публичный HTTPS URL. Для локальной разработки используйте ngrok или аналог.
+              </p>
+            </div>
+
+            {webhookResult && (
+              <div className={`p-3 rounded-lg text-sm flex items-center gap-2 ${
+                webhookResult.ok
+                  ? "bg-green-50 border border-green-200 text-green-700"
+                  : "bg-red-50 border border-red-200 text-red-600"
+              }`}>
+                {webhookResult.ok ? <Check className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+                {webhookResult.message}
+              </div>
+            )}
+
+            {/* Current webhook info from Telegram */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-medium text-gray-700">Текущий статус webhook</h4>
+                <Button variant="ghost" size="sm" onClick={() => refetchWebhook()}>
+                  <RefreshCw className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+
+              {webhookInfo === undefined && (
+                <p className="text-sm text-gray-400">Загрузка...</p>
+              )}
+              {webhookInfo === null && (
+                <p className="text-sm text-gray-400">Нет данных (укажите Telegram Bot Token в настройках)</p>
+              )}
+              {webhookInfo && (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2 text-sm">
+                  <div className="flex items-start gap-2">
+                    <span className="text-gray-500 shrink-0 w-32">URL:</span>
+                    <span className="font-mono text-xs break-all">{webhookInfo.url || "не установлен"}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500 shrink-0 w-32">Ожидает обновлений:</span>
+                    <span>{webhookInfo.pending_update_count}</span>
+                  </div>
+                  {webhookInfo.last_error_message && (
+                    <div className="flex items-start gap-2 text-red-600">
+                      <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                      <span className="text-xs">{webhookInfo.last_error_message}</span>
+                    </div>
+                  )}
+                  {!webhookInfo.last_error_message && webhookInfo.url && (
+                    <div className="flex items-center gap-2 text-green-600">
+                      <Check className="h-4 w-4" />
+                      <span>Webhook активен</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* === Logs tab === */}
+        <TabsContent value="logs">
           <div className="p-6 rounded-xl border border-gray-200 bg-white space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-semibold text-gray-900">Сгенерированный openclaw.json</h3>
+                <h3 className="font-semibold text-gray-900">История сообщений</h3>
+                <p className="text-sm text-gray-500">Последние 100 входящих и исходящих сообщений бота</p>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="ghost" size="sm" onClick={() => refetchLogs()}>
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => clearLogsMutation.mutate({ bot_id: botId })}
+                  disabled={clearLogsMutation.isPending || !logs?.length}
+                  className="text-red-600 hover:text-red-700"
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Очистить
+                </Button>
+              </div>
+            </div>
+
+            {!logs?.length && (
+              <div className="text-center py-12 text-gray-400 text-sm border border-dashed border-gray-200 rounded-lg">
+                <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                Логов пока нет
+              </div>
+            )}
+
+            {logs && logs.length > 0 && (
+              <div className="space-y-2 max-h-[600px] overflow-y-auto">
+                {logs.map((log) => (
+                  <div
+                    key={log.id}
+                    className={`flex gap-3 p-3 rounded-lg text-sm ${
+                      log.direction === "in"
+                        ? "bg-blue-50 border border-blue-100"
+                        : "bg-gray-50 border border-gray-100"
+                    }`}
+                  >
+                    <div className="shrink-0">
+                      <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${
+                        log.direction === "in"
+                          ? "bg-blue-100 text-blue-700"
+                          : "bg-gray-200 text-gray-600"
+                      }`}>
+                        {log.direction === "in" ? "IN" : "OUT"}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      {log.telegram_username && (
+                        <span className="text-xs text-gray-400 mr-2">@{log.telegram_username}</span>
+                      )}
+                      <span className="break-words whitespace-pre-wrap">{log.text}</span>
+                    </div>
+                    <div className="shrink-0 text-xs text-gray-400">
+                      {new Date(log.created_at).toLocaleTimeString("ru-RU", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        day: "2-digit",
+                        month: "2-digit",
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* === Generated config tab === */}
+        <TabsContent value="config">
+          <div className="p-6 rounded-xl border border-gray-200 bg-white space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-gray-900">Сгенерированный конфиг</h3>
                 <p className="text-sm text-gray-500">
-                  Итоговый конфиг, который используется ботом. Только для чтения.
+                  Файлы для деплоя бота. Скопируйте каждый файл в нужную директорию OpenClaw.
                 </p>
               </div>
-              <Button variant="outline" size="sm" onClick={copyConfig}>
-                {copied ? (
-                  <><Check className="h-4 w-4 mr-1" /> Скопировано</>
-                ) : (
-                  <><Copy className="h-4 w-4 mr-1" /> Копировать</>
-                )}
+              <Button variant="outline" size="sm" onClick={() => refetchConfig()}>
+                <RefreshCw className="h-4 w-4 mr-1" /> Обновить
               </Button>
             </div>
-            <div className="relative">
-              <div className="flex items-center gap-2 mb-2">
-                <FileCode className="h-4 w-4 text-gray-400" />
-                <span className="text-sm text-gray-500 font-mono">openclaw.json</span>
+
+            {/* openclaw.json */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <FileCode className="h-4 w-4 text-gray-400" />
+                  <span className="text-sm text-gray-500 font-mono">openclaw.json</span>
+                </div>
+                <button
+                  onClick={() => generatedConfig && copyText(generatedConfig.openclawJson, "json")}
+                  className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1"
+                >
+                  {copied === "json" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                  {copied === "json" ? "Скопировано" : "Копировать"}
+                </button>
               </div>
               <pre className="bg-gray-900 text-green-400 p-4 rounded-lg text-sm font-mono overflow-x-auto whitespace-pre">
                 {generatedConfig?.openclawJson || "Загрузка..."}
               </pre>
             </div>
 
+            {/* SOUL.md */}
             {generatedConfig?.soulMd && (
               <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <FileCode className="h-4 w-4 text-gray-400" />
-                  <span className="text-sm text-gray-500 font-mono">workspace/SOUL.md</span>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <FileCode className="h-4 w-4 text-gray-400" />
+                    <span className="text-sm text-gray-500 font-mono">workspace/SOUL.md</span>
+                  </div>
+                  <button
+                    onClick={() => copyText(generatedConfig.soulMd, "soul")}
+                    className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1"
+                  >
+                    {copied === "soul" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                    {copied === "soul" ? "Скопировано" : "Копировать"}
+                  </button>
                 </div>
                 <pre className="bg-gray-50 border border-gray-200 p-4 rounded-lg text-sm font-mono overflow-x-auto whitespace-pre-wrap text-gray-700">
                   {generatedConfig.soulMd}
@@ -519,15 +879,52 @@ export default function BotDetailPage() {
               </div>
             )}
 
+            {/* AGENTS.md */}
             {generatedConfig?.agentsMd && (
               <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <FileCode className="h-4 w-4 text-gray-400" />
-                  <span className="text-sm text-gray-500 font-mono">workspace/AGENTS.md</span>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <FileCode className="h-4 w-4 text-gray-400" />
+                    <span className="text-sm text-gray-500 font-mono">workspace/AGENTS.md</span>
+                  </div>
+                  <button
+                    onClick={() => copyText(generatedConfig.agentsMd, "agents")}
+                    className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1"
+                  >
+                    {copied === "agents" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                    {copied === "agents" ? "Скопировано" : "Копировать"}
+                  </button>
                 </div>
                 <pre className="bg-gray-50 border border-gray-200 p-4 rounded-lg text-sm font-mono overflow-x-auto whitespace-pre-wrap text-gray-700">
                   {generatedConfig.agentsMd}
                 </pre>
+              </div>
+            )}
+
+            {/* Skill files */}
+            {generatedConfig?.skillFiles && generatedConfig.skillFiles.length > 0 && (
+              <div className="space-y-3">
+                <h4 className="text-sm font-medium text-gray-700">Файлы навыков</h4>
+                {generatedConfig.skillFiles.map((sf, idx) => (
+                  <div key={idx}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <FileCode className="h-4 w-4 text-gray-400" />
+                        <span className="text-sm text-gray-500 font-mono">skills/{sf.filename}</span>
+                      </div>
+                      <button
+                        onClick={() => copyText(sf.code, `skill-file-${idx}`)}
+                        className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1"
+                      >
+                        {copied === `skill-file-${idx}` ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                        {copied === `skill-file-${idx}` ? "Скопировано" : "Копировать"}
+                      </button>
+                    </div>
+                    <pre className="bg-gray-900 text-green-400 p-4 rounded-lg text-xs font-mono overflow-x-auto whitespace-pre">
+                      {sf.code}
+                    </pre>
+                  </div>
+                ))}
               </div>
             )}
           </div>
