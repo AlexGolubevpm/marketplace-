@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { setSession } from "@/lib/auth";
 
 // This page receives OAuth session data via query params from the server callback,
 // stores it in localStorage, and redirects to the dashboard.
-export default function OAuthSuccessPage() {
+function OAuthSuccessContent() {
   const router = useRouter();
   const params = useSearchParams();
 
@@ -33,9 +33,15 @@ export default function OAuthSuccessPage() {
     router.replace(role === "customer" ? "/c/requests" : "/carrier/dashboard");
   }, [params, router]);
 
+  return <p className="text-white/40">Выполняем вход...</p>;
+}
+
+export default function OAuthSuccessPage() {
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white flex items-center justify-center">
-      <p className="text-white/40">Выполняем вход...</p>
+      <Suspense fallback={<p className="text-white/40">Загрузка...</p>}>
+        <OAuthSuccessContent />
+      </Suspense>
     </div>
   );
 }
