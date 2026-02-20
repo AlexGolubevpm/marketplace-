@@ -16,7 +16,7 @@ services:
     image: ghcr.io/openclaw/openclaw:latest
     user: "0:0"
     restart: unless-stopped
-    entrypoint: ["sh", "-c", "cp /config/openclaw.json /home/node/.openclaw/openclaw.json && exec openclaw start"]
+    entrypoint: ["sh", "-c", "cp /config/openclaw.json /home/node/.openclaw/openclaw.json && exec docker-entrypoint.sh node openclaw.mjs gateway --allow-unconfigured"]
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
@@ -39,7 +39,7 @@ services:
     image: ghcr.io/openclaw/openclaw:latest
     user: "0:0"
     restart: unless-stopped
-    entrypoint: ["sh", "-c", "cp /config/openclaw.json /home/node/.openclaw/openclaw.json && exec openclaw start"]
+    entrypoint: ["sh", "-c", "cp /config/openclaw.json /home/node/.openclaw/openclaw.json && exec docker-entrypoint.sh node openclaw.mjs gateway --allow-unconfigured"]
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
