@@ -32,10 +32,31 @@ services:
       - SMTP_USER=${SMTP_USER:-}
       - SMTP_PASS=${SMTP_PASS:-}
       - SMTP_FROM=${SMTP_FROM:-}
+    volumes:
+      - uploads_data:/app/apps/web/public/uploads
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+    networks:
+      - cargo-network
+
+  # ================================
+  # Telegram Bot
+  # ================================
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile.bot
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - NEXT_PUBLIC_APP_URL=${APP_URL:-https://cargomarketplace.ru}
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/cargo_marketplace
+    depends_on:
+      postgres:
         condition: service_healthy
     networks:
       - cargo-network
@@ -129,6 +150,7 @@ volumes:
   postgres_data:
   redis_data:
   minio_data:
+  uploads_data:
 
 networks:
   cargo-network:

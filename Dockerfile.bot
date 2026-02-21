@@ -1,0 +1,26 @@
+# ============================================
+# Telegram Bot — runs TypeScript directly with tsx
+# ============================================
+FROM node:20-alpine
+
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+
+WORKDIR /app
+
+# Copy dependency files
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+COPY apps/bot/package.json ./apps/bot/
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/db/package.json ./packages/db/
+COPY packages/api/package.json ./packages/api/
+COPY packages/queue/package.json ./packages/queue/
+
+RUN pnpm install --frozen-lockfile
+
+# Copy source code
+COPY packages/ ./packages/
+COPY apps/bot/ ./apps/bot/
+
+WORKDIR /app/apps/bot
+
+CMD ["node", "--import", "tsx", "src/index.ts"]
