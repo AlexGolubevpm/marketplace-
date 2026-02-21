@@ -14,8 +14,8 @@ const inter = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Cargo Marketplace — Admin",
-  description: "Операционный центр управления маркетплейсом грузоперевозок",
+  title: "Cargo Marketplace — Маркетплейс грузоперевозок",
+  description: "Найдите лучшие условия доставки грузов. Сравните цены и условия от проверенных карго-компаний.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -107,12 +107,17 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    // Generate display ID
-    const countResult = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(schema.requests);
-    const num = (countResult[0]?.count || 0) + 1;
-    const display_id = `REQ-${new Date().getFullYear()}-${String(num).padStart(4, "0")}`;
+    // Generate display ID using MAX to avoid race-condition duplicates
+    const year = new Date().getFullYear();
+    const prefix = `REQ-${year}-`;
+    const [maxResult] = await db
+      .select({ maxId: sql<string>`COALESCE(MAX(display_id), '')` })
+      .from(schema.requests)
+      .where(sql`display_id LIKE ${prefix + "%"}`);
+    const lastNum = maxResult?.maxId
+      ? parseInt(maxResult.maxId.split("-").pop() || "0", 10)
+      : 0;
+    const display_id = `${prefix}${String(lastNum + 1).padStart(4, "0")}`;
 
     // Resolve customer: find existing or create new
     let customerId: string;

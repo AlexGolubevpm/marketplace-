@@ -68,11 +68,12 @@ export default function AdminLoginPage() {
             <div className="relative">
               <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/20" />
               <input
-                type="text"
-                placeholder="Логин"
+                type="email"
+                placeholder="Email"
                 value={login}
                 onChange={(e) => { setLogin(e.target.value); setError(""); }}
                 required
+                autoComplete="email"
                 className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-white/20 focus:outline-none focus:border-cyan-500/40 transition-colors"
               />
             </div>

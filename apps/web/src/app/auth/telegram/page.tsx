@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense } from "react";
 import { setSession } from "@/lib/auth";
@@ -8,6 +8,7 @@ import { setSession } from "@/lib/auth";
 function TelegramAuthInner() {
   const params = useSearchParams();
   const router = useRouter();
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const tgId = params.get("tg_id");
@@ -15,9 +16,24 @@ function TelegramAuthInner() {
     const username = params.get("username");
     const role = (params.get("role") || "customer") as "customer" | "carrier";
     const userId = params.get("user_id");
+    const ts = params.get("ts");
+    const sig = params.get("sig");
 
     if (tgId) {
       const resolveAndSave = async () => {
+        // Verify HMAC signature on server side if present
+        if (sig && ts) {
+          try {
+            const verifyRes = await fetch(`/api/auth/verify-tg?tg_id=${tgId}&role=${role}&ts=${ts}&sig=${sig}`);
+            if (!verifyRes.ok) {
+              setError("Ссылка недействительна или устарела. Получите новую в боте.");
+              return;
+            }
+          } catch {
+            // If verification endpoint is unavailable, proceed (backward compat)
+          }
+        }
+
         let dbUserId = userId || "";
 
         // Resolve tg_id to DB UUID if user_id not provided
@@ -53,6 +69,17 @@ function TelegramAuthInner() {
       router.replace("/");
     }
   }, [params, router]);
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0f] text-white flex items-center justify-center">
+        <div className="text-center max-w-sm">
+          <p className="text-red-400 mb-4">{error}</p>
+          <a href="/" className="text-cyan-400 hover:underline">На главную</a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white flex items-center justify-center">

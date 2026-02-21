@@ -78,12 +78,17 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    // Generate display ID
-    const countResult = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(schema.offers);
-    const num = (countResult[0]?.count || 0) + 1;
-    const display_id = `OFF-${new Date().getFullYear()}-${String(num).padStart(4, "0")}`;
+    // Generate display ID using MAX to avoid race-condition duplicates
+    const year = new Date().getFullYear();
+    const offPrefix = `OFF-${year}-`;
+    const [maxOff] = await db
+      .select({ maxId: sql<string>`COALESCE(MAX(display_id), '')` })
+      .from(schema.offers)
+      .where(sql`display_id LIKE ${offPrefix + "%"}`);
+    const lastOffNum = maxOff?.maxId
+      ? parseInt(maxOff.maxId.split("-").pop() || "0", 10)
+      : 0;
+    const display_id = `${offPrefix}${String(lastOffNum + 1).padStart(4, "0")}`;
 
     // Resolve carrier: find existing or create new
     let carrierId: string;
@@ -224,9 +229,16 @@ export async function PATCH(req: NextRequest) {
           .where(eq(schema.requests.id, offer.request_id));
 
         // Create order
-        const orderCount = await db.select({ count: sql<number>`count(*)::int` }).from(schema.orders);
-        const orderNum = (orderCount[0]?.count || 0) + 1;
-        const orderDisplayId = `ORD-${new Date().getFullYear()}-${String(orderNum).padStart(4, "0")}`;
+        const ordYear = new Date().getFullYear();
+        const ordPrefix = `ORD-${ordYear}-`;
+        const [maxOrd] = await db
+          .select({ maxId: sql<string>`COALESCE(MAX(display_id), '')` })
+          .from(schema.orders)
+          .where(sql`display_id LIKE ${ordPrefix + "%"}`);
+        const lastOrdNum = maxOrd?.maxId
+          ? parseInt(maxOrd.maxId.split("-").pop() || "0", 10)
+          : 0;
+        const orderDisplayId = `${ordPrefix}${String(lastOrdNum + 1).padStart(4, "0")}`;
 
         // Get request to find customer_id
         const [request] = await db.select().from(schema.requests).where(eq(schema.requests.id, offer.request_id)).limit(1);

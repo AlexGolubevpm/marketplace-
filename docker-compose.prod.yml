@@ -26,6 +26,7 @@ services:
       - YANDEX_CLIENT_SECRET=${YANDEX_CLIENT_SECRET}
       - YANDEX_REDIRECT_URI=${YANDEX_REDIRECT_URI:-https://cargomarketplace.ru/api/auth/yandex/callback}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TG_AUTH_SECRET=${TG_AUTH_SECRET:-${TELEGRAM_BOT_TOKEN}}
       - SMTP_HOST=${SMTP_HOST:-}
       - SMTP_PORT=${SMTP_PORT:-587}
       - SMTP_SECURE=${SMTP_SECURE:-false}
@@ -54,6 +55,8 @@ services:
       - NODE_ENV=production
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - NEXT_PUBLIC_APP_URL=${APP_URL:-https://cargomarketplace.ru}
+      - INTERNAL_API_URL=http://web:3000
+      - TG_AUTH_SECRET=${TG_AUTH_SECRET:-${TELEGRAM_BOT_TOKEN}}
       - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/cargo_marketplace
     depends_on:
       postgres:

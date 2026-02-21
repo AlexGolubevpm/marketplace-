@@ -5,6 +5,7 @@ import {
   text,
   timestamp,
   pgEnum,
+  index,
 } from "drizzle-orm/pg-core";
 import { requests } from "./requests";
 import { offers } from "./offers";
@@ -30,7 +31,11 @@ export const conversations = pgTable("conversations", {
     .references(() => carriers.id),
   created_at: timestamp("created_at").notNull().defaultNow(),
   updated_at: timestamp("updated_at").notNull().defaultNow(),
-});
+}, (table) => [
+  index("idx_conversations_request_id").on(table.request_id),
+  index("idx_conversations_customer_id").on(table.customer_id),
+  index("idx_conversations_carrier_id").on(table.carrier_id),
+]);
 
 export const messages = pgTable("messages", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -43,4 +48,6 @@ export const messages = pgTable("messages", {
   file_url: varchar("file_url", { length: 500 }),
   file_name: varchar("file_name", { length: 255 }),
   created_at: timestamp("created_at").notNull().defaultNow(),
-});
+}, (table) => [
+  index("idx_messages_conversation_id").on(table.conversation_id),
+]);

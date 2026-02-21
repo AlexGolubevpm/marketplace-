@@ -8,6 +8,7 @@ import {
   decimal,
   boolean,
   date,
+  index,
 } from "drizzle-orm/pg-core";
 import { customers } from "./customers";
 import { carriers } from "./carriers";
@@ -76,7 +77,12 @@ export const requests = pgTable("requests", {
   created_at: timestamp("created_at").notNull().defaultNow(),
   updated_at: timestamp("updated_at").notNull().defaultNow(),
   closed_at: timestamp("closed_at"),
-});
+}, (table) => [
+  index("idx_requests_customer_id").on(table.customer_id),
+  index("idx_requests_status").on(table.status),
+  index("idx_requests_assigned_manager_id").on(table.assigned_manager_id),
+  index("idx_requests_created_at").on(table.created_at),
+]);
 
 export const requestCarrierMatches = pgTable("request_carrier_matches", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -90,4 +96,7 @@ export const requestCarrierMatches = pgTable("request_carrier_matches", {
   viewed_at: timestamp("viewed_at"),
   responded: boolean("responded").notNull().default(false),
   reminder_sent: boolean("reminder_sent").notNull().default(false),
-});
+}, (table) => [
+  index("idx_rcm_request_id").on(table.request_id),
+  index("idx_rcm_carrier_id").on(table.carrier_id),
+]);

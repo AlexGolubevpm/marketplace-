@@ -9,6 +9,7 @@ import {
   integer,
   boolean,
   unique,
+  index,
 } from "drizzle-orm/pg-core";
 import { requests } from "./requests";
 import { carriers } from "./carriers";
@@ -47,5 +48,10 @@ export const offers = pgTable(
     created_at: timestamp("created_at").notNull().defaultNow(),
     updated_at: timestamp("updated_at").notNull().defaultNow(),
   },
-  (table) => [unique("offer_request_carrier_unique").on(table.request_id, table.carrier_id)]
+  (table) => [
+    unique("offer_request_carrier_unique").on(table.request_id, table.carrier_id),
+    index("idx_offers_request_id").on(table.request_id),
+    index("idx_offers_carrier_id").on(table.carrier_id),
+    index("idx_offers_status").on(table.status),
+  ]
 );

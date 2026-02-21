@@ -7,6 +7,7 @@ import {
   pgEnum,
   decimal,
   integer,
+  index,
 } from "drizzle-orm/pg-core";
 
 export const carrierStatusEnum = pgEnum("carrier_status", [
@@ -42,7 +43,10 @@ export const carriers = pgTable("carriers", {
   total_offers_won: integer("total_offers_won").notNull().default(0),
   created_at: timestamp("created_at").notNull().defaultNow(),
   updated_at: timestamp("updated_at").notNull().defaultNow(),
-});
+}, (table) => [
+  index("idx_carriers_telegram_id").on(table.telegram_id),
+  index("idx_carriers_status").on(table.status),
+]);
 
 export const carrierRegions = pgTable("carrier_regions", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -53,7 +57,9 @@ export const carrierRegions = pgTable("carrier_regions", {
   city_from: varchar("city_from", { length: 255 }),
   country_to: varchar("country_to", { length: 3 }).notNull(),
   city_to: varchar("city_to", { length: 255 }),
-});
+}, (table) => [
+  index("idx_carrier_regions_carrier_id").on(table.carrier_id),
+]);
 
 export const carrierDeliveryTypes = pgTable("carrier_delivery_types", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -63,4 +69,6 @@ export const carrierDeliveryTypes = pgTable("carrier_delivery_types", {
   type: deliveryTypeEnum("type").notNull(),
   max_weight_kg: decimal("max_weight_kg", { precision: 12, scale: 2 }),
   max_volume_m3: decimal("max_volume_m3", { precision: 12, scale: 3 }),
-});
+}, (table) => [
+  index("idx_carrier_delivery_types_carrier_id").on(table.carrier_id),
+]);

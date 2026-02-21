@@ -6,6 +6,7 @@ import {
   timestamp,
   pgEnum,
   jsonb,
+  index,
 } from "drizzle-orm/pg-core";
 
 export const recipientTypeEnum = pgEnum("recipient_type", [
@@ -39,4 +40,7 @@ export const notifications = pgTable("notifications", {
   sent_at: timestamp("sent_at"),
   error_message: text("error_message"),
   created_at: timestamp("created_at").notNull().defaultNow(),
-});
+}, (table) => [
+  index("idx_notifications_recipient").on(table.recipient_type, table.recipient_id),
+  index("idx_notifications_status").on(table.status),
+]);
