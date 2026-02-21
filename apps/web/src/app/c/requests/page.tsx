@@ -74,7 +74,7 @@ export default function CustomerRequestsPage() {
       ) : (
         <motion.div initial="hidden" animate="visible" className="space-y-3">
           {active.map((req, i) => {
-            const st = requestStatusConfig[req.status] || statusConfig.new;
+            const st = requestStatusConfig[req.status] || requestStatusConfig.new;
             return (
               <motion.div key={req.id} variants={fadeUp} custom={i}>
                 <Link href={`/c/requests/${req.id}`}>
