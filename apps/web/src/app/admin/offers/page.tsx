@@ -32,6 +32,7 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { deliveryTypeLabels } from "@cargo/shared";
 
 interface Offer {
   id: string;
@@ -51,8 +52,6 @@ interface Offer {
   carrier_phone: string | null;
   carrier_email: string | null;
 }
-
-import { deliveryTypeLabels } from "@cargo/shared";
 
 export default function OffersPage() {
   const [offers, setOffers] = useState<Offer[]>([]);

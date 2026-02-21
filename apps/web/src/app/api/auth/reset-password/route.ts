@@ -4,10 +4,9 @@ import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
+import { BCRYPT_ROUNDS, TOKEN_TTL_MS } from "@/lib/auth-config";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-const BCRYPT_ROUNDS = 12;
-const TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 function createTransport() {
   return nodemailer.createTransport({

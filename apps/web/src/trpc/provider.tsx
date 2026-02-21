@@ -5,6 +5,7 @@ import { httpBatchLink } from "@trpc/client";
 import { useState } from "react";
 import superjson from "superjson";
 import { trpc } from "./client";
+import { SESSION_KEYS } from "@/lib/auth";
 
 function getBaseUrl() {
   if (typeof window !== "undefined") return "";
@@ -32,7 +33,7 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
           transformer: superjson,
           headers() {
             if (typeof window === "undefined") return {};
-            const raw = localStorage.getItem("cargo_admin_session");
+            const raw = localStorage.getItem(SESSION_KEYS.ADMIN);
             if (raw) {
               return { "x-admin-session": raw };
             }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { SESSION_KEYS } from "@/lib/auth";
 import { Lock, User, Shield } from "lucide-react";
 
 export default function AdminLoginPage() {
@@ -28,7 +29,7 @@ export default function AdminLoginPage() {
         setError(data.error || "Ошибка входа");
         return;
       }
-      localStorage.setItem("cargo_admin_session", JSON.stringify({
+      localStorage.setItem(SESSION_KEYS.ADMIN, JSON.stringify({
         logged_in: true,
         id: data.id,
         email: data.email,

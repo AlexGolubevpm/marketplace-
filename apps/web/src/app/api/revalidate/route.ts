@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath, revalidateTag } from "next/cache";
 
-const REVALIDATE_SECRET = process.env.REVALIDATE_SECRET ?? "cargo-revalidate-secret";
+const REVALIDATE_SECRET = process.env.REVALIDATE_SECRET;
+if (!REVALIDATE_SECRET) {
+  console.warn("WARNING: REVALIDATE_SECRET is not set. Revalidation endpoint is insecure.");
+}
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { secret, paths } = body as { secret: string; paths: string[] };
 
-    if (secret !== REVALIDATE_SECRET) {
+    if (!REVALIDATE_SECRET || secret !== REVALIDATE_SECRET) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
