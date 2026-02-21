@@ -36,6 +36,7 @@ COPY . .
 
 # Build the Next.js app (standalone output)
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV DOCKER_BUILD=true
 RUN pnpm --filter @cargo/web build
 
 # ============================================
