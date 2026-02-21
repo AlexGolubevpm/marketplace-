@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { User, Mail, Phone, Building, Save, CheckCircle2 } from "lucide-react";
-import { getSession } from "@/lib/auth";
+import { getSession, type UserSession } from "@/lib/auth";
 import { getRequests } from "@/lib/store";
 
 export default function CustomerProfilePage() {
-  const [session, setSession] = useState<any>(null);
+  const [session, setSession] = useState<UserSession | null>(null);
   const [stats, setStats] = useState({ requests: 0, orders: 0 });
   const [saved, setSaved] = useState(false);
 
@@ -17,7 +17,7 @@ export default function CustomerProfilePage() {
       const userId = s.user_id || s.tg_id || s.username || "anonymous";
       getRequests(userId).then((reqs) => {
         setStats({ requests: reqs.length, orders: 0 });
-      }).catch(() => {});
+      }).catch((err) => console.error("Failed to load profile stats:", err));
     }
   }, []);
 

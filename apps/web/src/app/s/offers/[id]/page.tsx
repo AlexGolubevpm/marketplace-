@@ -202,7 +202,7 @@ export default function CarrierOfferDetailPage() {
         }),
       });
       router.push("/s/chats");
-    } catch {}
+    } catch (err) { console.error("Failed to start chat:", err); }
   };
 
   if (loading) {

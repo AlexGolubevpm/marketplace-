@@ -45,7 +45,7 @@ export default function AdminChatsPage() {
         const data = await res.json();
         setConversations(data);
       }
-    } catch {}
+    } catch (err) { console.error("Failed to load conversations:", err); }
     setLoading(false);
   }, []);
 
@@ -56,7 +56,7 @@ export default function AdminChatsPage() {
         const data = await res.json();
         setMessages(data);
       }
-    } catch {}
+    } catch (err) { console.error("Failed to load messages:", err); }
   }, []);
 
   useEffect(() => {

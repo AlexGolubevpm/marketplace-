@@ -6,22 +6,11 @@ import { motion } from "framer-motion";
 import { MapPin, Package, ChevronRight, Plus, Clock, Inbox } from "lucide-react";
 import { getRequests, type Request } from "@/lib/store";
 import { getSession } from "@/lib/auth";
+import { requestStatusConfig, activeStatuses } from "@/lib/request-status";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 8 },
   visible: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.08, duration: 0.35 } }),
-};
-
-const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
-  draft: { label: "Черновик", color: "text-gray-500", bg: "bg-gray-100" },
-  new: { label: "Новая", color: "text-blue-400", bg: "bg-blue-500/10" },
-  matching: { label: "Ищем карго...", color: "text-indigo-400", bg: "bg-indigo-500/10" },
-  offers_received: { label: "Есть офферы", color: "text-yellow-400", bg: "bg-yellow-500/10" },
-  offer_selected: { label: "Оффер выбран", color: "text-purple-400", bg: "bg-purple-500/10" },
-  in_transit: { label: "В доставке", color: "text-cyan-400", bg: "bg-cyan-500/10" },
-  completed: { label: "Завершено", color: "text-green-400", bg: "bg-green-500/10" },
-  cancelled: { label: "Отменено", color: "text-red-400", bg: "bg-red-500/10" },
-  expired: { label: "Истекла", color: "text-orange-400", bg: "bg-orange-500/10" },
 };
 
 export default function CustomerRequestsPage() {
@@ -56,7 +45,7 @@ export default function CustomerRequestsPage() {
     );
   }
 
-  const active = requests.filter((r) => !["cancelled", "completed", "expired"].includes(r.status));
+  const active = requests.filter((r) => activeStatuses(r.status));
 
   return (
     <div className="space-y-6">
@@ -85,7 +74,7 @@ export default function CustomerRequestsPage() {
       ) : (
         <motion.div initial="hidden" animate="visible" className="space-y-3">
           {active.map((req, i) => {
-            const st = statusConfig[req.status] || statusConfig.new;
+            const st = requestStatusConfig[req.status] || statusConfig.new;
             return (
               <motion.div key={req.id} variants={fadeUp} custom={i}>
                 <Link href={`/c/requests/${req.id}`}>

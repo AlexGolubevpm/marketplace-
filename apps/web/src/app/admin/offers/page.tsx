@@ -52,13 +52,7 @@ interface Offer {
   carrier_email: string | null;
 }
 
-const deliveryLabels: Record<string, string> = {
-  air: "Авиа",
-  sea: "Море",
-  rail: "ЖД",
-  road: "Авто",
-  multimodal: "Мульти",
-};
+import { deliveryTypeLabels } from "@cargo/shared";
 
 export default function OffersPage() {
   const [offers, setOffers] = useState<Offer[]>([]);
@@ -191,7 +185,7 @@ export default function OffersPage() {
                     ${parseFloat(offer.price).toLocaleString()} {offer.currency !== "USD" ? offer.currency : ""}
                   </TableCell>
                   <TableCell>{offer.estimated_days}</TableCell>
-                  <TableCell>{deliveryLabels[offer.delivery_type] || offer.delivery_type}</TableCell>
+                  <TableCell>{deliveryTypeLabels[offer.delivery_type] || offer.delivery_type}</TableCell>
                   <TableCell>
                     <StatusBadge status={offer.status} type="offer" />
                   </TableCell>

@@ -14,21 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const orderStatusLabels: Record<string, string> = {
-  payment_pending: "Ожидает оплаты",
-  confirmed: "Подтверждён",
-  awaiting_shipment: "Ожидает отгрузки",
-  in_transit: "В пути",
-  customs: "Таможня",
-  customs_hold: "Задержка на таможне",
-  delivered: "Доставлен",
-  completed: "Завершён",
-  cancelled: "Отменён",
-  dispute: "Спор",
-  on_hold: "На удержании",
-  partially_delivered: "Частично доставлен",
-  return: "Возврат",
-};
+import { orderStatusLabels, documentTypeLabels } from "@cargo/shared";
 
 interface DocFile {
   id: string;
@@ -38,15 +24,6 @@ interface DocFile {
   uploaded_by_role: string;
   created_at: string;
 }
-
-const DOC_TYPE_LABELS: Record<string, string> = {
-  invoice: "Инвойс",
-  customs_declaration: "Таможенная декларация",
-  bill_of_lading: "Коносамент",
-  photo: "Фото",
-  contract: "Договор",
-  other: "Другое",
-};
 
 interface Order {
   id: string;
@@ -89,7 +66,7 @@ export default function OrderDetailPage() {
             const docs = await docRes.json();
             setDocuments(Array.isArray(docs) ? docs : []);
           }
-        } catch {}
+        } catch (err) { console.error("Failed to load documents:", err); }
       } else {
         setError("Заказ не найден");
       }
@@ -288,7 +265,7 @@ export default function OrderDetailPage() {
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate">{doc.file_name}</p>
                     <p className="text-xs text-gray-400">
-                      {DOC_TYPE_LABELS[doc.file_type] || doc.file_type} · {doc.uploaded_by_role} · {new Date(doc.created_at).toLocaleDateString("ru-RU")}
+                      {documentTypeLabels[doc.file_type] || doc.file_type} · {doc.uploaded_by_role} · {new Date(doc.created_at).toLocaleDateString("ru-RU")}
                     </p>
                   </div>
                 </div>

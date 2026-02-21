@@ -5,13 +5,7 @@ import Link from "next/link";
 import { MapPin, Package, Clock, ChevronRight, Archive } from "lucide-react";
 import { getRequests, type Request } from "@/lib/store";
 import { getSession } from "@/lib/auth";
-
-const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
-  offer_selected: { label: "Оффер выбран", color: "text-purple-400", bg: "bg-purple-500/10" },
-  completed: { label: "Завершено", color: "text-green-400", bg: "bg-green-500/10" },
-  cancelled: { label: "Отменено", color: "text-red-400", bg: "bg-red-500/10" },
-  expired: { label: "Истекла", color: "text-orange-400", bg: "bg-orange-500/10" },
-};
+import { requestStatusConfig, archivedStatuses } from "@/lib/request-status";
 
 export default function CustomerArchivePage() {
   const [requests, setRequests] = useState<Request[]>([]);
@@ -22,8 +16,8 @@ export default function CustomerArchivePage() {
       const userId = session?.user_id || session?.tg_id || session?.username || "anonymous";
       try {
         const all = await getRequests(userId);
-        setRequests(all.filter((r) => ["offer_selected", "completed", "cancelled", "expired"].includes(r.status)));
-      } catch {}
+        setRequests(all.filter((r) => archivedStatuses.includes(r.status)));
+      } catch (err) { console.error("Failed to load archived requests:", err); }
     }
     load();
   }, []);
@@ -42,7 +36,7 @@ export default function CustomerArchivePage() {
       ) : (
         <div className="space-y-3">
           {requests.map((req) => {
-            const st = statusConfig[req.status] || { label: req.status, color: "text-gray-500", bg: "bg-white/5" };
+            const st = requestStatusConfig[req.status] || { label: req.status, color: "text-gray-500", bg: "bg-white/5" };
             return (
               <Link key={req.id} href={`/c/requests/${req.id}`}>
                 <div className="p-4 rounded-2xl border border-gray-200 bg-white hover:bg-gray-50 transition-all cursor-pointer mb-3">

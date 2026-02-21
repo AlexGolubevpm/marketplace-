@@ -21,13 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const deliveryLabels: Record<string, string> = {
-  air: "Авиа",
-  sea: "Море",
-  rail: "ЖД",
-  road: "Авто",
-  multimodal: "Мульти",
-};
+import { deliveryTypeLabels } from "@cargo/shared";
 
 interface OfferDetail {
   id: string;
@@ -171,7 +165,7 @@ export default function OfferDetailPage() {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-500">Тип доставки</span>
-              <span className="font-medium">{deliveryLabels[offer.delivery_type] || offer.delivery_type}</span>
+              <span className="font-medium">{deliveryTypeLabels[offer.delivery_type] || offer.delivery_type}</span>
             </div>
             {offer.conditions && (
               <div className="flex justify-between">

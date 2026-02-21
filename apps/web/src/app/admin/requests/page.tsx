@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { RefreshCw } from "lucide-react";
+import { requestSourceLabels } from "@cargo/shared";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { StatusBadge } from "@/components/status-badge";
@@ -105,7 +106,7 @@ export default function RequestsPage() {
               {requests.map((req) => (
                 <TableRow key={req.id}>
                   <TableCell className="font-mono text-sm">
-                    <Link href={`/requests/${req.id}`} className="text-blue-600 hover:underline">
+                    <Link href={`/admin/requests/${req.id}`} className="text-blue-600 hover:underline">
                       {req.display_id}
                     </Link>
                   </TableCell>
@@ -142,7 +143,7 @@ export default function RequestsPage() {
                     )}
                   </TableCell>
                   <TableCell className="text-gray-500 text-sm">
-                    {req.source === "web_form" ? "Web" : req.source === "telegram_bot" ? "Telegram" : req.source}
+                    {requestSourceLabels[req.source] || req.source}
                   </TableCell>
                 </TableRow>
               ))}
