@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -11,7 +12,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Save } from "lucide-react";
+import { Save, Check, AlertCircle } from "lucide-react";
+import { trpc } from "@/trpc/client";
 
 const slaConfigs = [
   { id: "1", metric: "Время первого оффера", threshold_value: "120", threshold_unit: "минут", severity: "warning", is_active: true },
@@ -22,6 +24,134 @@ const slaConfigs = [
   { id: "6", metric: "% ответов карго", threshold_value: "50", threshold_unit: "%", severity: "critical", is_active: true },
 ];
 
+function AnalyticsSettings() {
+  const contentSection = trpc.content.getSection.useQuery({ section: "analytics" });
+  const updateContent = trpc.content.update.useMutation();
+
+  const [formData, setFormData] = useState({
+    yandex_metrika_id: "",
+    google_analytics_id: "",
+    google_search_console_code: "",
+    yandex_webmaster_code: "",
+  });
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (contentSection.data?.content) {
+      const c = contentSection.data.content as Record<string, string>;
+      setFormData({
+        yandex_metrika_id: c.yandex_metrika_id || "",
+        google_analytics_id: c.google_analytics_id || "",
+        google_search_console_code: c.google_search_console_code || "",
+        yandex_webmaster_code: c.yandex_webmaster_code || "",
+      });
+    }
+  }, [contentSection.data]);
+
+  const handleSave = async () => {
+    try {
+      setError("");
+      await updateContent.mutateAsync({
+        section: "analytics",
+        content: formData,
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+      contentSection.refetch();
+    } catch (e: any) {
+      setError(e.message || "Ошибка сохранения");
+    }
+  };
+
+  return (
+    <div className="max-w-lg p-6 rounded-xl border border-gray-200 bg-white space-y-5">
+      <div>
+        <p className="text-sm text-gray-500 mb-4">
+          Коды аналитики и верификации вставляются автоматически в &lt;head&gt; на всех страницах сайта.
+        </p>
+      </div>
+
+      <div>
+        <label className="text-sm font-medium text-gray-700">Яндекс.Метрика — ID счётчика</label>
+        <Input
+          placeholder="Например: 12345678"
+          value={formData.yandex_metrika_id}
+          onChange={(e) => setFormData({ ...formData, yandex_metrika_id: e.target.value })}
+          className="mt-1"
+        />
+        <p className="text-xs text-gray-400 mt-1">Только числовой ID (без скрипта)</p>
+      </div>
+
+      <div>
+        <label className="text-sm font-medium text-gray-700">Google Analytics — ID</label>
+        <Input
+          placeholder="Например: G-XXXXXXXXXX"
+          value={formData.google_analytics_id}
+          onChange={(e) => setFormData({ ...formData, google_analytics_id: e.target.value })}
+          className="mt-1"
+        />
+        <p className="text-xs text-gray-400 mt-1">Measurement ID из Google Analytics 4</p>
+      </div>
+
+      <div>
+        <label className="text-sm font-medium text-gray-700">Google Search Console — код верификации</label>
+        <Input
+          placeholder="Например: abc123xyz..."
+          value={formData.google_search_console_code}
+          onChange={(e) => setFormData({ ...formData, google_search_console_code: e.target.value })}
+          className="mt-1"
+        />
+        <p className="text-xs text-gray-400 mt-1">
+          Значение content из тега &lt;meta name=&quot;google-site-verification&quot;&gt;
+        </p>
+      </div>
+
+      <div>
+        <label className="text-sm font-medium text-gray-700">Яндекс.Вебмастер — код верификации</label>
+        <Input
+          placeholder="Например: abc123xyz..."
+          value={formData.yandex_webmaster_code}
+          onChange={(e) => setFormData({ ...formData, yandex_webmaster_code: e.target.value })}
+          className="mt-1"
+        />
+        <p className="text-xs text-gray-400 mt-1">
+          Значение content из тега &lt;meta name=&quot;yandex-verification&quot;&gt;
+        </p>
+      </div>
+
+      {error && (
+        <div className="flex items-center gap-2 text-sm text-red-600">
+          <AlertCircle className="h-4 w-4" /> {error}
+        </div>
+      )}
+
+      <button
+        onClick={handleSave}
+        disabled={updateContent.isPending}
+        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-cyan-500 to-indigo-500 text-white text-sm font-medium disabled:opacity-50"
+      >
+        {saved ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />}
+        {saved ? "Сохранено" : updateContent.isPending ? "Сохранение..." : "Сохранить"}
+      </button>
+
+      <div className="pt-3 border-t border-gray-100">
+        <p className="text-xs text-gray-400">
+          После сохранения коды появятся на сайте в течение 5 минут (кэш).<br />
+          Sitemap: <a href="https://cargomarketplace.ru/sitemap.xml" target="_blank" className="text-blue-500 hover:underline">
+            /sitemap.xml
+          </a> | <a href="https://cargomarketplace.ru/knowledge/sitemap.xml" target="_blank" className="text-blue-500 hover:underline">
+            /knowledge/sitemap.xml
+          </a><br />
+          Robots.txt: <a href="https://cargomarketplace.ru/robots.txt" target="_blank" className="text-blue-500 hover:underline">
+            /robots.txt
+          </a>
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   return (
     <div className="space-y-6">
@@ -30,6 +160,7 @@ export default function SettingsPage() {
       <Tabs defaultValue="sla">
         <TabsList>
           <TabsTrigger value="sla">SLA</TabsTrigger>
+          <TabsTrigger value="analytics">Аналитика / SEO</TabsTrigger>
           <TabsTrigger value="general">Общие</TabsTrigger>
         </TabsList>
 
@@ -62,6 +193,10 @@ export default function SettingsPage() {
               </tbody>
             </table>
           </div>
+        </TabsContent>
+
+        <TabsContent value="analytics">
+          <AnalyticsSettings />
         </TabsContent>
 
         <TabsContent value="general">

@@ -2,6 +2,8 @@ import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { revalidatePath } from "next/cache";
 import { appRouter, type Context } from "@cargo/api";
 import { verifyAdminSession } from "@/lib/admin-session";
+import { sendTelegramMessage } from "@/lib/telegram-notify";
+import * as tgNotify from "@/lib/telegram-notify";
 
 let db: any = null;
 
@@ -71,6 +73,29 @@ const handler = (req: Request) =>
         admin,
         revalidate: revalidatePath,
         clientIp: getClientIp(req),
+        notify: async (type: string, params: Record<string, any>) => {
+          try {
+            switch (type) {
+              case "request_status_changed":
+                await tgNotify.notifyRequestStatusChanged(params as any);
+                break;
+              case "new_offer":
+                await tgNotify.notifyNewOffer(params as any);
+                break;
+              case "order_status_changed":
+                await tgNotify.notifyOrderStatusChanged(params as any);
+                break;
+              case "new_message":
+                await tgNotify.notifyNewMessage(params as any);
+                break;
+              case "carrier_new_request":
+                await tgNotify.notifyCarrierNewRequest(params as any);
+                break;
+            }
+          } catch (err) {
+            console.error("[tRPC notify] Error:", err);
+          }
+        },
       };
     },
     onError: ({ path, error }) => {

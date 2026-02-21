@@ -3,6 +3,8 @@ import superjson from "superjson";
 import type { Database } from "@cargo/db";
 import type { AdminRole } from "@cargo/shared";
 
+export type NotifyFn = (type: string, params: Record<string, any>) => Promise<void>;
+
 export type Context = {
   db: Database;
   admin: {
@@ -15,6 +17,8 @@ export type Context = {
   revalidate?: (path: string, type?: "page" | "layout") => void;
   /** Client IP for rate limiting (extracted from request headers) */
   clientIp?: string;
+  /** Send a Telegram notification (fire-and-forget) */
+  notify?: NotifyFn;
 };
 
 const t = initTRPC.context<Context>().create({
