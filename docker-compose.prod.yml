@@ -22,7 +22,6 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
       - NEXT_PUBLIC_APP_URL=${APP_URL:-http://localhost:3000}
-      - BOT_API_KEY=${BOT_API_KEY}
     depends_on:
       postgres:
         condition: service_healthy
@@ -113,55 +112,10 @@ services:
     networks:
       - cargo-network
 
-  # ================================
-  # OpenClaw — Content Manager Bot
-  # @Cargo_content_manager282bot
-  # Публикует статьи / категории / теги в базу знаний
-  # ================================
-  openclaw-content:
-    image: ghcr.io/openclaw/openclaw:latest
-    restart: unless-stopped
-    environment:
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_CONTENT_BOT_TOKEN}
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
-      BOT_API_KEY: ${BOT_API_KEY}
-      CARGO_API_URL: http://web:3000
-    volumes:
-      - ./openclaw/content/openclaw.json:/root/.openclaw/openclaw.json:ro
-      - ./openclaw/content/workspace:/root/.openclaw/workspace
-      - openclaw_content_data:/root/.openclaw/sessions
-    depends_on:
-      - web
-    networks:
-      - cargo-network
-
-  # ================================
-  # OpenClaw — Product Manager / Analyst Bot
-  # @CargoProductManager_888bot
-  # Анализирует приложение, отвечает на вопросы, даёт советы
-  # ================================
-  openclaw-analyst:
-    image: ghcr.io/openclaw/openclaw:latest
-    restart: unless-stopped
-    environment:
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_ANALYST_BOT_TOKEN}
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
-    volumes:
-      - ./openclaw/analyst/openclaw.json:/root/.openclaw/openclaw.json:ro
-      - ./openclaw/analyst/workspace:/root/.openclaw/workspace
-      - openclaw_analyst_data:/root/.openclaw/sessions
-      - ./:/app:ro
-    depends_on:
-      - web
-    networks:
-      - cargo-network
-
 volumes:
   postgres_data:
   redis_data:
   minio_data:
-  openclaw_content_data:
-  openclaw_analyst_data:
 
 networks:
   cargo-network:
