@@ -36,8 +36,9 @@ COPY . .
 
 # Build the Next.js app (standalone output)
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV DOCKER_BUILD=true
-RUN pnpm --filter @cargo/web build
+RUN pnpm --filter @cargo/web build \
+    && test -d apps/web/.next/standalone \
+    || (echo "ERROR: .next/standalone not found. Check next.config.js output setting." && exit 1)
 
 # ============================================
 # Stage 3: Production runner
