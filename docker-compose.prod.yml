@@ -90,18 +90,13 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    command: >-
-      sh -c 'if [ -n "$$REDIS_PASSWORD" ]; then redis-server --requirepass "$$REDIS_PASSWORD"; else redis-server; fi'
     volumes:
       - redis_data:/data
     healthcheck:
-      test: >-
-        sh -c 'if [ -n "$$REDIS_PASSWORD" ]; then redis-cli -a "$$REDIS_PASSWORD" --no-auth-warning ping; else redis-cli ping; fi'
+      test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 5s
       retries: 5
-    environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
     networks:
       - cargo-network
 
