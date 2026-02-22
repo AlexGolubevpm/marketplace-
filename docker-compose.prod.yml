@@ -95,7 +95,8 @@ services:
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD-SHELL", "if [ -n \"$REDIS_PASSWORD\" ]; then redis-cli -a \"$REDIS_PASSWORD\" --no-auth-warning ping; else redis-cli ping; fi"]
+      test: >-
+        sh -c 'if [ -n "$$REDIS_PASSWORD" ]; then redis-cli -a "$$REDIS_PASSWORD" --no-auth-warning ping; else redis-cli ping; fi'
       interval: 5s
       timeout: 5s
       retries: 5
