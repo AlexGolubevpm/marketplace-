@@ -37,7 +37,21 @@ COPY . .
 
 # Build the Next.js app
 ENV NEXT_TELEMETRY_DISABLED=1
+ARG NEXT_PUBLIC_APP_URL=http://localhost:3000
+ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
 RUN pnpm --filter @cargo/web build
+
+# Verify build output exists
+RUN test -f /app/apps/web/.next/BUILD_ID && echo "Build OK: $(cat /app/apps/web/.next/BUILD_ID)" || (echo "FATAL: .next/BUILD_ID missing" && exit 1)
+
+# Resolve pnpm symlinks to real files for reliable multi-stage copy
+# This ensures .bin/ entries work in the runner stage
+RUN if [ -L /app/apps/web/node_modules/.bin/next ]; then \
+      REAL=$(readlink -f /app/apps/web/node_modules/.bin/next) && \
+      rm /app/apps/web/node_modules/.bin/next && \
+      cp "$REAL" /app/apps/web/node_modules/.bin/next && \
+      chmod +x /app/apps/web/node_modules/.bin/next; \
+    fi
 
 # ============================================
 # Stage 3: Production runner

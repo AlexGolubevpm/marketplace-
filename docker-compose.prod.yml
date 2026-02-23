@@ -6,6 +6,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_APP_URL: ${APP_URL:-https://cargomarketplace.ru}
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -42,8 +44,8 @@ services:
       test: ["CMD-SHELL", "node -e \"const h=require('http');h.get('http://127.0.0.1:3000/',r=>{process.exit(r.statusCode<500?0:1)}).on('error',()=>process.exit(1))\""]
       interval: 10s
       timeout: 10s
-      retries: 12
-      start_period: 60s
+      retries: 18
+      start_period: 90s
     networks:
       - cargo-network
 
@@ -135,7 +137,7 @@ services:
       - ./deploy/certbot/www:/var/www/certbot:ro
     depends_on:
       web:
-        condition: service_healthy
+        condition: service_started
     networks:
       - cargo-network
 
