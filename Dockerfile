@@ -39,9 +39,6 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm --filter @cargo/web build
 
-# Debug: show what was generated
-RUN ls -la apps/web/.next/ && echo "---" && ls apps/web/.next/standalone 2>/dev/null || echo "No standalone directory (using full copy instead)"
-
 # ============================================
 # Stage 3: Production runner
 # ============================================
@@ -72,12 +69,11 @@ COPY --from=builder /app/apps/web ./apps/web
 # Copy workspace packages (needed at runtime by transpilePackages)
 COPY --from=builder /app/packages ./packages
 
-# Copy entrypoint script
-COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+# Copy entrypoint script and ensure it's executable
+COPY --chmod=755 docker-entrypoint.sh /app/docker-entrypoint.sh
 
 # Set ownership
 RUN chown -R nextjs:nodejs /app/apps/web/.next
-RUN chown nextjs:nodejs /app/docker-entrypoint.sh
 
 USER nextjs
 
