@@ -205,6 +205,9 @@ importers:
       '@trpc/server':
         specifier: ^11.0.0
         version: 11.10.0(typescript@5.9.3)
+      bcryptjs:
+        specifier: ^3.0.3
+        version: 3.0.3
       drizzle-orm:
         specifier: ^0.38.0
         version: 0.38.4(@types/react@19.2.14)(postgres@3.4.8)(react@19.2.4)
@@ -215,6 +218,9 @@ importers:
         specifier: ^3.24.0
         version: 3.25.76
     devDependencies:
+      '@types/bcryptjs':
+        specifier: ^3.0.0
+        version: 3.0.0
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
