@@ -41,30 +41,75 @@ jobs:
             if command -v docker &> /dev/null && docker compose version &> /dev/null; then
               echo ">>> Docker found, using Docker deploy..."
 
-              if [ -f ".env.production" ]; then
-                # Configure nginx
-                if [ -f "deploy/nginx-no-ssl.conf" ]; then
-                  cp deploy/nginx-no-ssl.conf deploy/nginx.conf
-                  if [ -n "$APP_DOMAIN" ]; then
-                    sed -i "s/YOUR_DOMAIN.com/$APP_DOMAIN/g" deploy/nginx.conf
-                  else
-                    sed -i "s/YOUR_DOMAIN.com/_/g" deploy/nginx.conf
-                  fi
-                fi
-
-                docker compose -f docker-compose.prod.yml --env-file .env.production build --no-cache web
-                docker compose -f docker-compose.prod.yml --env-file .env.production up -d
-                echo ">>> Docker deploy complete!"
-                docker compose -f docker-compose.prod.yml ps
+              # Auto-detect env file
+              if [ -f ".env" ]; then
+                ENV_FILE=".env"
+              elif [ -f ".env.production" ]; then
+                ENV_FILE=".env.production"
               else
-                echo "WARNING: .env.production not found, creating from example..."
+                echo "WARNING: No .env or .env.production found, creating from example..."
                 if [ -f ".env.production.example" ]; then
                   cp .env.production.example .env.production
+                  ENV_FILE=".env.production"
                   echo "Created .env.production from example."
                   echo "SSH into server and edit: nano $PROJECT_DIR/.env.production"
                   echo "Then re-run this workflow or run: bash deploy/deploy.sh"
+                  exit 1
                 fi
+                exit 1
               fi
+
+              echo ">>> Using env file: $ENV_FILE"
+
+              # Configure nginx — prefer SSL if certs exist
+              source "$ENV_FILE"
+              APP_DOMAIN="${APP_DOMAIN:-}"
+
+              if [ -f "deploy/nginx-ssl.conf" ] && [ -d "/etc/letsencrypt/live/${APP_DOMAIN}" ]; then
+                cp deploy/nginx-ssl.conf deploy/nginx.conf
+                echo ">>> Using SSL nginx config"
+              elif [ -f "deploy/nginx-no-ssl.conf" ]; then
+                cp deploy/nginx-no-ssl.conf deploy/nginx.conf
+                echo ">>> Using non-SSL nginx config"
+              fi
+
+              if [ -f "deploy/nginx.conf" ] && [ -n "$APP_DOMAIN" ]; then
+                sed -i "s/YOUR_DOMAIN.com/$APP_DOMAIN/g" deploy/nginx.conf
+                sed -i "s/cargomarketplace.ru/$APP_DOMAIN/g" deploy/nginx.conf
+              fi
+
+              # Build web and bot
+              echo ">>> Building containers..."
+              docker compose -f docker-compose.prod.yml --env-file "$ENV_FILE" build web bot
+
+              # Start infrastructure first
+              echo ">>> Starting infrastructure..."
+              docker compose -f docker-compose.prod.yml --env-file "$ENV_FILE" up -d postgres redis minio
+
+              # Deploy application (entrypoint handles DB migrations)
+              echo ">>> Deploying application..."
+              docker compose -f docker-compose.prod.yml --env-file "$ENV_FILE" up -d web bot
+
+              # Start nginx
+              echo ">>> Starting nginx..."
+              docker compose -f docker-compose.prod.yml --env-file "$ENV_FILE" up -d nginx certbot
+              docker compose -f docker-compose.prod.yml exec -T nginx nginx -s reload 2>/dev/null || true
+
+              # Wait for web to become healthy
+              echo ">>> Waiting for web to become healthy..."
+              sleep 10
+              RETRIES=0
+              while [ $RETRIES -lt 30 ]; do
+                if docker compose -f docker-compose.prod.yml ps web | grep -q "(healthy)"; then
+                  echo ">>> Web service is healthy!"
+                  break
+                fi
+                RETRIES=$((RETRIES + 1))
+                sleep 2
+              done
+
+              echo ">>> Deploy complete!"
+              docker compose -f docker-compose.prod.yml ps
 
             else
               echo ">>> Docker not found, using PM2 deploy..."
