@@ -55,11 +55,11 @@ fi
 
 # 1. Pull latest code
 echo ""
-echo "[1/6] Pulling latest code..."
+echo "[1/5] Pulling latest code..."
 git pull origin main 2>/dev/null || true
 
 # 2. Configure nginx
-echo "[2/6] Configuring nginx..."
+echo "[2/5] Configuring nginx..."
 if [ -f deploy/nginx-ssl.conf ] && [ -d /etc/letsencrypt/live/"$APP_DOMAIN" ]; then
     cp deploy/nginx-ssl.conf deploy/nginx.conf
     echo "  Using SSL config"
@@ -78,29 +78,37 @@ if [ -f deploy/nginx.conf ]; then
     fi
 fi
 
-# 3. Build web + bot
-echo "[3/6] Building application (this may take a few minutes)..."
+# 3. Ensure infrastructure is running (DB, Redis, MinIO)
+echo "[3/5] Starting infrastructure services..."
+docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d postgres redis minio
+echo "  Waiting for PostgreSQL to be healthy..."
+docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d --wait postgres
+
+# 4. Build and deploy web + bot (with zero-downtime strategy)
+echo "[4/5] Building and deploying application..."
 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" build web bot
 
-# 4. Run DB migrations
-echo "[4/6] Running database migrations..."
-docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d postgres
-sleep 3
-# Push schema to DB (creates tables/indexes if missing)
-docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" run --rm web \
-    sh -c 'cd /app && node -e "
-const { execSync } = require(\"child_process\");
-try { execSync(\"npx drizzle-kit push\", { stdio: \"inherit\", cwd: \"/app/packages/db\" }); }
-catch(e) { console.log(\"DB push skipped (may already be up to date)\"); }
-"' 2>/dev/null || echo "  DB migration skipped (will apply on next deploy)"
+# Start new containers (entrypoint handles DB migrations)
+docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d web bot
 
-# 5. Start all services
-echo "[5/6] Starting all services..."
-docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d
+# 5. Restart nginx to pick up any upstream changes
+echo "[5/5] Restarting nginx..."
+docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d nginx certbot
+# Reload nginx config without dropping connections
+docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T nginx nginx -s reload 2>/dev/null || true
 
-# 6. Wait and check
-echo "[6/6] Waiting for services..."
-sleep 5
+# Wait for web to become healthy
+echo ""
+echo "Waiting for web service to become healthy..."
+RETRIES=0
+MAX_WAIT=60
+while [ $RETRIES -lt $MAX_WAIT ]; do
+    if docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps web | grep -q "(healthy)"; then
+        break
+    fi
+    RETRIES=$((RETRIES + 1))
+    sleep 1
+done
 
 echo ""
 echo "========================================="

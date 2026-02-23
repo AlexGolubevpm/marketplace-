@@ -134,7 +134,8 @@ services:
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - ./deploy/certbot/www:/var/www/certbot:ro
     depends_on:
-      - web
+      web:
+        condition: service_healthy
     networks:
       - cargo-network
 

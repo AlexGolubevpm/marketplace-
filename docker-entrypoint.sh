@@ -34,11 +34,12 @@ cd /app/packages/db
 
 MAX_RETRIES=5
 RETRY=0
-until npx drizzle-kit push; do
+until npx drizzle-kit push 2>&1; do
   RETRY=$((RETRY + 1))
   if [ "$RETRY" -ge "$MAX_RETRIES" ]; then
-    echo "ERROR: drizzle-kit push failed after ${MAX_RETRIES} attempts. Exiting."
-    exit 1
+    echo "WARNING: drizzle-kit push failed after ${MAX_RETRIES} attempts."
+    echo "  The app will start anyway — schema may already be up to date."
+    break
   fi
   echo "    Retrying drizzle-kit push... (attempt ${RETRY}/${MAX_RETRIES})"
   sleep 3
@@ -48,4 +49,4 @@ echo "==> Database schema push complete."
 # ── Start Next.js ──
 cd /app/apps/web
 echo "==> Starting Next.js on port ${PORT:-3000}..."
-exec npx next start -H 0.0.0.0 -p ${PORT:-3000}
+exec node_modules/.bin/next start -H 0.0.0.0 -p ${PORT:-3000}

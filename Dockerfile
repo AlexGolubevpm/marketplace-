@@ -72,8 +72,9 @@ COPY --from=builder /app/packages ./packages
 # Copy entrypoint script and ensure it's executable
 COPY --chmod=755 docker-entrypoint.sh /app/docker-entrypoint.sh
 
-# Set ownership
+# Set ownership for directories that entrypoint needs to write to
 RUN chown -R nextjs:nodejs /app/apps/web/.next
+RUN chown -R nextjs:nodejs /app/packages/db
 
 USER nextjs
 
