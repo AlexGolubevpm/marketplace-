@@ -10,11 +10,13 @@ echo "==> Waiting for PostgreSQL..."
 MAX_RETRIES=30
 RETRY=0
 until node -e "
-  const pg = require('postgres');
-  const sql = pg(process.env.DATABASE_URL);
-  sql\`SELECT 1\`.then(() => { sql.end(); process.exit(0); })
-    .catch(() => { sql.end(); process.exit(1); });
-" 2>/dev/null; do
+  const net = require('net');
+  const url = new URL(process.env.DATABASE_URL);
+  const sock = net.createConnection(parseInt(url.port) || 5432, url.hostname);
+  sock.on('connect', () => { sock.destroy(); process.exit(0); });
+  sock.on('error', () => { sock.destroy(); process.exit(1); });
+  setTimeout(() => { sock.destroy(); process.exit(1); }, 3000);
+"; do
   RETRY=$((RETRY + 1))
   if [ "$RETRY" -ge "$MAX_RETRIES" ]; then
     echo "ERROR: PostgreSQL not available after ${MAX_RETRIES} attempts. Exiting."
@@ -24,12 +26,13 @@ until node -e "
   sleep 2
 done
 echo "==> PostgreSQL is ready."
+sleep 1
 
 # ── Push database schema ──
 echo "==> Running database schema push..."
 cd /app/packages/db
 
-MAX_RETRIES=3
+MAX_RETRIES=5
 RETRY=0
 until npx drizzle-kit push --force; do
   RETRY=$((RETRY + 1))
