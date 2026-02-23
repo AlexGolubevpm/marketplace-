@@ -34,7 +34,7 @@ cd /app/packages/db
 
 MAX_RETRIES=5
 RETRY=0
-until npx drizzle-kit push --force; do
+until npx drizzle-kit push; do
   RETRY=$((RETRY + 1))
   if [ "$RETRY" -ge "$MAX_RETRIES" ]; then
     echo "ERROR: drizzle-kit push failed after ${MAX_RETRIES} attempts. Exiting."
