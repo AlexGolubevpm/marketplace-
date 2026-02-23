@@ -70,12 +70,12 @@ export async function POST(req: NextRequest) {
       .from(schema.admins)
       .limit(1);
 
-    if (!anyAdmin && login === "admin@cargo.local") {
+    if (!anyAdmin) {
       const hashedPassword = await bcrypt.hash(password, BCRYPT_ROUNDS);
       const [admin] = await db
         .insert(schema.admins)
         .values({
-          email: "admin@cargo.local",
+          email: login,
           password_hash: hashedPassword,
           full_name: "Администратор",
           role: "super_admin",
