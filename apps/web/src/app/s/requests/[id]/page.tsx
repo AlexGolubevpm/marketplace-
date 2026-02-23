@@ -114,7 +114,7 @@ export default function CarrierOfferPage() {
                   body: JSON.stringify({ request_id: request.id, customer_id: request.customer_id, carrier_id: session.user_id || session.tg_id }),
                 });
                 router.push("/s/chats");
-              } catch {}
+              } catch (err) { console.error("Failed to create chat:", err); }
             }} className="px-6 py-3 rounded-xl bg-red-500 text-white font-medium hover:bg-red-600 transition-colors flex items-center gap-2">
               <MessageSquare className="h-4 w-4" /> Написать клиенту
             </button>

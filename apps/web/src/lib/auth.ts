@@ -10,11 +10,15 @@ export interface UserSession {
   login_at: string;
 }
 
-const STORAGE_KEY_CUSTOMER = "cargo_session_customer";
-const STORAGE_KEY_CARRIER = "cargo_session_carrier";
+/** Centralized session storage keys — used across the entire app */
+export const SESSION_KEYS = {
+  CUSTOMER: "cargo_session_customer",
+  CARRIER: "cargo_session_carrier",
+  ADMIN: "cargo_admin_session",
+} as const;
 
 function keyForRole(role: "customer" | "carrier"): string {
-  return role === "customer" ? STORAGE_KEY_CUSTOMER : STORAGE_KEY_CARRIER;
+  return role === "customer" ? SESSION_KEYS.CUSTOMER : SESSION_KEYS.CARRIER;
 }
 
 /** Get session for a specific role, or auto-detect from both keys */
@@ -29,7 +33,7 @@ export function getSession(role?: "customer" | "carrier"): UserSession | null {
       return session;
     }
     // Auto-detect: try both keys
-    for (const key of [STORAGE_KEY_CUSTOMER, STORAGE_KEY_CARRIER]) {
+    for (const key of [SESSION_KEYS.CUSTOMER, SESSION_KEYS.CARRIER]) {
       const raw = localStorage.getItem(key);
       if (raw) {
         const session = JSON.parse(raw) as UserSession;
@@ -50,7 +54,7 @@ export function clearSession(role?: "customer" | "carrier"): void {
   if (role) {
     localStorage.removeItem(keyForRole(role));
   } else {
-    localStorage.removeItem(STORAGE_KEY_CUSTOMER);
-    localStorage.removeItem(STORAGE_KEY_CARRIER);
+    localStorage.removeItem(SESSION_KEYS.CUSTOMER);
+    localStorage.removeItem(SESSION_KEYS.CARRIER);
   }
 }

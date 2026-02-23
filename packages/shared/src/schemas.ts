@@ -135,6 +135,7 @@ export const requestCreateSchema = z.object({
 
 export const requestUpdateSchema = requestCreateSchema.partial().extend({
   id: z.string().uuid(),
+  status: z.enum(requestStatuses as [string, ...string[]]).optional(),
 });
 
 export const requestFiltersSchema = z.object({

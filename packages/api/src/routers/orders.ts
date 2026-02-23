@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { eq, and, sql, desc, asc, gte, lte, inArray } from "drizzle-orm";
 import { router, protectedProcedure } from "../trpc";
-import { orders, orderStatusHistory, orderDocuments, internalComments } from "@cargo/db";
+import { orders, orderStatusHistory, orderDocuments, internalComments, customers } from "@cargo/db";
 import {
   orderUpdateStatusSchema,
   orderFiltersSchema,
@@ -149,6 +149,29 @@ export const ordersRouter = router({
         change_source: "admin" as any,
         comment: input.comment,
       });
+
+      // Notify customer about order status change
+      if (ctx.notify) {
+        try {
+          const [customer] = await ctx.db
+            .select()
+            .from(customers)
+            .where(eq(customers.id, currentOrder.customer_id))
+            .limit(1);
+
+          if (customer?.telegram_id) {
+            ctx.notify("order_status_changed", {
+              customerTelegramId: customer.telegram_id,
+              orderDisplayId: updatedOrder.display_id,
+              oldStatus: currentOrder.status,
+              newStatus: input.status,
+              comment: input.comment,
+            }).catch(() => {});
+          }
+        } catch (e) {
+          console.error("[orders.updateStatus] Notification error:", e);
+        }
+      }
 
       return updatedOrder;
     }),

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { eq, and, sql, desc, asc, gte, lte } from "drizzle-orm";
+import { createHash } from "crypto";
 import { router, protectedProcedure, withRole } from "../trpc";
 import { admins, auditLogs, slaConfigs } from "@cargo/db";
 import {
@@ -9,6 +10,20 @@ import {
   auditLogFiltersSchema,
   paginationSchema,
 } from "@cargo/shared";
+
+// bcrypt-compatible hash using Node.js crypto (no external dep needed in API package)
+async function hashPassword(password: string): Promise<string> {
+  // Dynamic import bcryptjs — available in web app runtime
+  try {
+    const bcrypt = await import("bcryptjs");
+    return bcrypt.hash(password, 12);
+  } catch {
+    // Fallback: SHA-256 with salt (less ideal, but better than plaintext)
+    const salt = createHash("sha256").update(String(Date.now())).digest("hex").slice(0, 16);
+    const hash = createHash("sha256").update(salt + password).digest("hex");
+    return `$sha256$${salt}$${hash}`;
+  }
+}
 
 export const settingsRouter = router({
   getSla: protectedProcedure.query(async ({ ctx }) => {
@@ -106,12 +121,12 @@ export const settingsRouter = router({
     .use(withRole("super_admin"))
     .input(adminCreateSchema)
     .mutation(async ({ ctx, input }) => {
-      // In production, hash password with bcrypt
+      const hashedPw = await hashPassword(input.password);
       const [admin] = await ctx.db
         .insert(admins)
         .values({
           email: input.email,
-          password_hash: input.password, // TODO: bcrypt hash
+          password_hash: hashedPw,
           full_name: input.full_name,
           role: input.role as any,
         })

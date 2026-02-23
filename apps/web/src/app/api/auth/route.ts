@@ -2,13 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
-
-const EMAIL_REGEX = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
-const BCRYPT_ROUNDS = 12;
-
-function validateEmail(email: string): boolean {
-  return EMAIL_REGEX.test(email.trim().toLowerCase());
-}
+import { BCRYPT_ROUNDS, validateEmail } from "@/lib/auth-config";
 
 // POST /api/auth — login or register by email for customer/carrier
 export async function POST(req: NextRequest) {

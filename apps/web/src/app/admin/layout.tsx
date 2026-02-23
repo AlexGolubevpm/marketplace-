@@ -19,9 +19,9 @@ import {
   BookOpen,
   FileEdit,
   MessageSquare,
-  Bot,
 } from "lucide-react";
 import { BrandedLogo, useBranding } from "@/components/cngo-logo";
+import { SESSION_KEYS } from "@/lib/auth";
 
 const navItems = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -33,7 +33,6 @@ const navItems = [
   { href: "/admin/chats", label: "Чаты", icon: MessageSquare },
   { href: "/admin/analytics", label: "Аналитика", icon: BarChart3 },
   { href: "/admin/knowledgebase", label: "База знаний", icon: BookOpen },
-  { href: "/admin/bots", label: "AI Боты", icon: Bot },
   { href: "/admin/content", label: "Контент лендинга", icon: FileEdit },
   { href: "/admin/settings", label: "Настройки", icon: Settings },
 ];
@@ -60,7 +59,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem("cargo_admin_session");
+      const raw = localStorage.getItem(SESSION_KEYS.ADMIN);
       if (!raw) { router.replace("/auth/admin"); return; }
       const session = JSON.parse(raw);
       if (!session.logged_in) { router.replace("/auth/admin"); return; }
@@ -69,7 +68,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }, [router]);
 
   const handleLogout = () => {
-    localStorage.removeItem("cargo_admin_session");
+    localStorage.removeItem(SESSION_KEYS.ADMIN);
     router.replace("/auth/admin");
   };
 

@@ -164,17 +164,47 @@ export const requestsRouter = router({
     .input(requestUpdateSchema)
     .mutation(async ({ ctx, input }) => {
       const { id, ...data } = input;
+
+      // Fetch current request + customer for notification
+      const [current] = await ctx.db
+        .select()
+        .from(requests)
+        .where(eq(requests.id, id))
+        .limit(1);
+
       const [request] = await ctx.db
         .update(requests)
         .set({ ...data, updated_at: new Date() } as any)
         .where(eq(requests.id, id))
         .returning();
+
+      // Send notification if status changed
+      if (current && data.status && current.status !== data.status && ctx.notify) {
+        const [customer] = await ctx.db
+          .select()
+          .from(customers)
+          .where(eq(customers.id, request.customer_id))
+          .limit(1);
+
+        if (customer?.telegram_id) {
+          const route = `${request.origin_city} → ${request.destination_city}`;
+          ctx.notify("request_status_changed", {
+            customerTelegramId: customer.telegram_id,
+            displayId: request.display_id,
+            oldStatus: current.status,
+            newStatus: data.status,
+            route,
+          }).catch(() => {});
+        }
+      }
+
       return request;
     }),
 
   close: protectedProcedure
     .input(z.object({ id: z.string().uuid(), reason: z.string().optional() }))
     .mutation(async ({ ctx, input }) => {
+      const [current] = await ctx.db.select().from(requests).where(eq(requests.id, input.id)).limit(1);
       const [request] = await ctx.db
         .update(requests)
         .set({
@@ -184,12 +214,27 @@ export const requestsRouter = router({
         })
         .where(eq(requests.id, input.id))
         .returning();
+
+      if (current && ctx.notify) {
+        const [customer] = await ctx.db.select().from(customers).where(eq(customers.id, request.customer_id)).limit(1);
+        if (customer?.telegram_id) {
+          ctx.notify("request_status_changed", {
+            customerTelegramId: customer.telegram_id,
+            displayId: request.display_id,
+            oldStatus: current.status,
+            newStatus: "closed",
+            route: `${request.origin_city} → ${request.destination_city}`,
+          }).catch(() => {});
+        }
+      }
+
       return request;
     }),
 
   cancel: protectedProcedure
     .input(z.object({ id: z.string().uuid(), reason: z.string().optional() }))
     .mutation(async ({ ctx, input }) => {
+      const [current] = await ctx.db.select().from(requests).where(eq(requests.id, input.id)).limit(1);
       const [request] = await ctx.db
         .update(requests)
         .set({
@@ -199,6 +244,20 @@ export const requestsRouter = router({
         })
         .where(eq(requests.id, input.id))
         .returning();
+
+      if (current && ctx.notify) {
+        const [customer] = await ctx.db.select().from(customers).where(eq(customers.id, request.customer_id)).limit(1);
+        if (customer?.telegram_id) {
+          ctx.notify("request_status_changed", {
+            customerTelegramId: customer.telegram_id,
+            displayId: request.display_id,
+            oldStatus: current.status,
+            newStatus: "cancelled",
+            route: `${request.origin_city} → ${request.destination_city}`,
+          }).catch(() => {});
+        }
+      }
+
       return request;
     }),
 

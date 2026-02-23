@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { TRPCProvider } from "@/trpc/provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AnalyticsScripts } from "@/components/analytics-scripts";
 
 const inter = localFont({
   src: "./fonts/Inter-Variable.woff2",
@@ -13,14 +14,15 @@ const inter = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Cargo Marketplace — Admin",
-  description: "Операционный центр управления маркетплейсом грузоперевозок",
+  title: "Cargo Marketplace — Маркетплейс грузоперевозок",
+  description: "Найдите лучшие условия доставки грузов. Сравните цены и условия от проверенных карго-компаний.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ru" suppressHydrationWarning>
       <body className={inter.className}>
+        <AnalyticsScripts />
         <TRPCProvider>
           <TooltipProvider>{children}</TooltipProvider>
         </TRPCProvider>

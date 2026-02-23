@@ -149,7 +149,7 @@ export default function CustomerRequestDetailPage() {
       if (res.ok) {
         router.push("/c/chats");
       }
-    } catch {}
+    } catch (err) { console.error("Failed to start chat:", err); }
   };
 
   return (

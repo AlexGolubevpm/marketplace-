@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { eq, and, sql, desc, asc, gte, lte } from "drizzle-orm";
 import { router, protectedProcedure } from "../trpc";
-import { offers } from "@cargo/db";
+import { offers, requests, customers, carriers } from "@cargo/db";
 import {
   offerCreateSchema,
   offerUpdateSchema,
@@ -109,6 +109,45 @@ export const offersRouter = router({
         .insert(offers)
         .values({ ...input, display_id } as any)
         .returning();
+
+      // Notify customer about new offer
+      if (ctx.notify) {
+        try {
+          const [request] = await ctx.db
+            .select()
+            .from(requests)
+            .where(eq(requests.id, offer.request_id))
+            .limit(1);
+
+          if (request) {
+            const [customer] = await ctx.db
+              .select()
+              .from(customers)
+              .where(eq(customers.id, request.customer_id))
+              .limit(1);
+
+            const [carrier] = await ctx.db
+              .select()
+              .from(carriers)
+              .where(eq(carriers.id, offer.carrier_id))
+              .limit(1);
+
+            if (customer?.telegram_id) {
+              ctx.notify("new_offer", {
+                customerTelegramId: customer.telegram_id,
+                requestDisplayId: request.display_id,
+                offerPrice: offer.price,
+                offerCurrency: offer.currency,
+                estimatedDays: offer.estimated_days,
+                carrierName: carrier?.name || "Карго-компания",
+              }).catch(() => {});
+            }
+          }
+        } catch (e) {
+          console.error("[offers.create] Notification error:", e);
+        }
+      }
+
       return offer;
     }),
 

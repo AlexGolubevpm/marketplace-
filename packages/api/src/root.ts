@@ -9,7 +9,6 @@ import { settingsRouter } from "./routers/settings";
 import { contentRouter } from "./routers/content";
 import { knowledgebaseRouter } from "./routers/knowledgebase";
 import { knowledgeRouter } from "./routers/knowledge";
-import { botsRouter } from "./routers/bots";
 
 export const appRouter = router({
   customers: customersRouter,
@@ -22,7 +21,6 @@ export const appRouter = router({
   content: contentRouter,
   knowledgebase: knowledgebaseRouter,
   knowledge: knowledgeRouter,
-  bots: botsRouter,
 });
 
 export type AppRouter = typeof appRouter;

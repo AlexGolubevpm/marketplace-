@@ -7,6 +7,7 @@ import {
   pgEnum,
   decimal,
   date,
+  index,
 } from "drizzle-orm/pg-core";
 import { requests } from "./requests";
 import { offers } from "./offers";
@@ -74,7 +75,13 @@ export const orders = pgTable("orders", {
   created_at: timestamp("created_at").notNull().defaultNow(),
   updated_at: timestamp("updated_at").notNull().defaultNow(),
   completed_at: timestamp("completed_at"),
-});
+}, (table) => [
+  index("idx_orders_request_id").on(table.request_id),
+  index("idx_orders_offer_id").on(table.offer_id),
+  index("idx_orders_customer_id").on(table.customer_id),
+  index("idx_orders_carrier_id").on(table.carrier_id),
+  index("idx_orders_status").on(table.status),
+]);
 
 export const orderStatusHistory = pgTable("order_status_history", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -87,7 +94,9 @@ export const orderStatusHistory = pgTable("order_status_history", {
   change_source: changeSourceEnum("change_source").notNull().default("admin"),
   comment: text("comment"),
   created_at: timestamp("created_at").notNull().defaultNow(),
-});
+}, (table) => [
+  index("idx_order_status_history_order_id").on(table.order_id),
+]);
 
 export const orderDocuments = pgTable("order_documents", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -100,4 +109,6 @@ export const orderDocuments = pgTable("order_documents", {
   uploaded_by: varchar("uploaded_by", { length: 100 }),
   uploaded_by_role: varchar("uploaded_by_role", { length: 20 }).notNull().default("admin"),
   created_at: timestamp("created_at").notNull().defaultNow(),
-});
+}, (table) => [
+  index("idx_order_documents_order_id").on(table.order_id),
+]);

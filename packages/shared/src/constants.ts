@@ -154,3 +154,24 @@ export const adminRoleLabels: Record<string, string> = {
   analyst: "Аналитик",
   content_manager: "Контент-менеджер",
 };
+
+// Document type labels
+export const documentTypeLabels: Record<string, string> = {
+  invoice: "Инвойс",
+  customs_declaration: "Таможенная декларация",
+  bill_of_lading: "Коносамент",
+  photo: "Фото",
+  contract: "Договор",
+  other: "Другое",
+};
+
+// Currency options
+export const currencyOptions = ["USD", "EUR", "RUB", "CNY"] as const;
+
+// Source labels
+export const requestSourceLabels: Record<string, string> = {
+  web_form: "Web",
+  telegram_bot: "Telegram",
+  admin_manual: "Админ",
+  api: "API",
+};

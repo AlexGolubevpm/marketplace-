@@ -7,6 +7,7 @@ import { ArrowRight, Send, Check, Plane, Ship, TrainFront, Truck, ClipboardList,
 import type { LucideIcon } from "lucide-react";
 import { trpc } from "@/trpc/client";
 import { CngoLogo } from "@/components/cngo-logo";
+import { SESSION_KEYS } from "@/lib/auth";
 
 /* ── Icon map ── */
 const ICON_MAP: Record<string, LucideIcon> = {
@@ -177,7 +178,7 @@ function useSession(): SessionInfo {
   const [session, setSession] = useState<SessionInfo>(null);
   useEffect(() => {
     try {
-      for (const key of ["cargo_session_customer", "cargo_session_carrier"]) {
+      for (const key of [SESSION_KEYS.CUSTOMER, SESSION_KEYS.CARRIER]) {
         const raw = localStorage.getItem(key);
         if (raw) {
           const s = JSON.parse(raw);
@@ -187,9 +188,9 @@ function useSession(): SessionInfo {
           }
         }
       }
-    } catch {}
+    } catch (err) { console.error("Failed to read user session:", err); }
     try {
-      const raw = localStorage.getItem("cargo_admin_session");
+      const raw = localStorage.getItem(SESSION_KEYS.ADMIN);
       if (raw) {
         const s = JSON.parse(raw);
         if (s.logged_in) {
@@ -197,7 +198,7 @@ function useSession(): SessionInfo {
           return;
         }
       }
-    } catch {}
+    } catch (err) { console.error("Failed to read admin session:", err); }
   }, []);
   return session;
 }

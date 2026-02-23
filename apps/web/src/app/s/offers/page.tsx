@@ -74,7 +74,7 @@ export default function CarrierOffersPage() {
                 order: req.order || undefined,
               };
             }
-          } catch {}
+          } catch (err) { console.error("Failed to load request details:", err); }
         })
       );
 

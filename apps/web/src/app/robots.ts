@@ -6,10 +6,13 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: "*",
-        allow: ["/knowledge/", "/knowledge/category/", "/knowledge/tag/", "/knowledge/faq"],
-        disallow: ["/knowledge/search", "/(admin)/", "/api/", "/c/", "/s/", "/auth/"],
+        allow: ["/", "/knowledge/", "/knowledge/category/", "/knowledge/tag/", "/knowledge/faq"],
+        disallow: ["/knowledge/search", "/admin/", "/api/", "/c/", "/s/", "/auth/"],
       },
     ],
-    sitemap: `${base}/knowledge/sitemap.xml`,
+    sitemap: [
+      `${base}/sitemap.xml`,
+      `${base}/knowledge/sitemap.xml`,
+    ],
   };
 }

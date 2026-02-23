@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { eq, and, or, desc, sql } from "drizzle-orm";
+import { notifyNewMessage } from "@/lib/telegram-notify";
 
 // Helper: resolve identifier to customer UUID (UUID, telegram_id, or email)
 async function resolveCustomerId(identifier: string): Promise<string | null> {
@@ -176,6 +177,68 @@ export async function POST(req: NextRequest) {
         .update(schema.conversations)
         .set({ updated_at: new Date() })
         .where(eq(schema.conversations.id, body.conversation_id));
+
+      // Send Telegram notification to the other party
+      try {
+        const [convo] = await db
+          .select()
+          .from(schema.conversations)
+          .where(eq(schema.conversations.id, body.conversation_id))
+          .limit(1);
+
+        if (convo) {
+          const [request] = await db
+            .select({ display_id: schema.requests.display_id })
+            .from(schema.requests)
+            .where(eq(schema.requests.id, convo.request_id))
+            .limit(1);
+
+          // Determine recipient (the other party)
+          if (body.sender_role === "carrier") {
+            const [customer] = await db
+              .select({ telegram_id: schema.customers.telegram_id, full_name: schema.customers.full_name })
+              .from(schema.customers)
+              .where(eq(schema.customers.id, convo.customer_id))
+              .limit(1);
+            const [carrier] = await db
+              .select({ name: schema.carriers.name })
+              .from(schema.carriers)
+              .where(eq(schema.carriers.id, convo.carrier_id))
+              .limit(1);
+
+            if (customer?.telegram_id) {
+              notifyNewMessage({
+                recipientTelegramId: customer.telegram_id,
+                senderName: carrier?.name || "Карго-компания",
+                requestDisplayId: request?.display_id || "",
+                messagePreview: body.text || "(файл)",
+              }).catch(() => {});
+            }
+          } else if (body.sender_role === "customer") {
+            const [carrier] = await db
+              .select({ telegram_id: schema.carriers.telegram_id, name: schema.carriers.name })
+              .from(schema.carriers)
+              .where(eq(schema.carriers.id, convo.carrier_id))
+              .limit(1);
+            const [customer] = await db
+              .select({ full_name: schema.customers.full_name })
+              .from(schema.customers)
+              .where(eq(schema.customers.id, convo.customer_id))
+              .limit(1);
+
+            if (carrier?.telegram_id) {
+              notifyNewMessage({
+                recipientTelegramId: carrier.telegram_id,
+                senderName: customer?.full_name || "Клиент",
+                requestDisplayId: request?.display_id || "",
+                messagePreview: body.text || "(файл)",
+              }).catch(() => {});
+            }
+          }
+        }
+      } catch (e) {
+        console.error("[chat notification] Error:", e);
+      }
 
       return NextResponse.json(msg, { status: 201 });
     }

@@ -1,4 +1,5 @@
 import { Bot, Context, session, SessionFlavor, InlineKeyboard } from "grammy";
+import { createHmac } from "crypto";
 
 // ============================================
 // Types
@@ -35,6 +36,11 @@ if (!token) {
 
 const bot = new Bot<MyContext>(token);
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+// Internal URL for API calls (within Docker network); falls back to APP_URL
+const API_URL = process.env.INTERNAL_API_URL || APP_URL;
+
+// HMAC secret for signing Telegram auth URLs
+const TG_AUTH_SECRET = process.env.TG_AUTH_SECRET || token;
 
 // Session
 bot.use(session({ initial: (): SessionData => ({}) }));
@@ -71,7 +77,10 @@ const OFFER_STATUS_LABELS: Record<string, string> = {
 
 function buildAuthUrl(user: { id: number; first_name: string; last_name?: string; username?: string }, role: string): string {
   const name = user.first_name + (user.last_name ? " " + user.last_name : "");
-  return `${APP_URL}/auth/telegram?tg_id=${user.id}&name=${encodeURIComponent(name)}&username=${encodeURIComponent(user.username || "")}&role=${role}`;
+  const ts = Math.floor(Date.now() / 1000);
+  const payload = `${user.id}:${role}:${ts}`;
+  const sig = createHmac("sha256", TG_AUTH_SECRET).update(payload).digest("hex");
+  return `${APP_URL}/auth/telegram?tg_id=${user.id}&name=${encodeURIComponent(name)}&username=${encodeURIComponent(user.username || "")}&role=${role}&ts=${ts}&sig=${sig}`;
 }
 
 function escMd(text: string): string {
@@ -79,7 +88,7 @@ function escMd(text: string): string {
 }
 
 async function api(path: string, options?: RequestInit): Promise<any> {
-  const url = `${APP_URL}${path}`;
+  const url = `${API_URL}${path}`;
   try {
     const res = await fetch(url, {
       ...options,

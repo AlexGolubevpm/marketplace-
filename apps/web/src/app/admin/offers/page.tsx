@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import { RefreshCw, Plus } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
@@ -31,6 +32,7 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { deliveryTypeLabels } from "@cargo/shared";
 
 interface Offer {
   id: string;
@@ -50,14 +52,6 @@ interface Offer {
   carrier_phone: string | null;
   carrier_email: string | null;
 }
-
-const deliveryLabels: Record<string, string> = {
-  air: "Авиа",
-  sea: "Море",
-  rail: "ЖД",
-  road: "Авто",
-  multimodal: "Мульти",
-};
 
 export default function OffersPage() {
   const [offers, setOffers] = useState<Offer[]>([]);
@@ -170,8 +164,10 @@ export default function OffersPage() {
             </TableHeader>
             <TableBody>
               {offers.map((offer) => (
-                <TableRow key={offer.id}>
-                  <TableCell className="font-mono text-sm">{offer.display_id}</TableCell>
+                <TableRow key={offer.id} className="cursor-pointer hover:bg-gray-50">
+                  <TableCell className="font-mono text-sm">
+                    <Link href={`/admin/offers/${offer.id}`} className="text-blue-600 hover:underline">{offer.display_id}</Link>
+                  </TableCell>
                   <TableCell className="font-mono text-sm text-blue-600">{offer.request_id.slice(0, 8)}...</TableCell>
                   <TableCell>
                     <div>
@@ -188,7 +184,7 @@ export default function OffersPage() {
                     ${parseFloat(offer.price).toLocaleString()} {offer.currency !== "USD" ? offer.currency : ""}
                   </TableCell>
                   <TableCell>{offer.estimated_days}</TableCell>
-                  <TableCell>{deliveryLabels[offer.delivery_type] || offer.delivery_type}</TableCell>
+                  <TableCell>{deliveryTypeLabels[offer.delivery_type] || offer.delivery_type}</TableCell>
                   <TableCell>
                     <StatusBadge status={offer.status} type="offer" />
                   </TableCell>

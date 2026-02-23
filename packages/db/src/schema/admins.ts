@@ -6,6 +6,7 @@ import {
   pgEnum,
   text,
   jsonb,
+  index,
 } from "drizzle-orm/pg-core";
 
 export const adminRoleEnum = pgEnum("admin_role", [
@@ -41,7 +42,11 @@ export const auditLogs = pgTable("audit_logs", {
   ip_address: varchar("ip_address", { length: 45 }),
   user_agent: varchar("user_agent", { length: 500 }),
   created_at: timestamp("created_at").notNull().defaultNow(),
-});
+}, (table) => [
+  index("idx_audit_logs_admin_id").on(table.admin_id),
+  index("idx_audit_logs_entity").on(table.entity_type, table.entity_id),
+  index("idx_audit_logs_created_at").on(table.created_at),
+]);
 
 export const internalComments = pgTable("internal_comments", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -52,4 +57,7 @@ export const internalComments = pgTable("internal_comments", {
     .references(() => admins.id),
   text: text("text").notNull(),
   created_at: timestamp("created_at").notNull().defaultNow(),
-});
+}, (table) => [
+  index("idx_internal_comments_entity").on(table.entity_type, table.entity_id),
+  index("idx_internal_comments_author_id").on(table.author_id),
+]);

@@ -23,12 +23,17 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    // Generate display ID
-    const countResult = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(schema.orders);
-    const num = (countResult[0]?.count || 0) + 1;
-    const display_id = `ORD-${new Date().getFullYear()}-${String(num).padStart(4, "0")}`;
+    // Generate display ID using MAX to avoid race-condition duplicates
+    const year = new Date().getFullYear();
+    const ordPrefix = `ORD-${year}-`;
+    const [maxOrd] = await db
+      .select({ maxId: sql<string>`COALESCE(MAX(display_id), '')` })
+      .from(schema.orders)
+      .where(sql`display_id LIKE ${ordPrefix + "%"}`);
+    const lastOrdNum = maxOrd?.maxId
+      ? parseInt(maxOrd.maxId.split("-").pop() || "0", 10)
+      : 0;
+    const display_id = `${ordPrefix}${String(lastOrdNum + 1).padStart(4, "0")}`;
 
     const [order] = await db
       .insert(schema.orders)
