@@ -72,12 +72,15 @@ COPY --from=builder /app/apps/web ./apps/web
 # Copy workspace packages (needed at runtime by transpilePackages)
 COPY --from=builder /app/packages ./packages
 
+# Copy entrypoint script
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+
 # Set ownership
 RUN chown -R nextjs:nodejs /app/apps/web/.next
+RUN chown nextjs:nodejs /app/docker-entrypoint.sh
 
 USER nextjs
 
 EXPOSE 3000
 
-WORKDIR /app/apps/web
-CMD ["npx", "next", "start", "-H", "0.0.0.0", "-p", "3000"]
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
