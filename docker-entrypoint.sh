@@ -76,6 +76,17 @@ else
   echo "  Searched: /app/node_modules/drizzle-kit/bin.cjs"
 fi
 
+# ── Ensure uploads directory is writable ──
+UPLOADS_DIR="/app/apps/web/public/uploads"
+mkdir -p "$UPLOADS_DIR" 2>/dev/null || true
+if [ -w "$UPLOADS_DIR" ]; then
+  echo "==> Uploads directory OK: $UPLOADS_DIR"
+else
+  echo "==> WARNING: Uploads directory is NOT writable: $UPLOADS_DIR"
+  echo "    Images will fail to upload!"
+  echo "    Fix: docker compose -f docker-compose.prod.yml exec -u root web chown -R nextjs:nodejs /app/apps/web/public/uploads"
+fi
+
 # ── Start Next.js ──
 cd /app/apps/web
 

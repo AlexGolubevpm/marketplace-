@@ -86,6 +86,9 @@ COPY --from=builder /app/packages ./packages
 # Copy entrypoint script and ensure it's executable
 COPY --chmod=755 docker-entrypoint.sh /app/docker-entrypoint.sh
 
+# Create uploads directory with correct ownership (for Docker volume mount)
+RUN mkdir -p /app/apps/web/public/uploads && chown nextjs:nodejs /app/apps/web/public/uploads
+
 # Set ownership for directories that entrypoint needs to write to
 RUN chown -R nextjs:nodejs /app/apps/web/.next
 RUN chown -R nextjs:nodejs /app/packages/db
