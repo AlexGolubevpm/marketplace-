@@ -518,12 +518,16 @@ export default function ContentPage() {
   const [sectionData, setSectionData] = useState<Record<string, Record<string, any>>>(DEFAULT_CONTENT);
   const [saveStatus, setSaveStatus] = useState<Record<string, "saved" | "saving" | "error" | null>>({});
 
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const updateMutation = trpc.content.update.useMutation({
     onSuccess: () => {
+      setErrorDetail(null);
       setSaveStatus((prev) => ({ ...prev, [activeSectionId]: "saved" }));
       setTimeout(() => setSaveStatus((prev) => ({ ...prev, [activeSectionId]: null })), 3000);
     },
-    onError: () => {
+    onError: (err) => {
+      console.error("[content.update] Error:", err.message, err);
+      setErrorDetail(err.message);
       setSaveStatus((prev) => ({ ...prev, [activeSectionId]: "error" }));
     },
   });
@@ -565,7 +569,9 @@ export default function ContentPage() {
   }, [activeSectionId]);
 
   const handleSave = () => {
+    console.log("[content.update] Saving:", { section: activeSectionId, content: activeData });
     setSaveStatus((prev) => ({ ...prev, [activeSectionId]: "saving" }));
+    setErrorDetail(null);
     updateMutation.mutate({
       section: activeSectionId,
       content: activeData,
@@ -630,7 +636,7 @@ export default function ContentPage() {
               )}
               {saveStatus[activeSectionId] === "error" && (
                 <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-600 text-sm">
-                  Ошибка сохранения. Попробуйте ещё раз.
+                  Ошибка сохранения: {errorDetail || "Неизвестная ошибка"}
                 </div>
               )}
 
