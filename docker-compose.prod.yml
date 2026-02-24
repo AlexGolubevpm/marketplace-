@@ -182,6 +182,8 @@ services:
 
 volumes:
   postgres_data:
+    external: true
+    name: cargo-marketplace_postgres_data
   redis_data:
   minio_data:
   uploads_data:
