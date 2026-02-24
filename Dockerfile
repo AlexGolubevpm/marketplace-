@@ -69,11 +69,11 @@ COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
 
-# Copy drizzle-kit and db package for schema push on startup
+# Copy db package schema for drizzle-kit push on startup
 COPY --from=builder /app/packages/db ./packages/db
-COPY --from=builder /app/node_modules/drizzle-kit ./node_modules/drizzle-kit
-COPY --from=builder /app/node_modules/drizzle-orm ./node_modules/drizzle-orm
-COPY --from=builder /app/node_modules/esbuild ./node_modules/esbuild
+
+# Install drizzle-kit for runtime schema push (pnpm symlinks don't survive multi-stage COPY)
+RUN npm install --no-save drizzle-kit drizzle-orm
 
 # Copy entrypoint script and ensure it's executable
 COPY --chmod=755 docker-entrypoint.sh /app/docker-entrypoint.sh
