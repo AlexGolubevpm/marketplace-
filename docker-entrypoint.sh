@@ -57,19 +57,20 @@ sleep 1
 echo "==> Running database schema push..."
 cd /app/packages/db
 
-# Find drizzle-kit binary (bin.cjs is the actual JS entry point)
+# Find drizzle-kit binary — prefer the isolated /drizzle-tools install
 DRIZZLE_BIN=$(find_bin \
+  "/drizzle-tools/node_modules/drizzle-kit/bin.cjs" \
   "./node_modules/drizzle-kit/bin.cjs" \
   "/app/node_modules/drizzle-kit/bin.cjs" \
-  "./node_modules/.bin/drizzle-kit" \
-  "/app/node_modules/.bin/drizzle-kit" \
 ) || true
 
 if [ -n "$DRIZZLE_BIN" ]; then
   echo "    Using drizzle-kit: $DRIZZLE_BIN"
+  # Ensure drizzle-kit can find the postgres driver from /drizzle-tools
+  export NODE_PATH="/drizzle-tools/node_modules:${NODE_PATH:-}"
   MAX_RETRIES=5
   RETRY=0
-  until node "$DRIZZLE_BIN" push 2>&1; do
+  until node "$DRIZZLE_BIN" push --force 2>&1; do
     RETRY=$((RETRY + 1))
     if [ "$RETRY" -ge "$MAX_RETRIES" ]; then
       echo "WARNING: drizzle-kit push failed after ${MAX_RETRIES} attempts."
@@ -79,11 +80,12 @@ if [ -n "$DRIZZLE_BIN" ]; then
     echo "    Retrying drizzle-kit push... (attempt ${RETRY}/${MAX_RETRIES})"
     sleep 3
   done
+  # Unset NODE_PATH so it doesn't affect Next.js runtime
+  unset NODE_PATH
   echo "==> Database schema push complete."
 else
   echo "WARNING: drizzle-kit not found — skipping schema push."
-  echo "  Searched: ./node_modules/drizzle-kit/bin.cjs"
-  echo "  Searched: /app/node_modules/drizzle-kit/bin.cjs"
+  echo "  Searched: /drizzle-tools/node_modules/drizzle-kit/bin.cjs"
 fi
 
 # ── Verify uploads directory is writable ──

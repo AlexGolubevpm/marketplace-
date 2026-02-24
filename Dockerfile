@@ -72,8 +72,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
 # Copy db package schema for drizzle-kit push on startup
 COPY --from=builder /app/packages/db ./packages/db
 
-# Install drizzle-kit for runtime schema push (pnpm symlinks don't survive multi-stage COPY)
-RUN npm install --no-save drizzle-kit drizzle-orm
+# Install drizzle-kit in an isolated directory so it doesn't corrupt standalone node_modules
+RUN mkdir -p /drizzle-tools && cd /drizzle-tools && npm init -y && npm install drizzle-kit drizzle-orm postgres
 
 # Copy entrypoint script and ensure it's executable
 COPY --chmod=755 docker-entrypoint.sh /app/docker-entrypoint.sh
