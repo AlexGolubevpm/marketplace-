@@ -43,6 +43,19 @@ echo "========================================="
 
 cd "$APP_DIR"
 
+# 0. Check for conflicting host services and duplicate stacks
+echo ""
+echo "[0/5] Checking for service conflicts..."
+if [ -f deploy/check-conflicts.sh ]; then
+    bash deploy/check-conflicts.sh --auto-fix || {
+        echo "WARNING: Some conflicts could not be auto-fixed. See above."
+        echo "Press Enter to continue anyway, or Ctrl+C to abort."
+        read -r
+    }
+else
+    echo "  check-conflicts.sh not found, skipping"
+fi
+
 # Load environment variables
 set -a
 source "$ENV_FILE"

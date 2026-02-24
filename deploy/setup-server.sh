@@ -12,11 +12,11 @@ echo "  Cargo Marketplace — Server Setup"
 echo "========================================="
 
 # 1. Update system
-echo "[1/6] Updating system packages..."
+echo "[1/7] Updating system packages..."
 apt-get update && apt-get upgrade -y
 
 # 2. Install Docker
-echo "[2/6] Installing Docker..."
+echo "[2/7] Installing Docker..."
 if ! command -v docker &> /dev/null; then
     curl -fsSL https://get.docker.com -o get-docker.sh
     sh get-docker.sh
@@ -29,7 +29,7 @@ else
 fi
 
 # 3. Install Docker Compose
-echo "[3/6] Installing Docker Compose..."
+echo "[3/7] Installing Docker Compose..."
 if ! command -v docker compose &> /dev/null; then
     apt-get install -y docker-compose-plugin
     echo "Docker Compose installed"
@@ -38,17 +38,28 @@ else
 fi
 
 # 4. Install Git
-echo "[4/6] Installing Git..."
+echo "[4/7] Installing Git..."
 apt-get install -y git
 echo "Git installed"
 
-# 5. Create app directory
-echo "[5/6] Creating app directory..."
+# 5. Stop conflicting host services (PostgreSQL, Redis, Nginx)
+echo "[5/7] Stopping conflicting host services..."
+for svc in postgresql redis-server redis nginx minio; do
+    if systemctl is-active --quiet "$svc" 2>/dev/null; then
+        echo "  Stopping and disabling $svc (will run in Docker instead)..."
+        systemctl stop "$svc" 2>/dev/null || true
+        systemctl disable "$svc" 2>/dev/null || true
+    fi
+done
+echo "Host services cleaned up"
+
+# 6. Create app directory
+echo "[6/7] Creating app directory..."
 mkdir -p /opt/cargo-marketplace
 cd /opt/cargo-marketplace
 
-# 6. Clone repository
-echo "[6/6] Cloning repository..."
+# 7. Clone repository
+echo "[7/7] Cloning repository..."
 if [ ! -d ".git" ]; then
     echo "Enter your GitHub repository URL:"
     echo "  Example: https://github.com/AlexGolubevpm/marketplace-.git"
