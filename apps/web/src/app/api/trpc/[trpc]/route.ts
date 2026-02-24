@@ -20,11 +20,20 @@ function getDb() {
   return db;
 }
 
+function decodeSessionHeader(header: string): string {
+  // Try base64+URI-encoded format first (new), fall back to raw JSON (legacy)
+  try {
+    return decodeURIComponent(atob(header));
+  } catch {
+    return header;
+  }
+}
+
 function extractAdmin(req: Request): Context["admin"] {
   try {
     const header = req.headers.get("x-admin-session");
     if (!header) return null;
-    const session = JSON.parse(header);
+    const session = JSON.parse(decodeSessionHeader(header));
     if (!session.logged_in) return null;
     if (!session.id) return null;
 
