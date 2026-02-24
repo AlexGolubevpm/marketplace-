@@ -50,7 +50,7 @@ RUN test -d /app/apps/web/.next/standalone && echo "Standalone OK" || (echo "FAT
 # ============================================
 FROM node:20-alpine AS runner
 
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat su-exec
 
 WORKDIR /app
 
@@ -84,7 +84,7 @@ RUN mkdir -p /app/apps/web/public/uploads && chown nextjs:nodejs /app/apps/web/p
 # Set ownership for directories that entrypoint needs to write to
 RUN chown -R nextjs:nodejs /app/packages/db
 
-USER nextjs
+# NOTE: Entrypoint runs as root to fix volume permissions, then drops to nextjs via su-exec
 
 EXPOSE 3000
 

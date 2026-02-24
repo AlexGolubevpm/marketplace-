@@ -20,6 +20,16 @@ find_bin() {
   return 1
 }
 
+# ── Fix volume permissions (runs as root) ──
+UPLOADS_DIR="/app/apps/web/public/uploads"
+if [ "$(id -u)" = "0" ]; then
+  echo "==> Fixing volume permissions..."
+  mkdir -p "$UPLOADS_DIR"
+  chown -R nextjs:nodejs "$UPLOADS_DIR"
+  chown -R nextjs:nodejs /app/packages/db
+  echo "==> Permissions fixed."
+fi
+
 # ── Wait for PostgreSQL to accept connections ──
 echo "==> Waiting for PostgreSQL..."
 MAX_RETRIES=30
@@ -76,15 +86,12 @@ else
   echo "  Searched: /app/node_modules/drizzle-kit/bin.cjs"
 fi
 
-# ── Ensure uploads directory is writable ──
-UPLOADS_DIR="/app/apps/web/public/uploads"
-mkdir -p "$UPLOADS_DIR" 2>/dev/null || true
+# ── Verify uploads directory is writable ──
 if [ -w "$UPLOADS_DIR" ]; then
   echo "==> Uploads directory OK: $UPLOADS_DIR"
 else
   echo "==> WARNING: Uploads directory is NOT writable: $UPLOADS_DIR"
-  echo "    Images will fail to upload!"
-  echo "    Fix: docker compose -f docker-compose.prod.yml exec -u root web chown -R nextjs:nodejs /app/apps/web/public/uploads"
+  echo "    Images may fail to upload!"
 fi
 
 # ── Start Next.js (standalone mode) ──
@@ -95,7 +102,12 @@ STANDALONE_SERVER="/app/apps/web/server.js"
 
 if [ -f "$STANDALONE_SERVER" ]; then
   echo "==> Starting Next.js standalone server on port ${PORT:-3000}..."
-  exec node "$STANDALONE_SERVER"
+  # Drop privileges to nextjs user if running as root
+  if [ "$(id -u)" = "0" ]; then
+    exec su-exec nextjs:nodejs node "$STANDALONE_SERVER"
+  else
+    exec node "$STANDALONE_SERVER"
+  fi
 else
   echo "==> Standalone server.js not found, falling back to next start..."
   cd /app/apps/web
@@ -112,5 +124,10 @@ else
   fi
 
   echo "==> Starting Next.js on port ${PORT:-3000}..."
-  exec node "$NEXT_BIN" start -H 0.0.0.0 -p ${PORT:-3000}
+  # Drop privileges to nextjs user if running as root
+  if [ "$(id -u)" = "0" ]; then
+    exec su-exec nextjs:nodejs node "$NEXT_BIN" start -H 0.0.0.0 -p ${PORT:-3000}
+  else
+    exec node "$NEXT_BIN" start -H 0.0.0.0 -p ${PORT:-3000}
+  fi
 fi

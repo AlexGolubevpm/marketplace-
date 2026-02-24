@@ -35,8 +35,15 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
             if (typeof window === "undefined") return {};
             const raw = localStorage.getItem(SESSION_KEYS.ADMIN);
             if (raw) {
-              // Encode to base64 to avoid non-ISO-8859-1 chars in headers (e.g. Cyrillic full_name)
-              return { "x-admin-session": btoa(encodeURIComponent(raw)) };
+              try {
+                // Encode to base64 to avoid non-ISO-8859-1 chars in headers (e.g. Cyrillic full_name)
+                return { "x-admin-session": btoa(encodeURIComponent(raw)) };
+              } catch {
+                // Corrupted session — clear and force re-login
+                localStorage.removeItem(SESSION_KEYS.ADMIN);
+                window.location.href = "/auth/admin";
+                return {};
+              }
             }
             return {};
           },
