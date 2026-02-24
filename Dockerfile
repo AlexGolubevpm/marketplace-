@@ -44,6 +44,8 @@ RUN pnpm --filter @cargo/web build
 # Verify build output exists
 RUN test -f /app/apps/web/.next/BUILD_ID && echo "Build OK: $(cat /app/apps/web/.next/BUILD_ID)" || (echo "FATAL: .next/BUILD_ID missing" && exit 1)
 RUN test -d /app/apps/web/.next/standalone && echo "Standalone OK" || (echo "FATAL: standalone output missing" && exit 1)
+# Verify next module is in standalone output
+RUN ls /app/apps/web/.next/standalone/node_modules/next/package.json > /dev/null 2>&1 && echo "next module OK in standalone" || echo "WARN: next not at root node_modules, checking nested..." && find /app/apps/web/.next/standalone -path "*/node_modules/next/package.json" -print 2>/dev/null | head -3
 
 # ============================================
 # Stage 3: Production runner (minimal)
@@ -69,8 +71,11 @@ COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
 
-# Copy db package schema for drizzle-kit push on startup
-COPY --from=builder /app/packages/db ./packages/db
+# Copy db package schema for drizzle-kit push on startup (skip node_modules — pnpm symlinks are broken outside builder)
+COPY --from=builder /app/packages/db/src ./packages/db/src
+COPY --from=builder /app/packages/db/drizzle.config.ts ./packages/db/drizzle.config.ts
+COPY --from=builder /app/packages/db/package.json ./packages/db/package.json
+COPY --from=builder /app/packages/db/tsconfig.json ./packages/db/tsconfig.json
 
 # Install drizzle-kit in an isolated directory so it doesn't corrupt standalone node_modules
 RUN mkdir -p /drizzle-tools && cd /drizzle-tools && npm init -y && npm install drizzle-kit drizzle-orm postgres

@@ -57,14 +57,10 @@ sleep 1
 echo "==> Running database schema push..."
 cd /app/packages/db
 
-# Find drizzle-kit binary — prefer the isolated /drizzle-tools install
-DRIZZLE_BIN=$(find_bin \
-  "/drizzle-tools/node_modules/drizzle-kit/bin.cjs" \
-  "./node_modules/drizzle-kit/bin.cjs" \
-  "/app/node_modules/drizzle-kit/bin.cjs" \
-) || true
+# Use drizzle-kit from isolated /drizzle-tools install (has postgres driver included)
+DRIZZLE_BIN="/drizzle-tools/node_modules/drizzle-kit/bin.cjs"
 
-if [ -n "$DRIZZLE_BIN" ]; then
+if [ -f "$DRIZZLE_BIN" ]; then
   echo "    Using drizzle-kit: $DRIZZLE_BIN"
   # Ensure drizzle-kit can find the postgres driver from /drizzle-tools
   export NODE_PATH="/drizzle-tools/node_modules:${NODE_PATH:-}"
