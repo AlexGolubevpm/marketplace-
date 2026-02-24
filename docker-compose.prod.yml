@@ -33,6 +33,7 @@ services:
       - SMTP_USER=${SMTP_USER:-}
       - SMTP_PASS=${SMTP_PASS:-}
       - SMTP_FROM=${SMTP_FROM:-}
+      - NODE_OPTIONS=--max-old-space-size=384
     volumes:
       - uploads_data:/app/apps/web/public/uploads
     depends_on:
@@ -46,6 +47,8 @@ services:
       timeout: 10s
       retries: 18
       start_period: 90s
+    mem_limit: 512m
+    memswap_limit: 512m
     networks:
       - cargo-network
 
@@ -64,9 +67,12 @@ services:
       - INTERNAL_API_URL=http://web:3000
       - TG_AUTH_SECRET=${TG_AUTH_SECRET:-${TELEGRAM_BOT_TOKEN}}
       - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/cargo_marketplace
+      - NODE_OPTIONS=--max-old-space-size=128
     depends_on:
       postgres:
         condition: service_healthy
+    mem_limit: 256m
+    memswap_limit: 256m
     networks:
       - cargo-network
 
@@ -80,6 +86,16 @@ services:
       POSTGRES_DB: cargo_marketplace
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=128MB"
+      - "-c"
+      - "work_mem=4MB"
+      - "-c"
+      - "maintenance_work_mem=64MB"
+      - "-c"
+      - "effective_cache_size=256MB"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -87,6 +103,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    mem_limit: 512m
+    memswap_limit: 512m
     networks:
       - cargo-network
 
@@ -96,7 +114,7 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning", "--maxmemory", "64mb", "--maxmemory-policy", "allkeys-lru"]
     volumes:
       - redis_data:/data
     healthcheck:
@@ -104,6 +122,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    mem_limit: 128m
+    memswap_limit: 128m
     networks:
       - cargo-network
 
@@ -117,8 +137,11 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_CACHE: "off"
     volumes:
       - minio_data:/data
+    mem_limit: 256m
+    memswap_limit: 256m
     networks:
       - cargo-network
 
@@ -138,6 +161,8 @@ services:
     depends_on:
       web:
         condition: service_started
+    mem_limit: 64m
+    memswap_limit: 64m
     networks:
       - cargo-network
 
@@ -150,6 +175,8 @@ services:
       - /etc/letsencrypt:/etc/letsencrypt
       - ./deploy/certbot/www:/var/www/certbot
     entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    mem_limit: 64m
+    memswap_limit: 64m
     networks:
       - cargo-network
 

@@ -87,37 +87,30 @@ else
   echo "    Fix: docker compose -f docker-compose.prod.yml exec -u root web chown -R nextjs:nodejs /app/apps/web/public/uploads"
 fi
 
-# ── Start Next.js ──
-cd /app/apps/web
+# ── Start Next.js (standalone mode) ──
+cd /app
 
-# Find next binary (dist/bin/next is the actual JS entry point)
-NEXT_BIN=$(find_bin \
-  "./node_modules/next/dist/bin/next" \
-  "/app/node_modules/next/dist/bin/next" \
-  "./node_modules/.bin/next" \
-  "/app/node_modules/.bin/next" \
-) || true
+# Standalone server is at apps/web/server.js
+STANDALONE_SERVER="/app/apps/web/server.js"
 
-# Diagnostics
-echo "==> Next.js binary: ${NEXT_BIN:-NOT FOUND}"
-if [ -f ".next/BUILD_ID" ]; then
-  echo "==> Build ID: $(cat .next/BUILD_ID)"
+if [ -f "$STANDALONE_SERVER" ]; then
+  echo "==> Starting Next.js standalone server on port ${PORT:-3000}..."
+  exec node "$STANDALONE_SERVER"
 else
-  echo "==> WARNING: .next/BUILD_ID not found — build may be missing!"
-  ls -la .next/ 2>/dev/null || echo "    .next/ directory does not exist!"
-fi
+  echo "==> Standalone server.js not found, falling back to next start..."
+  cd /app/apps/web
+  NEXT_BIN=$(find_bin \
+    "./node_modules/next/dist/bin/next" \
+    "/app/node_modules/next/dist/bin/next" \
+    "./node_modules/.bin/next" \
+    "/app/node_modules/.bin/next" \
+  ) || true
 
-if [ -z "$NEXT_BIN" ]; then
-  echo "FATAL: Cannot find next binary!"
-  echo "  Contents of ./node_modules/.bin/ (first 10):"
-  ls ./node_modules/.bin/ 2>/dev/null | head -10 || echo "    (directory not found)"
-  echo "  Contents of /app/node_modules/.bin/ (first 10):"
-  ls /app/node_modules/.bin/ 2>/dev/null | head -10 || echo "    (directory not found)"
-  echo "  Looking for next package:"
-  ls -d ./node_modules/next 2>/dev/null || echo "    ./node_modules/next — not found"
-  ls -d /app/node_modules/next 2>/dev/null || echo "    /app/node_modules/next — not found"
-  exit 1
-fi
+  if [ -z "$NEXT_BIN" ]; then
+    echo "FATAL: Cannot find next binary!"
+    exit 1
+  fi
 
-echo "==> Starting Next.js on port ${PORT:-3000}..."
-exec node "$NEXT_BIN" start -H 0.0.0.0 -p ${PORT:-3000}
+  echo "==> Starting Next.js on port ${PORT:-3000}..."
+  exec node "$NEXT_BIN" start -H 0.0.0.0 -p ${PORT:-3000}
+fi
