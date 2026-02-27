@@ -114,12 +114,12 @@ export default async function KnowledgePage() {
 
         <div className="mx-auto max-w-6xl px-4 py-12">
           {/* ── С чего начать ─────────────────────────────────────────────── */}
-          {startingGuide.length > 0 && (
-            <section className="mb-14">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">С чего начать</h2>
-              <p className="text-gray-500 mb-6 text-sm">
-                Ключевые разделы для новых клиентов
-              </p>
+          <section className="mb-14">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">С чего начать</h2>
+            <p className="text-gray-500 mb-6 text-sm">
+              Ключевые разделы для новых клиентов
+            </p>
+            {startingGuide.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {startingGuide.map((cat) => (
                   <Link
@@ -141,15 +141,36 @@ export default async function KnowledgePage() {
                   </Link>
                 ))}
               </div>
-            </section>
-          )}
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {[
+                  { icon: "📦", title: "Документы и таможня", desc: "Оформление грузов" },
+                  { icon: "🚢", title: "Логистика", desc: "Маршруты и сроки" },
+                  { icon: "📋", title: "Сертификация", desc: "ЕАС и маркировка" },
+                ].map((item) => (
+                  <div
+                    key={item.title}
+                    className="flex items-center gap-4 rounded-2xl border border-gray-100 bg-gray-50 p-5"
+                  >
+                    <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-white shadow-sm border border-gray-100 flex items-center justify-center text-2xl">
+                      {item.icon}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900">{item.title}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{item.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
 
           {/* ── Категории ────────────────────────────────────────────────── */}
-          {categories.length > 0 && (
-            <section className="mb-14">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">
-                Все категории
-              </h2>
+          <section className="mb-14">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">
+              Все категории
+            </h2>
+            {categories.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                 {categories.map((cat) => (
                   <Link
@@ -194,17 +215,21 @@ export default async function KnowledgePage() {
                   </Link>
                 ))}
               </div>
-            </section>
-          )}
+            ) : (
+              <p className="text-gray-400 text-sm py-8 text-center">
+                Категории скоро появятся. Мы готовим материалы для вас.
+              </p>
+            )}
+          </section>
 
           {/* ── Популярные статьи ─────────────────────────────────────────── */}
-          {featured.length > 0 && (
-            <section className="mb-14">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">
-                  Популярные статьи
-                </h2>
-              </div>
+          <section className="mb-14">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">
+                Популярные статьи
+              </h2>
+            </div>
+            {featured.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {featured.map((article) => (
                   <Link
@@ -226,15 +251,19 @@ export default async function KnowledgePage() {
                   </Link>
                 ))}
               </div>
-            </section>
-          )}
+            ) : (
+              <p className="text-gray-400 text-sm py-8 text-center">
+                Статьи скоро появятся. Добавьте первые статьи через админ-панель.
+              </p>
+            )}
+          </section>
 
           {/* ── Новые статьи ─────────────────────────────────────────────── */}
-          {recent.length > 0 && (
-            <section className="mb-14">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">
-                Недавно добавлено
-              </h2>
+          <section className="mb-14">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">
+              Недавно добавлено
+            </h2>
+            {recent.length > 0 ? (
               <div className="space-y-3">
                 {recent.map((article) => (
                   <Link
@@ -258,23 +287,29 @@ export default async function KnowledgePage() {
                   </Link>
                 ))}
               </div>
-            </section>
-          )}
+            ) : (
+              <p className="text-gray-400 text-sm py-8 text-center">
+                Новых статей пока нет.
+              </p>
+            )}
+          </section>
 
           {/* ── FAQ ──────────────────────────────────────────────────────── */}
-          {topFaq.length > 0 && (
-            <section className="mb-14">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">
-                  Частые вопросы
-                </h2>
+          <section className="mb-14">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">
+                Частые вопросы
+              </h2>
+              {topFaq.length > 0 && (
                 <Link
                   href="/knowledge/faq"
                   className="text-sm text-red-600 hover:text-red-700 font-medium"
                 >
                   Все вопросы →
                 </Link>
-              </div>
+              )}
+            </div>
+            {topFaq.length > 0 ? (
               <div className="space-y-3">
                 {topFaq.map((item, i) => (
                   <details
@@ -293,8 +328,12 @@ export default async function KnowledgePage() {
                   </details>
                 ))}
               </div>
-            </section>
-          )}
+            ) : (
+              <p className="text-gray-400 text-sm py-8 text-center">
+                FAQ скоро появится.
+              </p>
+            )}
+          </section>
 
           {/* ── Cargo Request Form ────────────────────────────────────── */}
           <section>

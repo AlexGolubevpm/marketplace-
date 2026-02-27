@@ -24,7 +24,15 @@ function extractAdmin(req: Request): Context["admin"] {
   try {
     const header = req.headers.get("x-admin-session");
     if (!header) return null;
-    const session = JSON.parse(header);
+    // Decode Base64 (client encodes to avoid non-ISO-8859-1 in headers)
+    let raw: string;
+    try {
+      raw = decodeURIComponent(escape(atob(header)));
+    } catch {
+      // Fallback: header might be plain JSON (old clients)
+      raw = header;
+    }
+    const session = JSON.parse(raw);
     if (!session.logged_in) return null;
     if (!session.id) return null;
 

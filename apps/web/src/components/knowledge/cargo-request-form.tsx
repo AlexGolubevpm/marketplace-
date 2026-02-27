@@ -1,9 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Send, CheckCircle, Truck, Package, MapPin, User, Phone, Mail, MessageSquare } from "lucide-react";
+import { Send, CheckCircle, Truck, Package, MapPin, User, Phone, Mail, MessageSquare, ArrowRight, ArrowLeft } from "lucide-react";
+
+const TOTAL_STEPS = 3;
 
 export function CargoRequestForm({ variant = "full" }: { variant?: "full" | "compact" }) {
+  const [step, setStep] = useState(1);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -24,10 +27,37 @@ export function CargoRequestForm({ variant = "full" }: { variant?: "full" | "com
     if (error) setError("");
   };
 
+  const validateStep = (s: number): string | null => {
+    if (s === 1) {
+      if (!form.name.trim()) return "Введите ваше имя";
+      if (!form.phone.trim() && !form.email.trim()) return "Введите телефон или email";
+    }
+    if (s === 2) {
+      if (!form.cargo.trim()) return "Опишите ваш груз";
+    }
+    return null;
+  };
+
+  const nextStep = () => {
+    const err = validateStep(step);
+    if (err) {
+      setError(err);
+      return;
+    }
+    setError("");
+    setStep((s) => Math.min(s + 1, TOTAL_STEPS));
+  };
+
+  const prevStep = () => {
+    setError("");
+    setStep((s) => Math.max(s - 1, 1));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name || (!form.phone && !form.email) || !form.cargo) {
-      setError("Заполните имя, контактные данные и описание груза");
+    const err = validateStep(step);
+    if (err) {
+      setError(err);
       return;
     }
     setLoading(true);
@@ -63,6 +93,7 @@ export function CargoRequestForm({ variant = "full" }: { variant?: "full" | "com
         <button
           onClick={() => {
             setSubmitted(false);
+            setStep(1);
             setForm({ name: "", phone: "", email: "", originCity: "", destinationCity: "", cargo: "", weight: "", comment: "" });
           }}
           className="text-sm text-red-600 hover:text-red-700 font-medium"
@@ -73,164 +104,234 @@ export function CargoRequestForm({ variant = "full" }: { variant?: "full" | "com
     );
   }
 
+  const inputClass =
+    "w-full pl-10 pr-4 py-3.5 rounded-xl bg-white/[0.06] border border-white/[0.1] text-white placeholder:text-gray-500 focus:outline-none focus:border-red-500/50 focus:bg-white/[0.08] transition-all";
+
   return (
-    <div className="rounded-2xl bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-8 md:p-10 shadow-2xl" id="cargo-form">
-      <div className="text-center mb-8">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 mb-4">
+    <div className="rounded-2xl bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6 md:p-8 shadow-2xl" id="cargo-form">
+      <div className="text-center mb-6">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 mb-3">
           <Truck className="h-4 w-4 text-red-400" />
           <span className="text-xs font-medium text-red-400 uppercase tracking-wider">Бесплатный расчёт</span>
         </div>
-        <h3 className="text-2xl md:text-3xl font-bold text-white mb-2">
+        <h3 className="text-xl md:text-2xl font-bold text-white mb-1">
           Рассчитайте доставку из Китая
         </h3>
-        <p className="text-gray-400 max-w-lg mx-auto">
-          Заполните форму — мы подберём лучший маршрут и рассчитаем стоимость. Обычно отвечаем в течение 1 часа.
+        <p className="text-gray-400 text-sm max-w-lg mx-auto">
+          Заполните форму — мы подберём лучший маршрут и рассчитаем стоимость
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4 max-w-2xl mx-auto">
-        {/* Row 1: Name + Phone */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="relative">
-            <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-            <input
-              type="text"
-              placeholder="Ваше имя *"
-              value={form.name}
-              onChange={(e) => update("name", e.target.value)}
-              className="w-full pl-10 pr-4 py-3.5 rounded-xl bg-white/[0.06] border border-white/[0.1] text-white placeholder:text-gray-500 focus:outline-none focus:border-red-500/50 focus:bg-white/[0.08] transition-all"
+      {/* Step indicator */}
+      <div className="flex items-center justify-center gap-2 mb-6 max-w-xs mx-auto">
+        {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
+          <div key={i} className="flex items-center gap-2 flex-1">
+            <div
+              className={`h-1.5 rounded-full flex-1 transition-all duration-300 ${
+                i + 1 <= step ? "bg-red-500" : "bg-white/10"
+              }`}
             />
           </div>
-          <div className="relative">
-            <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-            <input
-              type="tel"
-              placeholder="Телефон *"
-              value={form.phone}
-              onChange={(e) => update("phone", e.target.value)}
-              className="w-full pl-10 pr-4 py-3.5 rounded-xl bg-white/[0.06] border border-white/[0.1] text-white placeholder:text-gray-500 focus:outline-none focus:border-red-500/50 focus:bg-white/[0.08] transition-all"
-            />
-          </div>
-        </div>
+        ))}
+      </div>
 
-        {/* Row 2: Email */}
-        <div className="relative">
-          <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-          <input
-            type="email"
-            placeholder="Email (необязательно)"
-            value={form.email}
-            onChange={(e) => update("email", e.target.value)}
-            className="w-full pl-10 pr-4 py-3.5 rounded-xl bg-white/[0.06] border border-white/[0.1] text-white placeholder:text-gray-500 focus:outline-none focus:border-red-500/50 focus:bg-white/[0.08] transition-all"
-          />
-        </div>
+      <form onSubmit={handleSubmit} className="max-w-md mx-auto">
+        {/* Step 1: Contact */}
+        {step === 1 && (
+          <div className="space-y-3">
+            <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Шаг 1 — Контактные данные</p>
+            <div className="relative">
+              <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+              <input
+                type="text"
+                placeholder="Ваше имя *"
+                value={form.name}
+                onChange={(e) => update("name", e.target.value)}
+                className={inputClass}
+                autoFocus
+              />
+            </div>
+            <div className="relative">
+              <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+              <input
+                type="tel"
+                placeholder="Телефон *"
+                value={form.phone}
+                onChange={(e) => update("phone", e.target.value)}
+                className={inputClass}
+              />
+            </div>
+            <div className="relative">
+              <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+              <input
+                type="email"
+                placeholder="Email (необязательно)"
+                value={form.email}
+                onChange={(e) => update("email", e.target.value)}
+                className={inputClass}
+              />
+            </div>
+          </div>
+        )}
 
-        {/* Row 3: Route */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="relative">
-            <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-            <input
-              type="text"
-              placeholder="Откуда (город, Китай)"
-              value={form.originCity}
-              onChange={(e) => update("originCity", e.target.value)}
-              className="w-full pl-10 pr-4 py-3.5 rounded-xl bg-white/[0.06] border border-white/[0.1] text-white placeholder:text-gray-500 focus:outline-none focus:border-red-500/50 focus:bg-white/[0.08] transition-all"
-            />
+        {/* Step 2: Route & Cargo */}
+        {step === 2 && (
+          <div className="space-y-3">
+            <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Шаг 2 — Маршрут и груз</p>
+            <div className="relative">
+              <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+              <input
+                type="text"
+                placeholder="Откуда (город, Китай)"
+                value={form.originCity}
+                onChange={(e) => update("originCity", e.target.value)}
+                className={inputClass}
+                autoFocus
+              />
+            </div>
+            <div className="relative">
+              <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+              <input
+                type="text"
+                placeholder="Куда (город, Россия)"
+                value={form.destinationCity}
+                onChange={(e) => update("destinationCity", e.target.value)}
+                className={inputClass}
+              />
+            </div>
+            <div className="relative">
+              <Package className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+              <input
+                type="text"
+                placeholder="Что везём? (электроника, одежда...) *"
+                value={form.cargo}
+                onChange={(e) => update("cargo", e.target.value)}
+                className={inputClass}
+              />
+            </div>
+            <div className="relative">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">кг</span>
+              <input
+                type="text"
+                placeholder="Вес (необязательно)"
+                value={form.weight}
+                onChange={(e) => update("weight", e.target.value)}
+                className={inputClass}
+              />
+            </div>
           </div>
-          <div className="relative">
-            <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-            <input
-              type="text"
-              placeholder="Куда (город, Россия)"
-              value={form.destinationCity}
-              onChange={(e) => update("destinationCity", e.target.value)}
-              className="w-full pl-10 pr-4 py-3.5 rounded-xl bg-white/[0.06] border border-white/[0.1] text-white placeholder:text-gray-500 focus:outline-none focus:border-red-500/50 focus:bg-white/[0.08] transition-all"
-            />
-          </div>
-        </div>
+        )}
 
-        {/* Row 4: Cargo + Weight */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="relative sm:col-span-2">
-            <Package className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-            <input
-              type="text"
-              placeholder="Что везём? (электроника, одежда...) *"
-              value={form.cargo}
-              onChange={(e) => update("cargo", e.target.value)}
-              className="w-full pl-10 pr-4 py-3.5 rounded-xl bg-white/[0.06] border border-white/[0.1] text-white placeholder:text-gray-500 focus:outline-none focus:border-red-500/50 focus:bg-white/[0.08] transition-all"
-            />
-          </div>
-          <div className="relative">
-            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">кг</span>
-            <input
-              type="text"
-              placeholder="Вес"
-              value={form.weight}
-              onChange={(e) => update("weight", e.target.value)}
-              className="w-full pl-10 pr-4 py-3.5 rounded-xl bg-white/[0.06] border border-white/[0.1] text-white placeholder:text-gray-500 focus:outline-none focus:border-red-500/50 focus:bg-white/[0.08] transition-all"
-            />
-          </div>
-        </div>
-
-        {/* Row 5: Comment */}
-        {variant === "full" && (
-          <div className="relative">
-            <MessageSquare className="absolute left-3.5 top-3.5 h-4 w-4 text-gray-500" />
-            <textarea
-              placeholder="Дополнительная информация (необязательно)"
-              rows={3}
-              value={form.comment}
-              onChange={(e) => update("comment", e.target.value)}
-              className="w-full pl-10 pr-4 py-3.5 rounded-xl bg-white/[0.06] border border-white/[0.1] text-white placeholder:text-gray-500 focus:outline-none focus:border-red-500/50 focus:bg-white/[0.08] transition-all resize-none"
-            />
+        {/* Step 3: Comment + Submit */}
+        {step === 3 && (
+          <div className="space-y-3">
+            <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Шаг 3 — Дополнительно</p>
+            {variant === "full" && (
+              <div className="relative">
+                <MessageSquare className="absolute left-3.5 top-3.5 h-4 w-4 text-gray-500" />
+                <textarea
+                  placeholder="Дополнительная информация (необязательно)"
+                  rows={3}
+                  value={form.comment}
+                  onChange={(e) => update("comment", e.target.value)}
+                  className="w-full pl-10 pr-4 py-3.5 rounded-xl bg-white/[0.06] border border-white/[0.1] text-white placeholder:text-gray-500 focus:outline-none focus:border-red-500/50 focus:bg-white/[0.08] transition-all resize-none"
+                  autoFocus
+                />
+              </div>
+            )}
+            {/* Summary */}
+            <div className="rounded-xl bg-white/[0.04] border border-white/[0.08] p-4 space-y-1.5 text-sm">
+              <p className="text-gray-400 text-xs uppercase tracking-wider mb-2">Ваша заявка</p>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Имя</span>
+                <span className="text-white font-medium">{form.name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Контакт</span>
+                <span className="text-white font-medium">{form.phone || form.email}</span>
+              </div>
+              {form.originCity && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Маршрут</span>
+                  <span className="text-white font-medium">{form.originCity} → {form.destinationCity || "?"}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-gray-500">Груз</span>
+                <span className="text-white font-medium">{form.cargo}{form.weight ? `, ${form.weight} кг` : ""}</span>
+              </div>
+            </div>
           </div>
         )}
 
         {error && (
-          <div className="px-4 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+          <div className="mt-3 px-4 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
             {error}
           </div>
         )}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full flex items-center justify-center gap-2 py-4 rounded-xl bg-gradient-to-r from-red-600 to-red-500 text-white font-bold text-lg hover:from-red-700 hover:to-red-600 transition-all active:scale-[0.98] disabled:opacity-60 shadow-lg shadow-red-500/20"
-        >
-          {loading ? (
-            <span className="flex items-center gap-2">
-              <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              Отправляем...
-            </span>
-          ) : (
-            <>
-              <Send className="h-5 w-5" />
-              Получить расчёт бесплатно
-            </>
+        {/* Navigation buttons */}
+        <div className="mt-5 flex gap-3">
+          {step > 1 && (
+            <button
+              type="button"
+              onClick={prevStep}
+              className="flex items-center justify-center gap-1.5 px-5 py-3.5 rounded-xl border border-white/[0.1] text-gray-400 hover:text-white hover:border-white/20 transition-all text-sm font-medium"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Назад
+            </button>
           )}
-        </button>
+          {step < TOTAL_STEPS ? (
+            <button
+              type="button"
+              onClick={nextStep}
+              className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl bg-gradient-to-r from-red-600 to-red-500 text-white font-bold hover:from-red-700 hover:to-red-600 transition-all active:scale-[0.98] shadow-lg shadow-red-500/20"
+            >
+              Далее
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl bg-gradient-to-r from-red-600 to-red-500 text-white font-bold hover:from-red-700 hover:to-red-600 transition-all active:scale-[0.98] disabled:opacity-60 shadow-lg shadow-red-500/20"
+            >
+              {loading ? (
+                <span className="flex items-center gap-2">
+                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Отправляем...
+                </span>
+              ) : (
+                <>
+                  <Send className="h-5 w-5" />
+                  Отправить заявку
+                </>
+              )}
+            </button>
+          )}
+        </div>
 
-        <p className="text-center text-xs text-gray-500">
-          Нажимая кнопку, вы соглашаетесь с обработкой персональных данных. Мы не передаём данные третьим лицам.
+        <p className="mt-3 text-center text-xs text-gray-500">
+          Нажимая кнопку, вы соглашаетесь с обработкой персональных данных.
         </p>
       </form>
 
       {/* Trust signals */}
-      <div className="mt-8 grid grid-cols-3 gap-4 max-w-md mx-auto">
+      <div className="mt-6 grid grid-cols-3 gap-4 max-w-sm mx-auto">
         <div className="text-center">
-          <p className="text-2xl font-bold text-white">500+</p>
+          <p className="text-xl font-bold text-white">500+</p>
           <p className="text-xs text-gray-500">Доставок</p>
         </div>
         <div className="text-center border-x border-white/10">
-          <p className="text-2xl font-bold text-white">50+</p>
+          <p className="text-xl font-bold text-white">50+</p>
           <p className="text-xs text-gray-500">Карго-компаний</p>
         </div>
         <div className="text-center">
-          <p className="text-2xl font-bold text-white">1 час</p>
+          <p className="text-xl font-bold text-white">1 час</p>
           <p className="text-xs text-gray-500">Время ответа</p>
         </div>
       </div>
