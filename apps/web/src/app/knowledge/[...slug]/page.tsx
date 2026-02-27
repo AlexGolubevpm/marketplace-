@@ -11,7 +11,7 @@ import { MdxRenderer, extractHeadings } from "@/components/knowledge/mdx-rendere
 import { KnowledgeToc } from "@/components/knowledge/toc";
 import { CargoRequestForm } from "@/components/knowledge/cargo-request-form";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 interface Props {
   params: Promise<{ slug: string[] }>;

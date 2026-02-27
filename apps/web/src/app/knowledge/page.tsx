@@ -9,7 +9,9 @@ import {
 } from "@/lib/knowledge-queries";
 import { CargoRequestForm } from "@/components/knowledge/cargo-request-form";
 
-export const revalidate = 3600; // ISR: revalidate every hour
+// Force dynamic rendering so data is always fetched from DB at request time.
+// During docker build, the DB is unavailable, so ISR would cache an empty page.
+export const dynamic = "force-dynamic";
 
 function pluralArticles(n: number): string {
   const mod10 = n % 10;

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { getAllFaqArticles } from "@/lib/knowledge-queries";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "FAQ — частые вопросы об импорте из Китая | Cargo Marketplace",

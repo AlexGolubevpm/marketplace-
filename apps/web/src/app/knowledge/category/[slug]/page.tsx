@@ -12,7 +12,7 @@ function pluralArticles(n: number): string {
   return `${n} статей`;
 }
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 interface Props {
   params: Promise<{ slug: string }>;
