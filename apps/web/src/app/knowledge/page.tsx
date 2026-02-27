@@ -7,6 +7,7 @@ import {
   getAllFaqArticles,
   getRecentArticles,
 } from "@/lib/knowledge-queries";
+import { CargoRequestForm } from "@/components/knowledge/cargo-request-form";
 
 export const revalidate = 3600; // ISR: revalidate every hour
 
@@ -295,21 +296,9 @@ export default async function KnowledgePage() {
             </section>
           )}
 
-          {/* ── CTA ──────────────────────────────────────────────────────── */}
-          <section className="rounded-2xl bg-gradient-to-r from-red-600 to-red-700 p-8 text-white text-center">
-            <h2 className="text-2xl font-bold mb-2">
-              Готовы отправить груз из Китая?
-            </h2>
-            <p className="text-red-100 mb-6">
-              Наши специалисты рассчитают стоимость и подберут оптимальный
-              маршрут
-            </p>
-            <Link
-              href="/get-quote"
-              className="inline-block bg-white text-red-600 font-bold px-8 py-3 rounded-xl hover:bg-red-50 transition-colors"
-            >
-              Получить расчёт бесплатно
-            </Link>
+          {/* ── Cargo Request Form ────────────────────────────────────── */}
+          <section>
+            <CargoRequestForm variant="full" />
           </section>
         </div>
       </div>

@@ -3,6 +3,7 @@ import { db, schema } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { BCRYPT_ROUNDS, validateEmail } from "@/lib/auth-config";
+import { notifyAdminNewCustomer, notifyAdminNewCarrier } from "@/lib/telegram-admin-notify";
 
 // POST /api/auth — login or register by email for customer/carrier
 export async function POST(req: NextRequest) {
@@ -47,6 +48,15 @@ export async function POST(req: NextRequest) {
             company_name: company || null,
           })
           .returning({ id: schema.customers.id, full_name: schema.customers.full_name });
+
+        // Admin notification (fire and forget)
+        notifyAdminNewCustomer({
+          customerId: customer.id,
+          name: customer.full_name || undefined,
+          email,
+          company: company || undefined,
+          source: "Email регистрация",
+        }).catch(() => {});
 
         return NextResponse.json({ user_id: customer.id, name: customer.full_name });
       }
@@ -98,6 +108,15 @@ export async function POST(req: NextRequest) {
             contact_phone: body.phone || "",
           })
           .returning({ id: schema.carriers.id, name: schema.carriers.name });
+
+        // Admin notification (fire and forget)
+        notifyAdminNewCarrier({
+          carrierId: carrier.id,
+          name: name || undefined,
+          email,
+          company: carrier.name || undefined,
+          source: "Email регистрация",
+        }).catch(() => {});
 
         return NextResponse.json({ user_id: carrier.id, name: carrier.name });
       }

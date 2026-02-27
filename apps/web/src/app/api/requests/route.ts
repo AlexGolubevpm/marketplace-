@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { eq, desc, and, or, sql, inArray } from "drizzle-orm";
+import { notifyAdminNewRequest } from "@/lib/telegram-admin-notify";
 
 // Resolve a customer identifier (tg_id, email, or UUID) to a customer UUID
 async function resolveCustomerId(identifier: string): Promise<string | null> {
@@ -194,6 +195,24 @@ export async function POST(req: NextRequest) {
         sla_violated: false,
       })
       .returning();
+
+    // Admin notification (fire and forget)
+    const COUNTRY_NAMES: Record<string, string> = {
+      CN: "Китай", TR: "Турция", DE: "Германия", IT: "Италия",
+      RU: "Россия", KZ: "Казахстан", UZ: "Узбекистан", KG: "Кыргызстан",
+    };
+    const route = `${COUNTRY_NAMES[body.origin_country] || body.origin_country}, ${body.origin_city} → ${COUNTRY_NAMES[body.destination_country] || body.destination_country}, ${body.destination_city}`;
+    notifyAdminNewRequest({
+      requestId: request.id,
+      displayId: display_id,
+      customerName: body.customer_name || undefined,
+      customerEmail: body.customer_email || undefined,
+      route,
+      cargo: body.cargo_description || "",
+      weight: body.weight_kg ? String(body.weight_kg) : undefined,
+      deliveryType: body.delivery_type_preferred || undefined,
+      source: body.source || "web_form",
+    }).catch(() => {});
 
     // Update status to matching after a moment
     setTimeout(async () => {

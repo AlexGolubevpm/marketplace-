@@ -9,6 +9,7 @@ import {
 } from "@/lib/knowledge-queries";
 import { MdxRenderer, extractHeadings } from "@/components/knowledge/mdx-renderer";
 import { KnowledgeToc } from "@/components/knowledge/toc";
+import { CargoRequestForm } from "@/components/knowledge/cargo-request-form";
 
 export const revalidate = 3600;
 
@@ -301,20 +302,9 @@ export default async function ArticlePage({ params }: Props) {
                 </div>
               </div>
 
-              {/* CTA */}
-              <div className="mt-8 rounded-2xl bg-gradient-to-r from-red-600 to-red-700 p-6 text-white flex flex-col sm:flex-row items-center gap-4">
-                <div className="flex-1">
-                  <p className="font-bold text-lg">Готовы к отправке?</p>
-                  <p className="text-red-100 text-sm mt-1">
-                    Рассчитаем стоимость доставки и подберём лучший маршрут
-                  </p>
-                </div>
-                <Link
-                  href="/get-quote"
-                  className="shrink-0 bg-white text-red-600 font-bold px-6 py-3 rounded-xl hover:bg-red-50 transition-colors text-sm"
-                >
-                  Получить расчёт
-                </Link>
+              {/* Cargo Request Form */}
+              <div className="mt-8">
+                <CargoRequestForm variant="compact" />
               </div>
 
               {/* Related articles */}
