@@ -246,6 +246,7 @@ function Navbar({ branding }: { branding: any }) {
           <a href="#delivery" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Доставка</a>
           <a href="#how-it-works" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Как работает</a>
           <a href="#why-us" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Преимущества</a>
+          <Link href="/product-search" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Поиск товара</Link>
           <Link href="/knowledge" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">База знаний</Link>
         </div>
         <div className="flex items-center gap-3">
