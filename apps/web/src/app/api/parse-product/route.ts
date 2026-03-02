@@ -129,31 +129,42 @@ async function parseWildberries(url: string): Promise<ProductData> {
       category = cardInfo.subj_root_name || "";
       subcategory = cardInfo.subj_name || "";
 
-      // Try to extract weight and dimensions from options
+      // Extract weight and dimensions from options
       if (cardInfo.options && Array.isArray(cardInfo.options)) {
+        let dimL: number | null = null;
+        let dimW: number | null = null;
+        let dimH: number | null = null;
+
         for (const opt of cardInfo.options) {
           const name = (opt.name || "").toLowerCase();
           const value = opt.value || "";
 
-          if (name.includes("вес") && !name.includes("нетто")) {
-            const weightMatch = value.match(/([\d.,]+)\s*(кг|г|гр)/i);
+          // Weight: "Вес товара", "Вес с упаковкой", "Вес, г" etc.
+          if (
+            (name.includes("вес") || name === "weight") &&
+            !weight
+          ) {
+            // Try "123 г", "1.5 кг", "0,3 кг", or just a number (grams)
+            const weightMatch = value.match(/([\d.,]+)\s*(кг|г|гр|kg|g)?/i);
             if (weightMatch) {
               const num = parseFloat(weightMatch[1].replace(",", "."));
-              const unit = weightMatch[2].toLowerCase();
-              weight = unit === "кг" ? num * 1000 : num;
+              const unit = (weightMatch[2] || "г").toLowerCase();
+              if (unit === "кг" || unit === "kg") {
+                weight = num * 1000;
+              } else {
+                weight = num;
+              }
             }
           }
 
+          // Dimensions: "ДxШxВ" in a single field
           if (
-            name.includes("длина") ||
-            name.includes("ширина") ||
-            name.includes("высота") ||
             name.includes("габарит") ||
-            name.includes("размер упаковки")
+            name.includes("размер упаковки") ||
+            name.includes("размеры")
           ) {
-            // Try to parse "ДxШxВ" format
             const dimMatch = value.match(
-              /([\d.,]+)\s*[xхXХ×]\s*([\d.,]+)\s*[xхXХ×]\s*([\d.,]+)/
+              /([\d.,]+)\s*[xхXХ×*]\s*([\d.,]+)\s*[xхXХ×*]\s*([\d.,]+)/
             );
             if (dimMatch) {
               dimensions = {
@@ -163,6 +174,29 @@ async function parseWildberries(url: string): Promise<ProductData> {
               };
             }
           }
+
+          // Individual dimension fields
+          if (name.includes("длина") && !name.includes("рукав")) {
+            const m = value.match(/([\d.,]+)/);
+            if (m) dimL = parseFloat(m[1].replace(",", "."));
+          }
+          if (name.includes("ширина")) {
+            const m = value.match(/([\d.,]+)/);
+            if (m) dimW = parseFloat(m[1].replace(",", "."));
+          }
+          if (name.includes("высота") || name.includes("глубина")) {
+            const m = value.match(/([\d.,]+)/);
+            if (m) dimH = parseFloat(m[1].replace(",", "."));
+          }
+        }
+
+        // Assemble dimensions from individual fields if not already found
+        if (!dimensions && dimL && dimW) {
+          dimensions = {
+            length: dimL,
+            width: dimW,
+            height: dimH || 1,
+          };
         }
       }
     }
