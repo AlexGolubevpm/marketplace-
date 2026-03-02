@@ -239,43 +239,20 @@ async function parseWildberries(url: string): Promise<ProductData> {
 }
 
 async function parseOzon(url: string): Promise<ProductData> {
-  // Extract product ID from Ozon URL
+  // Extract product slug and ID from Ozon URL
   // Formats: /product/slug-123456789/ or /product/123456789/
-  const match = url.match(/ozon\.ru\/product\/(?:.*?-)?(\d+)\/?/);
+  const match = url.match(/ozon\.ru\/product\/((?:.*?-)?\d+)\/?/);
   if (!match) throw new Error("Не удалось извлечь ID товара из ссылки Ozon");
 
-  const productId = match[1];
+  const fullSlug = match[1]; // e.g. "some-product-name-123456789"
+  const idMatch = fullSlug.match(/(\d+)$/);
+  if (!idMatch) throw new Error("Не удалось извлечь ID товара из ссылки Ozon");
+  const productId = idMatch[1];
 
-  // Try to fetch the Ozon page and extract data from meta tags / JSON-LD
-  let pageRes: Response;
-  try {
-    pageRes = await fetchWithTimeout(url, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        Accept:
-          "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
-      },
-      redirect: "follow",
-    }, 20000);
-  } catch (err) {
-    if (err instanceof DOMException && err.name === "AbortError") {
-      throw new Error("Таймаут при обращении к Ozon. Попробуйте ещё раз.");
-    }
-    throw new Error(`Не удалось подключиться к Ozon: ${err instanceof Error ? err.message : "сеть недоступна"}`);
-  }
-
-  if (!pageRes.ok) {
-    throw new Error(`Ozon вернул ошибку: ${pageRes.status}`);
-  }
-
-  const html = await pageRes.text();
-
-  // Extract data from JSON-LD (schema.org Product)
-  const jsonLdMatch = html.match(
-    /<script type="application\/ld\+json">([\s\S]*?)<\/script>/g
-  );
+  // Ozon blocks direct HTML fetching from server IPs.
+  // Strategy 1: Try Ozon's internal composer API (returns JSON, different CDN rules)
+  // Strategy 2: Try direct HTML fetch as fallback
+  // Strategy 3: Try mobile API endpoint
 
   let name = "";
   let price = 0;
@@ -285,87 +262,173 @@ async function parseOzon(url: string): Promise<ProductData> {
   let category = "";
   let rating: number | null = null;
   let reviewCount: number | null = null;
+  let weight: number | null = null;
+  let dimensions: { length: number; width: number; height: number } | null = null;
 
-  if (jsonLdMatch) {
-    for (const scriptTag of jsonLdMatch) {
-      try {
-        const jsonStr = scriptTag
-          .replace(/<script type="application\/ld\+json">/, "")
-          .replace(/<\/script>/, "");
-        const jsonData = JSON.parse(jsonStr);
+  // --- Strategy 1: Ozon composer API ---
+  try {
+    const apiUrl = `https://api.ozon.ru/composer-api.bx/page/json/v2?url=${encodeURIComponent(`/product/${fullSlug}/`)}`;
+    const apiRes = await fetchWithTimeout(apiUrl, {
+      headers: {
+        "User-Agent": "ozonapp_android/17.51.1+2558",
+        "Accept": "application/json",
+        "Accept-Language": "ru-RU",
+      },
+    }, 10000);
 
-        if (jsonData["@type"] === "Product") {
-          name = jsonData.name || "";
-          brand = jsonData.brand?.name || "";
-          images = jsonData.image
-            ? Array.isArray(jsonData.image)
-              ? jsonData.image.slice(0, 5)
-              : [jsonData.image]
-            : [];
+    if (apiRes.ok) {
+      const apiData = await apiRes.json();
+      // Parse the composer response (deeply nested structure)
+      const widgetStates = apiData?.widgetStates || {};
+      for (const [key, value] of Object.entries(widgetStates)) {
+        try {
+          const widget = typeof value === "string" ? JSON.parse(value) : value;
 
-          if (jsonData.offers) {
-            const offers = Array.isArray(jsonData.offers)
-              ? jsonData.offers[0]
-              : jsonData.offers;
-            price = parseFloat(offers.price) || 0;
-            originalPrice = price;
+          // Product name from webProductHeading
+          if (key.includes("webProductHeading") && widget?.title) {
+            name = widget.title;
           }
 
-          if (jsonData.aggregateRating) {
-            rating = parseFloat(jsonData.aggregateRating.ratingValue) || null;
-            reviewCount =
-              parseInt(jsonData.aggregateRating.reviewCount) || null;
+          // Price from webPrice
+          if (key.includes("webPrice") || key.includes("Price")) {
+            if (widget?.price) {
+              const priceStr = String(widget.price).replace(/[^\d.,]/g, "").replace(",", ".");
+              price = parseFloat(priceStr) || price;
+            }
+            if (widget?.originalPrice) {
+              const opStr = String(widget.originalPrice).replace(/[^\d.,]/g, "").replace(",", ".");
+              originalPrice = parseFloat(opStr) || originalPrice;
+            }
+            if (widget?.cardPrice) {
+              const cpStr = String(widget.cardPrice).replace(/[^\d.,]/g, "").replace(",", ".");
+              if (!price) price = parseFloat(cpStr) || 0;
+            }
           }
 
-          if (jsonData.category) {
-            category = jsonData.category;
+          // Images from webGallery
+          if (key.includes("webGallery") && widget?.coverImage) {
+            images = (widget.images || []).slice(0, 5).map((img: any) => img.src || img.originalSrc || "").filter(Boolean);
+            if (images.length === 0 && widget.coverImage) {
+              images = [widget.coverImage];
+            }
           }
+
+          // Brand
+          if (key.includes("webBrand") && widget?.brandName) {
+            brand = widget.brandName;
+          }
+
+          // Rating from webSingleProductRating
+          if (key.includes("Rating") && widget?.rating) {
+            rating = parseFloat(widget.rating) || null;
+            reviewCount = parseInt(widget.reviewsCount || widget.commentsCount) || null;
+          }
+        } catch {
+          // widget parse error, skip
         }
+      }
 
-        if (
-          jsonData["@type"] === "BreadcrumbList" &&
-          jsonData.itemListElement
-        ) {
-          const items = jsonData.itemListElement;
-          if (items.length > 1) {
-            category = items[items.length - 1]?.name || category;
-          }
-        }
-      } catch {
-        // JSON parse error, continue
+      // Try to get category from breadcrumbs
+      const layoutTrackingInfo = apiData?.layoutTrackingInfo;
+      if (layoutTrackingInfo) {
+        try {
+          const trackInfo = typeof layoutTrackingInfo === "string" ? JSON.parse(layoutTrackingInfo) : layoutTrackingInfo;
+          category = trackInfo?.categoryName || trackInfo?.category || "";
+        } catch { /* ignore */ }
       }
     }
+  } catch {
+    // Strategy 1 failed, continue
   }
 
-  // Fallback: try meta tags
+  // --- Strategy 2: Direct HTML fetch ---
   if (!name) {
-    const ogTitle = html.match(
-      /<meta\s+property="og:title"\s+content="([^"]+)"/
-    );
-    if (ogTitle) name = ogTitle[1];
-  }
+    try {
+      const pageRes = await fetchWithTimeout(url, {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          Accept:
+            "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
+        },
+        redirect: "follow",
+      }, 15000);
 
-  if (images.length === 0) {
-    const ogImage = html.match(
-      /<meta\s+property="og:image"\s+content="([^"]+)"/
-    );
-    if (ogImage) images = [ogImage[1]];
-  }
+      if (pageRes.ok) {
+        const html = await pageRes.text();
 
-  if (!price) {
-    // Try to find price in meta tags
-    const priceMatch = html.match(
-      /<meta\s+property="product:price:amount"\s+content="([^"]+)"/
-    );
-    if (priceMatch) {
-      price = parseFloat(priceMatch[1]) || 0;
-      originalPrice = price;
+        // Extract from JSON-LD
+        const jsonLdMatch = html.match(
+          /<script type="application\/ld\+json">([\s\S]*?)<\/script>/g
+        );
+
+        if (jsonLdMatch) {
+          for (const scriptTag of jsonLdMatch) {
+            try {
+              const jsonStr = scriptTag
+                .replace(/<script type="application\/ld\+json">/, "")
+                .replace(/<\/script>/, "");
+              const jsonData = JSON.parse(jsonStr);
+
+              if (jsonData["@type"] === "Product") {
+                name = jsonData.name || name;
+                brand = jsonData.brand?.name || brand;
+                if (!images.length) {
+                  images = jsonData.image
+                    ? Array.isArray(jsonData.image)
+                      ? jsonData.image.slice(0, 5)
+                      : [jsonData.image]
+                    : [];
+                }
+                if (jsonData.offers) {
+                  const offers = Array.isArray(jsonData.offers)
+                    ? jsonData.offers[0]
+                    : jsonData.offers;
+                  if (!price) price = parseFloat(offers.price) || 0;
+                  if (!originalPrice) originalPrice = price;
+                }
+                if (jsonData.aggregateRating) {
+                  rating = rating || (parseFloat(jsonData.aggregateRating.ratingValue) || null);
+                  reviewCount = reviewCount || (parseInt(jsonData.aggregateRating.reviewCount) || null);
+                }
+                if (jsonData.category) category = category || jsonData.category;
+              }
+
+              if (jsonData["@type"] === "BreadcrumbList" && jsonData.itemListElement) {
+                const items = jsonData.itemListElement;
+                if (items.length > 1 && !category) {
+                  category = items[items.length - 1]?.name || "";
+                }
+              }
+            } catch { /* JSON parse error */ }
+          }
+        }
+
+        // Fallback: meta tags
+        if (!name) {
+          const ogTitle = html.match(/<meta\s+property="og:title"\s+content="([^"]+)"/);
+          if (ogTitle) name = ogTitle[1];
+        }
+        if (!images.length) {
+          const ogImage = html.match(/<meta\s+property="og:image"\s+content="([^"]+)"/);
+          if (ogImage) images = [ogImage[1]];
+        }
+        if (!price) {
+          const priceMatch = html.match(/<meta\s+property="product:price:amount"\s+content="([^"]+)"/);
+          if (priceMatch) price = parseFloat(priceMatch[1]) || 0;
+        }
+      }
+    } catch {
+      // Strategy 2 failed, continue
     }
   }
+
+  if (!originalPrice) originalPrice = price;
 
   if (!name) {
     throw new Error(
-      "Не удалось получить данные товара с Ozon. Попробуйте ссылку на WB."
+      "Ozon блокирует запросы с сервера. Попробуйте вставить ссылку на Wildberries — парсинг WB работает стабильно."
     );
   }
 
@@ -382,8 +445,8 @@ async function parseOzon(url: string): Promise<ProductData> {
     discount,
     category,
     subcategory: "",
-    weight: null,
-    dimensions: null,
+    weight,
+    dimensions,
     images,
     source: "ozon",
     sourceUrl: url,
