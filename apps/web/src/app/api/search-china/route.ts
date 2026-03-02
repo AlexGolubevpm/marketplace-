@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || "242735a4e5msh817f4cd12b4b720p161bbdjsnd82a404e1e41";
-const RAPIDAPI_HOST = "taobao-1688-api1.p.rapidapi.com";
+const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || "";
+const RAPIDAPI_HOST = process.env.RAPIDAPI_HOST || "taobao-1688-api1.p.rapidapi.com";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -176,6 +176,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "Укажите название товара или ссылку на изображение" },
         { status: 400 }
+      );
+    }
+
+    if (!RAPIDAPI_KEY) {
+      return NextResponse.json(
+        { error: "RAPIDAPI_KEY не настроен. Добавьте переменную окружения RAPIDAPI_KEY." },
+        { status: 500 }
       );
     }
 
