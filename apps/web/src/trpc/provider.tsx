@@ -35,7 +35,9 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
             if (typeof window === "undefined") return {};
             const raw = localStorage.getItem(SESSION_KEYS.ADMIN);
             if (raw) {
-              return { "x-admin-session": raw };
+              // Base64-encode to avoid non-ISO-8859-1 characters (e.g. Cyrillic) in HTTP headers
+              const encoded = btoa(unescape(encodeURIComponent(raw)));
+              return { "x-admin-session": encoded };
             }
             return {};
           },

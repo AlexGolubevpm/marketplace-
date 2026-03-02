@@ -51,6 +51,7 @@ function KnowledgeHeader() {
           <Link href="/#delivery" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Доставка</Link>
           <Link href="/#how-it-works" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Как работает</Link>
           <Link href="/#why-us" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Преимущества</Link>
+          <Link href="/product-search" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Поиск товара</Link>
           <Link href="/knowledge" className="text-sm font-medium text-red-600 hover:text-red-700 transition-colors">База знаний</Link>
         </div>
         <div className="flex items-center gap-3">

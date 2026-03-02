@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { eq } from "drizzle-orm";
+import { notifyAdminNewCustomer } from "@/lib/telegram-admin-notify";
 
 const YANDEX_CLIENT_ID = process.env.YANDEX_CLIENT_ID!;
 const YANDEX_CLIENT_SECRET = process.env.YANDEX_CLIENT_SECRET!;
@@ -126,6 +127,14 @@ export async function GET(req: NextRequest) {
           })
           .returning({ id: schema.customers.id, full_name: schema.customers.full_name });
         customer = created;
+
+        // Admin notification (fire and forget)
+        notifyAdminNewCustomer({
+          customerId: customer.id,
+          name: fullName || undefined,
+          email: email || undefined,
+          source: "Яндекс OAuth",
+        }).catch(() => {});
       }
 
       // Encode session payload into redirect URL (picked up by client-side setSession)

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, schema } from "@/lib/db";
 import { eq, and, or, sql, desc } from "drizzle-orm";
+import { notifyAdminNewOffer, notifyAdminOfferSelected } from "@/lib/telegram-admin-notify";
 
 // Resolve a carrier identifier (tg_id, email, or UUID) to a carrier UUID
 async function resolveCarrierId(identifier: string): Promise<string | null> {
@@ -188,6 +189,24 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Admin notification (fire and forget)
+    (async () => {
+      try {
+        const [req] = await db.select({ display_id: schema.requests.display_id })
+          .from(schema.requests).where(eq(schema.requests.id, body.request_id)).limit(1);
+        await notifyAdminNewOffer({
+          offerId: offer.id,
+          offerDisplayId: display_id,
+          requestDisplayId: req?.display_id || body.request_id,
+          carrierName: body.carrier_name || undefined,
+          price: String(body.price),
+          currency: body.currency || "USD",
+          estimatedDays: body.estimated_days || 14,
+          deliveryType: body.delivery_type || "sea",
+        });
+      } catch {}
+    })();
+
     return NextResponse.json(offer, { status: 201 });
   } catch (error: any) {
     console.error("POST /api/offers error:", error.message);
@@ -254,6 +273,22 @@ export async function PATCH(req: NextRequest) {
             price: offer.price,
             currency: offer.currency,
           });
+
+          // Admin notification (fire and forget)
+          (async () => {
+            try {
+              const [carrier] = await db.select({ name: schema.carriers.name })
+                .from(schema.carriers).where(eq(schema.carriers.id, offer.carrier_id)).limit(1);
+              await notifyAdminOfferSelected({
+                offerDisplayId: offer.display_id,
+                requestDisplayId: request.display_id,
+                carrierName: carrier?.name || undefined,
+                price: offer.price,
+                currency: offer.currency,
+                orderDisplayId,
+              });
+            } catch {}
+          })();
         }
       }
 

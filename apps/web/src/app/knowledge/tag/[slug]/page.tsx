@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ChevronRight, BookOpen, Clock, Tag } from "lucide-react";
 import { getTagBySlug, getRedirect } from "@/lib/knowledge-queries";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 interface Props {
   params: Promise<{ slug: string }>;
