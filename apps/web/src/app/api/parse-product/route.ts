@@ -63,6 +63,12 @@ interface ProductData {
   quantity: number | null;
 }
 
+function fetchWithTimeout(url: string, opts: RequestInit = {}, timeoutMs = 15000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...opts, signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
 async function parseWildberries(url: string): Promise<ProductData> {
   const match = url.match(/wildberries\.ru\/catalog\/(\d+)/);
   if (!match) throw new Error("Не удалось извлечь ID товара из ссылки WB");
@@ -72,13 +78,21 @@ async function parseWildberries(url: string): Promise<ProductData> {
 
   // Fetch main product details
   const detailUrl = `https://card.wb.ru/cards/v2/detail?appType=1&curr=rub&dest=-1257786&nm=${productId}`;
-  const detailRes = await fetch(detailUrl, {
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-      Accept: "application/json",
-    },
-  });
+  let detailRes: Response;
+  try {
+    detailRes = await fetchWithTimeout(detailUrl, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        Accept: "application/json",
+      },
+    });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new Error("Таймаут при обращении к WB API. Попробуйте ещё раз.");
+    }
+    throw new Error(`Не удалось подключиться к WB API: ${err instanceof Error ? err.message : "сеть недоступна"}`);
+  }
 
   if (!detailRes.ok) {
     throw new Error(`WB API вернул ошибку: ${detailRes.status}`);
@@ -116,7 +130,7 @@ async function parseWildberries(url: string): Promise<ProductData> {
 
   try {
     const cardInfoUrl = getWbCardInfoUrl(nmId);
-    const cardInfoRes = await fetch(cardInfoUrl, {
+    const cardInfoRes = await fetchWithTimeout(cardInfoUrl, {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
@@ -233,16 +247,24 @@ async function parseOzon(url: string): Promise<ProductData> {
   const productId = match[1];
 
   // Try to fetch the Ozon page and extract data from meta tags / JSON-LD
-  const pageRes = await fetch(url, {
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      Accept:
-        "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-      "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
-    },
-    redirect: "follow",
-  });
+  let pageRes: Response;
+  try {
+    pageRes = await fetchWithTimeout(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        Accept:
+          "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
+      },
+      redirect: "follow",
+    }, 20000);
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new Error("Таймаут при обращении к Ozon. Попробуйте ещё раз.");
+    }
+    throw new Error(`Не удалось подключиться к Ozon: ${err instanceof Error ? err.message : "сеть недоступна"}`);
+  }
 
   if (!pageRes.ok) {
     throw new Error(`Ozon вернул ошибку: ${pageRes.status}`);

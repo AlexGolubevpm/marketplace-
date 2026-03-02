@@ -32,12 +32,20 @@ interface DetailedProduct {
   detail_url: string;
 }
 
+// ─── Fetch with timeout ─────────────────────────────────────────────────────
+
+function fetchWithTimeout(url: string, opts: RequestInit = {}, timeoutMs = 15000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...opts, signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
 // ─── 1688 Image Search ──────────────────────────────────────────────────────
 
 async function searchByImage(imageUrl: string): Promise<SearchResultItem[]> {
   const url = `https://${RAPIDAPI_HOST}/1688/search-image?imgUrl=${encodeURIComponent(imageUrl)}`;
 
-  const res = await fetch(url, {
+  const res = await fetchWithTimeout(url, {
     headers: {
       "x-rapidapi-key": RAPIDAPI_KEY,
       "x-rapidapi-host": RAPIDAPI_HOST,
@@ -71,7 +79,7 @@ async function searchByImage(imageUrl: string): Promise<SearchResultItem[]> {
 async function searchByKeyword(keyword: string): Promise<SearchResultItem[]> {
   const url = `https://${RAPIDAPI_HOST}/v1/search?keyword=${encodeURIComponent(keyword)}&site=1688`;
 
-  const res = await fetch(url, {
+  const res = await fetchWithTimeout(url, {
     headers: {
       "x-rapidapi-key": RAPIDAPI_KEY,
       "x-rapidapi-host": RAPIDAPI_HOST,
@@ -103,7 +111,7 @@ async function searchByKeyword(keyword: string): Promise<SearchResultItem[]> {
 async function getProductDetail(itemId: string): Promise<DetailedProduct | null> {
   const url = `https://${RAPIDAPI_HOST}/1688/detail?itemId=${itemId}`;
 
-  const res = await fetch(url, {
+  const res = await fetchWithTimeout(url, {
     headers: {
       "x-rapidapi-key": RAPIDAPI_KEY,
       "x-rapidapi-host": RAPIDAPI_HOST,

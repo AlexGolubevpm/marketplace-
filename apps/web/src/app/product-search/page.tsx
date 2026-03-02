@@ -628,7 +628,10 @@ export default function ProductSearchPage() {
         setStep(4);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Произошла ошибка");
+      const msg = err instanceof Error ? err.message : "Произошла ошибка";
+      setError(msg === "fetch failed" || msg === "Failed to fetch"
+        ? "Не удалось подключиться к серверу. Проверьте соединение и попробуйте ещё раз."
+        : msg);
       setStep(1);
     } finally {
       setLoading(false);
