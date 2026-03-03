@@ -51,9 +51,15 @@ const rapidHeaders = {
 
 async function searchByImage1688(imageUrl: string): Promise<SearchResultItem[]> {
   const url = `https://${RAPIDAPI_HOST}/1688/search-image?imgUrl=${encodeURIComponent(imageUrl)}`;
+  console.log("[search-china] 1688 search →", url);
   const res = await fetchWithTimeout(url, { headers: rapidHeaders });
-  if (!res.ok) throw new Error(`1688: ${res.status}`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.error("[search-china] 1688 error:", res.status, body);
+    throw new Error(`1688: ${res.status}`);
+  }
   const data = await res.json();
+  console.log("[search-china] 1688 response: success=", data.success, "items=", data.data?.length ?? 0);
   if (!data.success || !data.data) return [];
 
   return (data.data || []).map((item: any) => ({
@@ -69,9 +75,15 @@ async function searchByImage1688(imageUrl: string): Promise<SearchResultItem[]> 
 
 async function searchByImageTaobao(imageUrl: string): Promise<SearchResultItem[]> {
   const url = `https://${RAPIDAPI_HOST}/taobao/search-image?imgUrl=${encodeURIComponent(imageUrl)}`;
+  console.log("[search-china] taobao search →", url);
   const res = await fetchWithTimeout(url, { headers: rapidHeaders });
-  if (!res.ok) throw new Error(`taobao: ${res.status}`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.error("[search-china] taobao error:", res.status, body);
+    throw new Error(`taobao: ${res.status}`);
+  }
   const data = await res.json();
+  console.log("[search-china] taobao response: success=", data.success, "items=", data.data?.length ?? 0);
   if (!data.success || !data.data) return [];
 
   return (data.data || []).map((item: any) => ({
@@ -183,11 +195,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log("[search-china] imageUrl:", imageUrl);
+
     // Search both 1688 and Taobao by image in parallel
     const [results1688, resultsTaobao] = await Promise.all([
-      searchByImage1688(imageUrl).catch(() => [] as SearchResultItem[]),
-      searchByImageTaobao(imageUrl).catch(() => [] as SearchResultItem[]),
+      searchByImage1688(imageUrl).catch((e) => { console.error("[search-china] 1688 catch:", e); return [] as SearchResultItem[]; }),
+      searchByImageTaobao(imageUrl).catch((e) => { console.error("[search-china] taobao catch:", e); return [] as SearchResultItem[]; }),
     ]);
+
+    console.log("[search-china] results: 1688=", results1688.length, "taobao=", resultsTaobao.length);
 
     // Combine: 1688 first, then Taobao
     const allResults = [...results1688, ...resultsTaobao];

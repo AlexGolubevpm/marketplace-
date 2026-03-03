@@ -40,6 +40,7 @@ interface ChinaProduct {
   moq: number;
   attributes: Record<string, string>;
   detail_url: string;
+  source?: "1688" | "taobao";
 }
 
 interface ChinaSearchResult {
@@ -331,7 +332,7 @@ function ChinaProductCards({
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="font-semibold text-gray-900">Найдено на 1688</h3>
+        <h3 className="font-semibold text-gray-900">Найдено на 1688 / Taobao</h3>
         <span className="text-xs text-gray-400">{products.length} товаров</span>
       </div>
       <div className="grid gap-3">
@@ -355,7 +356,18 @@ function ChinaProductCards({
                   </div>
                 )}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 line-clamp-2 mb-1">{p.title}</p>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    {p.source && (
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                        p.source === "taobao"
+                          ? "bg-orange-100 text-orange-700"
+                          : "bg-red-100 text-red-700"
+                      }`}>
+                        {p.source === "taobao" ? "Taobao" : "1688"}
+                      </span>
+                    )}
+                    <p className="text-sm font-medium text-gray-900 line-clamp-2">{p.title}</p>
+                  </div>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                     <span className="font-bold text-red-600">{fmtCny(bestPrice)}</span>
                     <span className="text-gray-400">≈ {fmt(cnyToRub(bestPrice))} ₽</span>
@@ -607,7 +619,7 @@ export default function ProductSearchPage() {
 
       // Step 3: Search on 1688
       setStep(3);
-      setLoadingStage("Ищем аналоги на 1688…");
+      setLoadingStage("Ищем аналоги на 1688 и Taobao…");
 
       const firstImage = prod.images[0] || null;
       if (!firstImage) {
@@ -813,9 +825,9 @@ export default function ProductSearchPage() {
                 animate={{ opacity: 1, y: 0 }}
                 className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center"
               >
-                <p className="text-amber-700 font-medium mb-1">Аналоги на 1688 не найдены</p>
+                <p className="text-amber-700 font-medium mb-1">Аналоги на 1688 и Taobao не найдены</p>
                 <p className="text-sm text-amber-600">
-                  Попробуйте другой товар или проверьте, что фото товара доступно
+                  Попробуйте другой товар или проверьте, что фото товара доступно по прямой ссылке
                 </p>
               </motion.div>
             )}

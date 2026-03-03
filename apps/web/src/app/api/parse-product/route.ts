@@ -157,7 +157,7 @@ async function parseWildberries(url: string): Promise<ProductData> {
   const path = wbCdnPath(vol, part, nmId);
   const images: string[] = [];
   for (let i = 1; i <= Math.min(photoCount, 5); i++) {
-    images.push(`https://${host}${path}/images/big/${i}.webp`);
+    images.push(`https://${host}${path}/images/big/${i}.jpg`);
   }
 
   // Extract weight and dimensions from options
