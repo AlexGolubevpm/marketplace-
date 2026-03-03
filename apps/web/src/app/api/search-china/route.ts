@@ -196,11 +196,16 @@ export async function POST(request: NextRequest) {
     }
 
     console.log("[search-china] imageUrl:", imageUrl);
+    console.log("[search-china] RAPIDAPI_HOST:", RAPIDAPI_HOST);
+    console.log("[search-china] RAPIDAPI_KEY set:", !!RAPIDAPI_KEY, "len:", RAPIDAPI_KEY.length);
 
     // Search both 1688 and Taobao by image in parallel
+    let error1688 = "";
+    let errorTaobao = "";
+
     const [results1688, resultsTaobao] = await Promise.all([
-      searchByImage1688(imageUrl).catch((e) => { console.error("[search-china] 1688 catch:", e); return [] as SearchResultItem[]; }),
-      searchByImageTaobao(imageUrl).catch((e) => { console.error("[search-china] taobao catch:", e); return [] as SearchResultItem[]; }),
+      searchByImage1688(imageUrl).catch((e) => { error1688 = String(e); console.error("[search-china] 1688 catch:", e); return [] as SearchResultItem[]; }),
+      searchByImageTaobao(imageUrl).catch((e) => { errorTaobao = String(e); console.error("[search-china] taobao catch:", e); return [] as SearchResultItem[]; }),
     ]);
 
     console.log("[search-china] results: 1688=", results1688.length, "taobao=", resultsTaobao.length);
@@ -213,6 +218,16 @@ export async function POST(request: NextRequest) {
         searchMethod: "image",
         totalFound: 0,
         products: [],
+        debug: {
+          imageUrl,
+          host: RAPIDAPI_HOST,
+          keySet: !!RAPIDAPI_KEY,
+          keyLen: RAPIDAPI_KEY.length,
+          error1688: error1688 || null,
+          errorTaobao: errorTaobao || null,
+          found1688: results1688.length,
+          foundTaobao: resultsTaobao.length,
+        },
       });
     }
 

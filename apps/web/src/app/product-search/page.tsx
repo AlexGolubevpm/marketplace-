@@ -47,6 +47,16 @@ interface ChinaSearchResult {
   searchMethod: "image" | "text";
   totalFound: number;
   products: ChinaProduct[];
+  debug?: {
+    imageUrl?: string;
+    host?: string;
+    keySet?: boolean;
+    keyLen?: number;
+    error1688?: string | null;
+    errorTaobao?: string | null;
+    found1688?: number;
+    foundTaobao?: number;
+  };
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -637,7 +647,16 @@ export default function ProductSearchPage() {
           setChinaResults(chinaData);
           setSelectedChinaIndex(0); // Auto-select first result
         } else {
-          setChinaResults({ searchMethod: "image", totalFound: 0, products: [] });
+          setChinaResults({
+            searchMethod: "image",
+            totalFound: 0,
+            products: [],
+            debug: chinaData.debug || {
+              imageUrl: firstImage,
+              error1688: chinaData.error || (!chinaRes.ok ? `HTTP ${chinaRes.status}` : null),
+              errorTaobao: chinaData.error || (!chinaRes.ok ? `HTTP ${chinaRes.status}` : null),
+            },
+          });
         }
         setStep(4);
       }
@@ -829,6 +848,15 @@ export default function ProductSearchPage() {
                 <p className="text-sm text-amber-600">
                   Попробуйте другой товар или проверьте, что фото товара доступно по прямой ссылке
                 </p>
+                {chinaResults.debug && (
+                  <div className="mt-3 text-left bg-white/60 rounded-lg p-3 text-xs text-gray-500 font-mono">
+                    <p>API host: {chinaResults.debug.host}</p>
+                    <p>API key: {chinaResults.debug.keySet ? `задан (${chinaResults.debug.keyLen} симв.)` : "НЕ ЗАДАН"}</p>
+                    <p>Фото: {chinaResults.debug.imageUrl}</p>
+                    <p>1688: {chinaResults.debug.error1688 || `найдено ${chinaResults.debug.found1688}`}</p>
+                    <p>Taobao: {chinaResults.debug.errorTaobao || `найдено ${chinaResults.debug.foundTaobao}`}</p>
+                  </div>
+                )}
               </motion.div>
             )}
 
