@@ -1,19 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 
+// ─── Config ─────────────────────────────────────────────────────────────────
+// OTAPI via RapidAPI: taobao-tmall1 for Taobao, otapi-1688 for 1688
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || "";
-const RAPIDAPI_HOST = process.env.RAPIDAPI_HOST || "taobao-1688-api1.p.rapidapi.com";
+const TAOBAO_HOST = process.env.RAPIDAPI_HOST || "taobao-tmall1.p.rapidapi.com";
+const ALI1688_HOST = process.env.RAPIDAPI_HOST_1688 || "otapi-1688.p.rapidapi.com";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-interface SearchResultItem {
-  product_id: string;
-  product_name: string;
-  price: number;
-  image: string;
-  month_sold: number | null;
-  repurchase_rate: string | null;
-  source: "1688" | "taobao";
-}
+// ─── Types ──────────────────────────────────────────────────────────────────
 
 interface DetailedProduct {
   product_id: string;
@@ -36,145 +29,112 @@ interface DetailedProduct {
 
 // ─── Fetch with timeout ─────────────────────────────────────────────────────
 
-function fetchWithTimeout(url: string, opts: RequestInit = {}, timeoutMs = 15000): Promise<Response> {
+function fetchWithTimeout(
+  url: string,
+  opts: RequestInit = {},
+  timeoutMs = 20000
+): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
-  return fetch(url, { ...opts, signal: controller.signal }).finally(() => clearTimeout(timer));
+  return fetch(url, { ...opts, signal: controller.signal }).finally(() =>
+    clearTimeout(timer)
+  );
 }
 
-const rapidHeaders = {
-  "x-rapidapi-key": RAPIDAPI_KEY,
-  "x-rapidapi-host": RAPIDAPI_HOST,
-};
+// ─── OTAPI BatchSearchItemsFrame ────────────────────────────────────────────
 
-// ─── Image Search (1688 + Taobao) ───────────────────────────────────────────
+async function searchOTAPI(
+  host: string,
+  imageUrl: string,
+  source: "1688" | "taobao"
+): Promise<{ products: DetailedProduct[]; error: string }> {
+  const params = new URLSearchParams({
+    language: "ru",
+    framePosition: "0",
+    frameSize: "20",
+    ImageUrl: imageUrl,
+  });
 
-async function searchByImage1688(imageUrl: string): Promise<SearchResultItem[]> {
-  const url = `https://${RAPIDAPI_HOST}/1688/search-image?imgUrl=${encodeURIComponent(imageUrl)}`;
-  console.log("[search-china] 1688 search →", url);
-  const res = await fetchWithTimeout(url, { headers: rapidHeaders });
+  const url = `https://${host}/BatchSearchItemsFrame?${params.toString()}`;
+  console.log(`[search-china] ${source} search →`, url);
+
+  const headers = {
+    "x-rapidapi-key": RAPIDAPI_KEY,
+    "x-rapidapi-host": host,
+  };
+
+  const res = await fetchWithTimeout(url, { method: "GET", headers });
+
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    console.error("[search-china] 1688 error:", res.status, body);
-    throw new Error(`1688: ${res.status}`);
-  }
-  const data = await res.json();
-  console.log("[search-china] 1688 response: success=", data.success, "items=", data.data?.length ?? 0);
-  if (!data.success || !data.data) return [];
-
-  return (data.data || []).map((item: any) => ({
-    product_id: String(item.product_id || item.offerId || ""),
-    product_name: item.product_name || item.subject || "",
-    price: parseFloat(item.price) || 0,
-    image: item.main_img_url || item.imageUrl || "",
-    month_sold: item.month_sold || null,
-    repurchase_rate: item.repurchase_rate || null,
-    source: "1688" as const,
-  }));
-}
-
-async function searchByImageTaobao(imageUrl: string): Promise<SearchResultItem[]> {
-  const url = `https://${RAPIDAPI_HOST}/taobao/search-image?imgUrl=${encodeURIComponent(imageUrl)}`;
-  console.log("[search-china] taobao search →", url);
-  const res = await fetchWithTimeout(url, { headers: rapidHeaders });
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    console.error("[search-china] taobao error:", res.status, body);
-    throw new Error(`taobao: ${res.status}`);
-  }
-  const data = await res.json();
-  console.log("[search-china] taobao response: success=", data.success, "items=", data.data?.length ?? 0);
-  if (!data.success || !data.data) return [];
-
-  return (data.data || []).map((item: any) => ({
-    product_id: String(item.product_id || item.num_iid || item.nid || ""),
-    product_name: item.product_name || item.title || "",
-    price: parseFloat(item.price) || 0,
-    image: item.main_img_url || item.pic_url || item.imageUrl || "",
-    month_sold: item.month_sold || item.sold || null,
-    repurchase_rate: item.repurchase_rate || null,
-    source: "taobao" as const,
-  }));
-}
-
-// ─── Product Detail ─────────────────────────────────────────────────────────
-
-async function get1688Detail(itemId: string): Promise<DetailedProduct | null> {
-  const url = `https://${RAPIDAPI_HOST}/1688/detail?itemId=${itemId}`;
-  const res = await fetchWithTimeout(url, { headers: rapidHeaders });
-  if (!res.ok) return null;
-
-  const data = await res.json();
-  if (!data.success || !data.data) return null;
-
-  const om = data.data.offerModel;
-  if (!om) return null;
-
-  const priceTiers: { price: number; min_qty: number }[] = [];
-  for (const r of om.disPriceRanges || []) {
-    priceTiers.push({ price: parseFloat(r.price) || 0, min_qty: r.beginAmount || 1 });
+    console.error(`[search-china] ${source} HTTP error:`, res.status, body);
+    return { products: [], error: `HTTP ${res.status}: ${body.slice(0, 200)}` };
   }
 
-  const freight = om.freightInfo || {};
-  const attributes: Record<string, string> = {};
-  for (const attr of om.featureAttributes || []) {
-    if (attr.name && attr.value) attributes[attr.name] = attr.value;
+  const data = await res.json();
+  console.log(
+    `[search-china] ${source} response: ErrorCode=`,
+    data.ErrorCode,
+    "items=",
+    data.Result?.Items?.Content?.length ?? 0
+  );
+
+  if (data.ErrorCode !== "Ok" || !data.Result?.Items?.Content) {
+    return {
+      products: [],
+      error: data.ErrorCode
+        ? `API ErrorCode: ${data.ErrorCode} - ${data.ErrorDescription || ""}`
+        : "Empty response",
+    };
   }
 
-  const prices = priceTiers.map((t) => t.price).filter((p) => p > 0);
+  const items: any[] = data.Result.Items.Content;
+  const products: DetailedProduct[] = items.map((item) => {
+    const price = parseFloat(item.Price?.OriginalPrice) || 0;
+    const promoPrice = item.PromotionPrice
+      ? parseFloat(item.PromotionPrice?.OriginalPrice) || 0
+      : 0;
+    const effectivePrice = promoPrice > 0 ? promoPrice : price;
 
-  return {
-    product_id: String(om.offerId || itemId),
-    title: om.subject || "",
-    brand: om.brand || attributes["品牌"] || "",
-    price_range: om.currentPriceDisplay || (prices.length ? `${Math.min(...prices)}-${Math.max(...prices)}` : "0"),
-    min_price: prices.length ? Math.min(...prices) : 0,
-    max_price: prices.length ? Math.max(...prices) : 0,
-    price_tiers: priceTiers,
-    unit_weight_kg: freight.unitWeight || null,
-    images: (om.imageList || []).slice(0, 6),
-    sale_quantity: om.saleQuantity || "",
-    company_name: om.companyName || "",
-    location: freight.location || "",
-    moq: om.offerBeginAmount || 1,
-    attributes,
-    detail_url: om.detailUrl || `https://detail.1688.com/offer/${itemId}.html`,
-    source: "1688",
-  };
+    // Collect images
+    const images: string[] = [];
+    if (item.MainPictureUrl) images.push(item.MainPictureUrl);
+    if (item.Pictures) {
+      for (const pic of item.Pictures) {
+        const picUrl = pic.Url || pic.Medium?.Url || pic.Large?.Url || "";
+        if (picUrl && !images.includes(picUrl)) images.push(picUrl);
+      }
+    }
+
+    return {
+      product_id: String(item.Id || ""),
+      title: item.Title || item.OriginalTitle || "",
+      brand: item.BrandName || "",
+      price_range: effectivePrice > 0 ? String(effectivePrice) : String(price),
+      min_price: effectivePrice > 0 ? effectivePrice : price,
+      max_price: price > effectivePrice ? price : effectivePrice,
+      price_tiers: [{ price: effectivePrice > 0 ? effectivePrice : price, min_qty: 1 }],
+      unit_weight_kg: null,
+      images: images.slice(0, 6),
+      sale_quantity: item.Volume != null ? String(item.Volume) : "",
+      company_name: item.VendorDisplayName || item.VendorName || "",
+      location: item.Location?.State || item.Location?.City || "",
+      moq: 1,
+      attributes: {},
+      detail_url:
+        item.ExternalItemUrl ||
+        item.TaobaoItemUrl ||
+        (source === "1688"
+          ? `https://detail.1688.com/offer/${item.Id}.html`
+          : `https://item.taobao.com/item.htm?id=${item.Id}`),
+      source,
+    };
+  });
+
+  return { products, error: "" };
 }
 
-async function getTaobaoDetail(itemId: string): Promise<DetailedProduct | null> {
-  const url = `https://${RAPIDAPI_HOST}/item/v2/taobao?itemId=${itemId}`;
-  const res = await fetchWithTimeout(url, { headers: rapidHeaders });
-  if (!res.ok) return null;
-
-  const data = await res.json();
-  if (!data.success || !data.data) return null;
-
-  const item = data.data;
-  const priceNum = parseFloat(item.price) || 0;
-
-  return {
-    product_id: String(item.num_iid || item.item_id || itemId),
-    title: item.title || "",
-    brand: item.brand || "",
-    price_range: item.price || String(priceNum),
-    min_price: priceNum,
-    max_price: parseFloat(item.original_price || item.price) || priceNum,
-    price_tiers: [{ price: priceNum, min_qty: 1 }],
-    unit_weight_kg: null,
-    images: (item.images || item.item_imgs || []).slice(0, 6),
-    sale_quantity: item.sold_count || item.sales || "",
-    company_name: item.shop_name || item.seller_nick || "",
-    location: item.location || "",
-    moq: 1,
-    attributes: {},
-    detail_url: item.detail_url || `https://item.taobao.com/item.htm?id=${itemId}`,
-    source: "taobao",
-  };
-}
-
-// ─── Main Handler ────────────────────────────────────────────────────────────
+// ─── Main Handler ───────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
   try {
@@ -189,102 +149,75 @@ export async function POST(request: NextRequest) {
     }
 
     if (!RAPIDAPI_KEY) {
-      return NextResponse.json(
-        { error: "RAPIDAPI_KEY не настроен. Добавьте переменную окружения RAPIDAPI_KEY." },
-        { status: 500 }
-      );
-    }
-
-    console.log("[search-china] imageUrl:", imageUrl);
-    console.log("[search-china] RAPIDAPI_HOST:", RAPIDAPI_HOST);
-    console.log("[search-china] RAPIDAPI_KEY set:", !!RAPIDAPI_KEY, "len:", RAPIDAPI_KEY.length);
-
-    // Search both 1688 and Taobao by image in parallel
-    let error1688 = "";
-    let errorTaobao = "";
-
-    const [results1688, resultsTaobao] = await Promise.all([
-      searchByImage1688(imageUrl).catch((e) => { error1688 = String(e); console.error("[search-china] 1688 catch:", e); return [] as SearchResultItem[]; }),
-      searchByImageTaobao(imageUrl).catch((e) => { errorTaobao = String(e); console.error("[search-china] taobao catch:", e); return [] as SearchResultItem[]; }),
-    ]);
-
-    console.log("[search-china] results: 1688=", results1688.length, "taobao=", resultsTaobao.length);
-
-    // Combine: 1688 first, then Taobao
-    const allResults = [...results1688, ...resultsTaobao];
-
-    if (allResults.length === 0) {
       return NextResponse.json({
         searchMethod: "image",
         totalFound: 0,
         products: [],
         debug: {
           imageUrl,
-          host: RAPIDAPI_HOST,
-          keySet: !!RAPIDAPI_KEY,
-          keyLen: RAPIDAPI_KEY.length,
-          error1688: error1688 || null,
-          errorTaobao: errorTaobao || null,
-          found1688: results1688.length,
-          foundTaobao: resultsTaobao.length,
+          host: TAOBAO_HOST,
+          keySet: false,
+          keyLen: 0,
+          errorTaobao: "RAPIDAPI_KEY не настроен",
+          error1688: "RAPIDAPI_KEY не настроен",
+          found1688: 0,
+          foundTaobao: 0,
         },
       });
     }
 
-    // Get details for top results (up to 5 from each source)
-    const top1688 = results1688.slice(0, 5);
-    const topTaobao = resultsTaobao.slice(0, 5);
-    const topResults = [...top1688, ...topTaobao];
+    console.log("[search-china] imageUrl:", imageUrl);
+    console.log("[search-china] TAOBAO_HOST:", TAOBAO_HOST);
+    console.log("[search-china] ALI1688_HOST:", ALI1688_HOST);
+    console.log("[search-china] RAPIDAPI_KEY len:", RAPIDAPI_KEY.length);
 
-    const detailPromises = topResults.map(async (item) => {
-      try {
-        if (item.source === "1688") {
-          return await get1688Detail(item.product_id);
-        } else {
-          return await getTaobaoDetail(item.product_id);
-        }
-      } catch {
-        return null;
-      }
-    });
+    // Search both Taobao and 1688 in parallel
+    const [taobaoResult, ali1688Result] = await Promise.all([
+      searchOTAPI(TAOBAO_HOST, imageUrl, "taobao").catch((e) => ({
+        products: [] as DetailedProduct[],
+        error: String(e),
+      })),
+      searchOTAPI(ALI1688_HOST, imageUrl, "1688").catch((e) => ({
+        products: [] as DetailedProduct[],
+        error: String(e),
+      })),
+    ]);
 
-    const detailResults = await Promise.all(detailPromises);
+    // Combine: 1688 first, then Taobao
+    const allProducts = [
+      ...ali1688Result.products.slice(0, 10),
+      ...taobaoResult.products.slice(0, 10),
+    ];
 
-    const detailedProducts: DetailedProduct[] = [];
-    for (let i = 0; i < topResults.length; i++) {
-      const detail = detailResults[i];
-      if (detail) {
-        detailedProducts.push(detail);
-      } else {
-        const item = topResults[i];
-        const isT = item.source === "taobao";
-        detailedProducts.push({
-          product_id: item.product_id,
-          title: item.product_name,
-          brand: "",
-          price_range: String(item.price),
-          min_price: item.price,
-          max_price: item.price,
-          price_tiers: [{ price: item.price, min_qty: 1 }],
-          unit_weight_kg: null,
-          images: item.image ? [item.image] : [],
-          sale_quantity: item.month_sold ? `${item.month_sold}+` : "",
-          company_name: "",
-          location: "",
-          moq: 1,
-          attributes: {},
-          detail_url: isT
-            ? `https://item.taobao.com/item.htm?id=${item.product_id}`
-            : `https://detail.1688.com/offer/${item.product_id}.html`,
-          source: item.source,
-        });
-      }
+    console.log(
+      "[search-china] results: 1688=",
+      ali1688Result.products.length,
+      "taobao=",
+      taobaoResult.products.length
+    );
+
+    if (allProducts.length === 0) {
+      return NextResponse.json({
+        searchMethod: "image",
+        totalFound: 0,
+        products: [],
+        debug: {
+          imageUrl,
+          host: `${TAOBAO_HOST} / ${ALI1688_HOST}`,
+          keySet: !!RAPIDAPI_KEY,
+          keyLen: RAPIDAPI_KEY.length,
+          errorTaobao: taobaoResult.error || null,
+          error1688: ali1688Result.error || null,
+          foundTaobao: taobaoResult.products.length,
+          found1688: ali1688Result.products.length,
+        },
+      });
     }
 
     return NextResponse.json({
       searchMethod: "image",
-      totalFound: allResults.length,
-      products: detailedProducts,
+      totalFound: allProducts.length,
+      products: allProducts,
     });
   } catch (error) {
     const message =

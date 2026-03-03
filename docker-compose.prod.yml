@@ -35,7 +35,8 @@ services:
       - SMTP_PASS=${SMTP_PASS:-}
       - SMTP_FROM=${SMTP_FROM:-}
       - RAPIDAPI_KEY=${RAPIDAPI_KEY:-}
-      - RAPIDAPI_HOST=${RAPIDAPI_HOST:-taobao-1688-api1.p.rapidapi.com}
+      - RAPIDAPI_HOST=${RAPIDAPI_HOST:-taobao-tmall1.p.rapidapi.com}
+      - RAPIDAPI_HOST_1688=${RAPIDAPI_HOST_1688:-otapi-1688.p.rapidapi.com}
     volumes:
       - uploads_data:/app/apps/web/public/uploads
     depends_on:
