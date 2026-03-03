@@ -173,6 +173,70 @@ async function getProductDetail(itemId: string): Promise<DetailedProduct | null>
   };
 }
 
+// ─── Simplify product name for 1688 search ─────────────────────────────────
+// Russian product names are verbose. Strip filler words and keep key terms.
+
+const FILLER_WORDS = new Set([
+  "для", "и", "с", "на", "от", "из", "в", "к", "по",
+  "профессиональный", "профессиональная", "профессиональное",
+  "мощный", "мощная", "мощное",
+  "качественный", "качественная", "качественное",
+  "универсальный", "универсальная", "универсальное",
+  "оригинальный", "оригинальная", "оригинальное",
+  "стильный", "стильная", "стильное",
+  "новый", "новая", "новое",
+  "большой", "большая", "большое",
+  "маленький", "маленькая", "маленькое",
+  "набор", "комплект", "подарочный", "подарочная",
+]);
+
+// Common product type translations RU → 1688 search keywords
+const PRODUCT_TRANSLATIONS: Record<string, string> = {
+  "фен": "吹风机",
+  "пылесос": "吸尘器",
+  "утюг": "熨斗",
+  "чайник": "电热水壶",
+  "блендер": "搅拌机",
+  "миксер": "搅拌器",
+  "кофемолка": "磨豆机",
+  "массажёр": "按摩器",
+  "массажер": "按摩器",
+  "наушники": "耳机",
+  "колонка": "音箱",
+  "зарядка": "充电器",
+  "кабель": "数据线",
+  "чехол": "手机壳",
+  "сумка": "包",
+  "рюкзак": "背包",
+  "кроссовки": "运动鞋",
+  "часы": "手表",
+  "лампа": "台灯",
+  "светильник": "灯",
+  "насадки": "配件",
+};
+
+function simplifyProductName(name: string): string {
+  const words = name.toLowerCase().split(/\s+/);
+  const filtered = words.filter((w) => !FILLER_WORDS.has(w) && w.length > 1);
+  // Keep max 5 most meaningful words
+  return filtered.slice(0, 5).join(" ");
+}
+
+function translateToChineseKeywords(name: string): string | null {
+  const lower = name.toLowerCase();
+  const translations: string[] = [];
+  for (const [ru, cn] of Object.entries(PRODUCT_TRANSLATIONS)) {
+    if (lower.includes(ru)) {
+      translations.push(cn);
+    }
+  }
+  // Add number patterns like "5 в 1" → "5合1"
+  const nInOne = lower.match(/(\d+)\s*в\s*(\d+)/);
+  if (nInOne) translations.push(`${nInOne[1]}合${nInOne[2]}`);
+
+  return translations.length > 0 ? translations.join(" ") : null;
+}
+
 // ─── Main Handler ────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
@@ -209,10 +273,33 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // If image search returned nothing, try text search
+    // If image search returned nothing, try text search with multiple strategies
     if (searchResults.length === 0 && productName) {
-      searchResults = await searchByKeyword(productName);
-      searchMethod = "text";
+      // 1. Try Chinese keyword translation (best match on 1688)
+      const chineseQuery = translateToChineseKeywords(productName);
+      if (chineseQuery) {
+        try {
+          searchResults = await searchByKeyword(chineseQuery);
+          if (searchResults.length > 0) searchMethod = "text";
+        } catch { /* continue */ }
+      }
+
+      // 2. Try simplified Russian name
+      if (searchResults.length === 0) {
+        const simplified = simplifyProductName(productName);
+        try {
+          searchResults = await searchByKeyword(simplified);
+          if (searchResults.length > 0) searchMethod = "text";
+        } catch { /* continue */ }
+      }
+
+      // 3. Try original name as last resort
+      if (searchResults.length === 0) {
+        try {
+          searchResults = await searchByKeyword(productName);
+          searchMethod = "text";
+        } catch { /* continue */ }
+      }
     }
 
     // Get details for top results (up to 5)

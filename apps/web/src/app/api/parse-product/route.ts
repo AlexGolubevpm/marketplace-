@@ -219,7 +219,7 @@ async function parseWildberries(url: string): Promise<ProductData> {
     }
   }
 
-  // ---- 2. Search API — for price and rating ----
+  // ---- 2. Price from basket CDN price-history.json ----
   let price = 0;
   let originalPrice = 0;
   let discount = 0;
@@ -228,35 +228,68 @@ async function parseWildberries(url: string): Promise<ProductData> {
   let quantity: number | null = null;
 
   try {
-    const searchUrl = `https://search.wb.ru/exactmatch/ru/common/v9/search?appType=1&curr=rub&dest=-1257786&query=${productId}&resultset=catalog&spp=30`;
-    const searchRes = await fetchWithTimeout(
-      searchUrl,
-      {
-        headers: {
-          Accept: "application/json",
-          Origin: "https://www.wildberries.ru",
-          Referer: "https://www.wildberries.ru/",
-        },
-      },
-      10000
+    const priceUrl = `https://${host}${path}/info/price-history.json`;
+    const priceRes = await fetchWithTimeout(
+      priceUrl,
+      { headers: { Accept: "application/json" } },
+      8000
     );
 
-    if (searchRes.ok) {
-      const searchData = await searchRes.json();
-      const products = searchData?.data?.products;
-      if (products && products.length > 0) {
-        const found = products.find((p: any) => p.id === nmId) || products[0];
-        const salePriceU = found.salePriceU || found.priceU;
-        const priceU = found.priceU;
-        if (salePriceU) price = Math.round(salePriceU / 100);
-        if (priceU) originalPrice = Math.round(priceU / 100);
-        discount = found.sale || 0;
-        rating = found.reviewRating || found.rating || null;
-        reviewCount = found.feedbacks || null;
+    if (priceRes.ok) {
+      const priceHistory = await priceRes.json();
+      if (Array.isArray(priceHistory) && priceHistory.length > 0) {
+        // Last entry = current price, first entry = original/starting price
+        const current = priceHistory[priceHistory.length - 1];
+        const first = priceHistory[0];
+        price = Math.round((current.price?.RUB || 0) / 100);
+        originalPrice = Math.round((first.price?.RUB || 0) / 100);
+        // Find the max historical price as "original" for discount calc
+        const maxHistorical = Math.max(
+          ...priceHistory.map((e: any) => e.price?.RUB || 0)
+        );
+        if (maxHistorical > 0) {
+          originalPrice = Math.round(maxHistorical / 100);
+        }
       }
     }
   } catch {
-    // Search API unavailable — continue without price
+    // Price history unavailable
+  }
+
+  // Fallback: try search API for price + rating
+  if (!price) {
+    try {
+      const searchUrl = `https://search.wb.ru/exactmatch/ru/common/v9/search?appType=1&curr=rub&dest=-1257786&query=${productId}&resultset=catalog&spp=30`;
+      const searchRes = await fetchWithTimeout(
+        searchUrl,
+        {
+          headers: {
+            Accept: "application/json",
+            Origin: "https://www.wildberries.ru",
+            Referer: "https://www.wildberries.ru/",
+          },
+        },
+        10000
+      );
+
+      if (searchRes.ok) {
+        const searchData = await searchRes.json();
+        const products = searchData?.data?.products;
+        if (products && products.length > 0) {
+          const found =
+            products.find((p: any) => p.id === nmId) || products[0];
+          const salePriceU = found.salePriceU || found.priceU;
+          const priceU = found.priceU;
+          if (salePriceU) price = Math.round(salePriceU / 100);
+          if (priceU) originalPrice = Math.round(priceU / 100);
+          discount = found.sale || 0;
+          rating = found.reviewRating || found.rating || null;
+          reviewCount = found.feedbacks || null;
+        }
+      }
+    } catch {
+      // Search API unavailable
+    }
   }
 
   // ---- 3. Product quantity API ----
