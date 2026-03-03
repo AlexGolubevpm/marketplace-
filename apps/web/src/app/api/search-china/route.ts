@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ProxyAgent, fetch as undiciFetch } from "undici";
 
 // ─── Config ─────────────────────────────────────────────────────────────────
 // OTAPI via RapidAPI: taobao-tmall1 for Taobao, otapi-1688 for 1688
@@ -7,6 +8,16 @@ const TAOBAO_HOST = process.env.RAPIDAPI_HOST || "taobao-tmall1.p.rapidapi.com";
 const ALI1688_HOST = process.env.RAPIDAPI_HOST_1688 || "otapi-1688.p.rapidapi.com";
 // HTTP/HTTPS proxy to bypass geo-restrictions (e.g. "http://user:pass@proxy:8080")
 const PROXY_URL = process.env.RAPIDAPI_PROXY || "";
+
+// Create a reusable proxy agent if configured
+const proxyAgent = PROXY_URL ? new ProxyAgent(PROXY_URL) : null;
+
+if (proxyAgent) {
+  const masked = PROXY_URL.replace(/\/\/([^:]+):([^@]+)@/, "//$1:***@");
+  console.log("[search-china] Proxy agent created:", masked);
+} else {
+  console.log("[search-china] No proxy configured (RAPIDAPI_PROXY is empty)");
+}
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -40,18 +51,16 @@ async function proxyFetch(
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    if (PROXY_URL) {
-      // Use undici ProxyAgent (built into Node.js 20) to bypass geo-blocks
-      const undici = require("undici");
-      const agent = new undici.ProxyAgent(PROXY_URL);
-      console.log("[search-china] Using proxy:", PROXY_URL.replace(/\/\/.*@/, "//*:*@"));
-      const res = await undici.fetch(url, {
+    if (proxyAgent) {
+      console.log("[search-china] Fetching via proxy...");
+      const res = await undiciFetch(url, {
         ...opts,
         signal: controller.signal,
-        dispatcher: agent,
+        dispatcher: proxyAgent,
       });
-      return res;
+      return res as any;
     }
+    console.log("[search-china] Fetching directly (no proxy)...");
     return await fetch(url, { ...opts, signal: controller.signal });
   } finally {
     clearTimeout(timer);
