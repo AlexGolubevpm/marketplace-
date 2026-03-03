@@ -2,51 +2,39 @@ import { NextRequest, NextResponse } from "next/server";
 
 // --- WB Helpers ---
 
-function getWbBasketHost(id: number): string {
-  const vol = Math.floor(id / 100000);
-  let basket: string;
-  if (vol <= 143) basket = "01";
-  else if (vol <= 287) basket = "02";
-  else if (vol <= 431) basket = "03";
-  else if (vol <= 719) basket = "04";
-  else if (vol <= 1007) basket = "05";
-  else if (vol <= 1061) basket = "06";
-  else if (vol <= 1115) basket = "07";
-  else if (vol <= 1169) basket = "08";
-  else if (vol <= 1313) basket = "09";
-  else if (vol <= 1601) basket = "10";
-  else if (vol <= 1655) basket = "11";
-  else if (vol <= 1919) basket = "12";
-  else if (vol <= 2045) basket = "13";
-  else if (vol <= 2189) basket = "14";
-  else if (vol <= 2405) basket = "15";
-  else if (vol <= 2621) basket = "16";
-  else if (vol <= 2837) basket = "17";
-  else if (vol <= 3053) basket = "18";
-  else if (vol <= 3269) basket = "19";
-  else if (vol <= 3485) basket = "20";
-  else if (vol <= 3701) basket = "21";
-  else if (vol <= 3917) basket = "22";
-  else if (vol <= 4133) basket = "23";
-  else if (vol <= 4349) basket = "24";
-  else if (vol <= 4565) basket = "25";
-  else basket = "26";
-
-  return `basket-${basket}.wbbasket.ru`;
+function getWbBasketNumber(vol: number): number {
+  // Verified ranges for older products (baskets 01-21)
+  if (vol <= 143) return 1;
+  if (vol <= 287) return 2;
+  if (vol <= 431) return 3;
+  if (vol <= 719) return 4;
+  if (vol <= 1007) return 5;
+  if (vol <= 1061) return 6;
+  if (vol <= 1115) return 7;
+  if (vol <= 1169) return 8;
+  if (vol <= 1313) return 9;
+  if (vol <= 1601) return 10;
+  if (vol <= 1655) return 11;
+  if (vol <= 1919) return 12;
+  if (vol <= 2045) return 13;
+  if (vol <= 2189) return 14;
+  if (vol <= 2405) return 15;
+  if (vol <= 2621) return 16;
+  if (vol <= 2837) return 17;
+  if (vol <= 3053) return 18;
+  if (vol <= 3269) return 19;
+  if (vol <= 3485) return 20;
+  if (vol <= 3701) return 21;
+  // For newer products, estimate (will be refined by probing)
+  return 21 + Math.ceil((vol - 3701) / 260);
 }
 
-function getWbImageUrl(id: number, photoIndex: number = 1): string {
-  const vol = Math.floor(id / 100000);
-  const part = Math.floor(id / 1000);
-  const host = getWbBasketHost(id);
-  return `https://${host}/vol${vol}/part${part}/${id}/images/big/${photoIndex}.webp`;
+function basketHost(n: number): string {
+  return `basket-${String(n).padStart(2, "0")}.wbbasket.ru`;
 }
 
-function getWbCardJsonUrl(id: number): string {
-  const vol = Math.floor(id / 100000);
-  const part = Math.floor(id / 1000);
-  const host = getWbBasketHost(id);
-  return `https://${host}/vol${vol}/part${part}/${id}/info/ru/card.json`;
+function wbCdnPath(vol: number, part: number, nmId: number): string {
+  return `/vol${vol}/part${part}/${nmId}`;
 }
 
 interface ProductData {
@@ -80,6 +68,62 @@ function fetchWithTimeout(
   );
 }
 
+// --- Find the correct WB basket and fetch card.json ---
+// WB basket ranges change over time. For older products (vol <= 3701)
+// we use verified hardcoded ranges. For newer products, we estimate
+// the basket number and probe nearby baskets in parallel.
+
+async function fetchWbCardJson(
+  nmId: number
+): Promise<{ card: any; host: string }> {
+  const vol = Math.floor(nmId / 100000);
+  const part = Math.floor(nmId / 1000);
+  const path = wbCdnPath(vol, part, nmId);
+
+  async function tryBasket(basketNum: number): Promise<{ card: any; host: string }> {
+    const host = basketHost(basketNum);
+    const url = `https://${host}${path}/info/ru/card.json`;
+    const res = await fetchWithTimeout(url, { headers: { Accept: "application/json" } }, 8000);
+    if (!res.ok) throw new Error(`basket-${basketNum}: ${res.status}`);
+    const card = await res.json();
+    if (!card.imt_name) throw new Error("empty card");
+    return { card, host };
+  }
+
+  const estimate = getWbBasketNumber(vol);
+
+  // For older products with verified ranges, try directly
+  if (vol <= 3701) {
+    try {
+      return await tryBasket(estimate);
+    } catch {
+      // If hardcoded range fails, fall through to probing
+    }
+  }
+
+  // Probe multiple baskets in parallel — first 200 wins
+  const candidates = new Set<number>();
+  for (let offset = 0; offset <= 5; offset++) {
+    candidates.add(estimate + offset);
+    if (estimate - offset >= 22) candidates.add(estimate - offset);
+  }
+  // Also try ±6..8 for extra safety
+  for (let offset = 6; offset <= 8; offset++) {
+    candidates.add(estimate + offset);
+    if (estimate - offset >= 22) candidates.add(estimate - offset);
+  }
+
+  const promises = [...candidates].map((n) => tryBasket(n));
+
+  try {
+    return await Promise.any(promises);
+  } catch {
+    throw new Error(
+      "Товар не найден на WB. Проверьте ссылку — возможно товар удалён."
+    );
+  }
+}
+
 // ==========================================================
 // WB PARSER
 // Uses: basket CDN card.json (product info)
@@ -94,27 +138,8 @@ async function parseWildberries(url: string): Promise<ProductData> {
   const productId = match[1];
   const nmId = parseInt(productId, 10);
 
-  // ---- 1. Basket CDN card.json — primary source for product info ----
-  // This is a static file on CDN, no antibot, always accessible
-  const cardJsonUrl = getWbCardJsonUrl(nmId);
-  let cardRes: Response;
-  try {
-    cardRes = await fetchWithTimeout(cardJsonUrl, {
-      headers: { Accept: "application/json" },
-    }, 10000);
-  } catch (err) {
-    throw new Error(
-      `Не удалось загрузить данные товара с WB CDN. ${err instanceof Error ? err.message : "Сеть недоступна"}`
-    );
-  }
-
-  if (!cardRes.ok) {
-    throw new Error(
-      "Товар не найден на WB. Проверьте ссылку — возможно товар удалён."
-    );
-  }
-
-  const card = await cardRes.json();
+  // ---- 1. Basket CDN card.json — product info ----
+  const { card, host } = await fetchWbCardJson(nmId);
 
   const name = card.imt_name || "";
   const brand = card.selling?.brand_name || "";
@@ -126,10 +151,13 @@ async function parseWildberries(url: string): Promise<ProductData> {
     throw new Error("Не удалось получить название товара с WB.");
   }
 
-  // Generate image URLs from basket CDN
+  // Generate image URLs using the found basket host
+  const vol = Math.floor(nmId / 100000);
+  const part = Math.floor(nmId / 1000);
+  const path = wbCdnPath(vol, part, nmId);
   const images: string[] = [];
   for (let i = 1; i <= Math.min(photoCount, 5); i++) {
-    images.push(getWbImageUrl(nmId, i));
+    images.push(`https://${host}${path}/images/big/${i}.webp`);
   }
 
   // Extract weight and dimensions from options
@@ -192,7 +220,6 @@ async function parseWildberries(url: string): Promise<ProductData> {
   }
 
   // ---- 2. Search API — for price and rating ----
-  // search.wb.ru returns product data including price when searching by nm_id
   let price = 0;
   let originalPrice = 0;
   let discount = 0;
@@ -218,7 +245,6 @@ async function parseWildberries(url: string): Promise<ProductData> {
       const searchData = await searchRes.json();
       const products = searchData?.data?.products;
       if (products && products.length > 0) {
-        // Find our exact product by nmId
         const found = products.find((p: any) => p.id === nmId) || products[0];
         const salePriceU = found.salePriceU || found.priceU;
         const priceU = found.priceU;
@@ -230,15 +256,17 @@ async function parseWildberries(url: string): Promise<ProductData> {
       }
     }
   } catch {
-    // Search API unavailable — price will be 0
+    // Search API unavailable — continue without price
   }
 
   // ---- 3. Product quantity API ----
   try {
     const qntUrl = `https://product-order-qnt.wildberries.ru/by-nm/?nm=${productId}`;
-    const qntRes = await fetchWithTimeout(qntUrl, {
-      headers: { Accept: "application/json" },
-    }, 5000);
+    const qntRes = await fetchWithTimeout(
+      qntUrl,
+      { headers: { Accept: "application/json" } },
+      5000
+    );
 
     if (qntRes.ok) {
       const qntData = await qntRes.json();
@@ -274,8 +302,6 @@ async function parseWildberries(url: string): Promise<ProductData> {
 
 // ==========================================================
 // OZON PARSER — HTML page parsing (JSON-LD + meta tags)
-// Note: Ozon blocks most server IPs. This will only work
-// if the server IP is not blocked by Ozon's CDN.
 // ==========================================================
 
 function extractJsonLd(html: string): any[] {
@@ -325,7 +351,6 @@ async function parseOzon(url: string): Promise<ProductData> {
   let rating: number | null = null;
   let reviewCount: number | null = null;
 
-  // Fetch Ozon product page HTML
   try {
     const pageRes = await fetchWithTimeout(
       url,
@@ -392,7 +417,7 @@ async function parseOzon(url: string): Promise<ProductData> {
       }
     }
   } catch {
-    // Ozon likely blocked the request
+    // Ozon blocked the request
   }
 
   if (!originalPrice) originalPrice = price;
