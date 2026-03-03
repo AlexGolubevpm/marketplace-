@@ -609,22 +609,24 @@ export default function ProductSearchPage() {
       setStep(3);
       setLoadingStage("Ищем аналоги на 1688…");
 
-      const chinaRes = await fetch("/api/search-china", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          productName: prod.name,
-          imageUrl: prod.images[0] || null,
-        }),
-      });
-      const chinaData = await chinaRes.json();
-
-      if (chinaRes.ok && chinaData.products && chinaData.products.length > 0) {
-        setChinaResults(chinaData);
-        setSelectedChinaIndex(0); // Auto-select first result
+      const firstImage = prod.images[0] || null;
+      if (!firstImage) {
+        setChinaResults({ searchMethod: "image", totalFound: 0, products: [] });
         setStep(4);
       } else {
-        setChinaResults({ searchMethod: "text", totalFound: 0, products: [] });
+        const chinaRes = await fetch("/api/search-china", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ imageUrl: firstImage }),
+        });
+        const chinaData = await chinaRes.json();
+
+        if (chinaRes.ok && chinaData.products && chinaData.products.length > 0) {
+          setChinaResults(chinaData);
+          setSelectedChinaIndex(0); // Auto-select first result
+        } else {
+          setChinaResults({ searchMethod: "image", totalFound: 0, products: [] });
+        }
         setStep(4);
       }
     } catch (err) {
