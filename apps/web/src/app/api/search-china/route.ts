@@ -5,6 +5,8 @@ import { NextRequest, NextResponse } from "next/server";
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || "";
 const TAOBAO_HOST = process.env.RAPIDAPI_HOST || "taobao-tmall1.p.rapidapi.com";
 const ALI1688_HOST = process.env.RAPIDAPI_HOST_1688 || "otapi-1688.p.rapidapi.com";
+// HTTP/HTTPS proxy to bypass geo-restrictions (e.g. "http://user:pass@proxy:8080")
+const PROXY_URL = process.env.RAPIDAPI_PROXY || "";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -27,18 +29,33 @@ interface DetailedProduct {
   source: "1688" | "taobao";
 }
 
-// ─── Fetch with timeout ─────────────────────────────────────────────────────
+// ─── Fetch with proxy + timeout ─────────────────────────────────────────────
 
-function fetchWithTimeout(
+async function proxyFetch(
   url: string,
-  opts: RequestInit = {},
+  opts: Record<string, any> = {},
   timeoutMs = 20000
-): Promise<Response> {
+): Promise<{ ok: boolean; status: number; text: () => Promise<string>; json: () => Promise<any> }> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
-  return fetch(url, { ...opts, signal: controller.signal }).finally(() =>
-    clearTimeout(timer)
-  );
+
+  try {
+    if (PROXY_URL) {
+      // Use undici ProxyAgent (built into Node.js 20) to bypass geo-blocks
+      const undici = require("undici");
+      const agent = new undici.ProxyAgent(PROXY_URL);
+      console.log("[search-china] Using proxy:", PROXY_URL.replace(/\/\/.*@/, "//*:*@"));
+      const res = await undici.fetch(url, {
+        ...opts,
+        signal: controller.signal,
+        dispatcher: agent,
+      });
+      return res;
+    }
+    return await fetch(url, { ...opts, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // ─── OTAPI BatchSearchItemsFrame ────────────────────────────────────────────
@@ -58,12 +75,12 @@ async function searchOTAPI(
   const url = `https://${host}/BatchSearchItemsFrame?${params.toString()}`;
   console.log(`[search-china] ${source} search →`, url);
 
-  const headers = {
+  const headers: Record<string, string> = {
     "x-rapidapi-key": RAPIDAPI_KEY,
     "x-rapidapi-host": host,
   };
 
-  const res = await fetchWithTimeout(url, { method: "GET", headers });
+  const res = await proxyFetch(url, { method: "GET", headers });
 
   if (!res.ok) {
     const body = await res.text().catch(() => "");
@@ -170,6 +187,7 @@ export async function POST(request: NextRequest) {
     console.log("[search-china] TAOBAO_HOST:", TAOBAO_HOST);
     console.log("[search-china] ALI1688_HOST:", ALI1688_HOST);
     console.log("[search-china] RAPIDAPI_KEY len:", RAPIDAPI_KEY.length);
+    console.log("[search-china] PROXY:", PROXY_URL ? "configured" : "not set");
 
     // Search both Taobao and 1688 in parallel
     const [taobaoResult, ali1688Result] = await Promise.all([
@@ -206,6 +224,7 @@ export async function POST(request: NextRequest) {
           host: `${TAOBAO_HOST} / ${ALI1688_HOST}`,
           keySet: !!RAPIDAPI_KEY,
           keyLen: RAPIDAPI_KEY.length,
+          proxy: PROXY_URL ? "configured" : "not set (нужен прокси для РФ серверов)",
           errorTaobao: taobaoResult.error || null,
           error1688: ali1688Result.error || null,
           foundTaobao: taobaoResult.products.length,
