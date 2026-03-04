@@ -116,6 +116,17 @@ function parseOTAPIItems(
   });
 }
 
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+function escapeXml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
 // ─── OTAPI BatchSearchItemsFrame (image search) ────────────────────────────
 
 async function searchOTAPI(
@@ -123,11 +134,14 @@ async function searchOTAPI(
   imageUrl: string,
   source: "1688" | "taobao"
 ): Promise<{ products: DetailedProduct[]; error: string }> {
+  // ImageUrl must be inside xmlParameters for Taobao (and works for 1688 too)
+  const xmlParameters = `<SearchItemsParameters><ImageUrl>${escapeXml(imageUrl)}</ImageUrl></SearchItemsParameters>`;
+
   const params = new URLSearchParams({
     language: "ru",
     framePosition: "0",
     frameSize: "20",
-    ImageUrl: imageUrl,
+    xmlParameters,
   });
 
   const url = `https://${host}/BatchSearchItemsFrame?${params.toString()}`;
