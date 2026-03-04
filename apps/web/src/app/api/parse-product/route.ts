@@ -2,46 +2,39 @@ import { NextRequest, NextResponse } from "next/server";
 
 // --- WB Helpers ---
 
-function getWbBasketHost(id: number): string {
-  const vol = Math.floor(id / 100000);
-  let basket: string;
-  if (vol <= 143) basket = "01";
-  else if (vol <= 287) basket = "02";
-  else if (vol <= 431) basket = "03";
-  else if (vol <= 719) basket = "04";
-  else if (vol <= 1007) basket = "05";
-  else if (vol <= 1061) basket = "06";
-  else if (vol <= 1115) basket = "07";
-  else if (vol <= 1169) basket = "08";
-  else if (vol <= 1313) basket = "09";
-  else if (vol <= 1601) basket = "10";
-  else if (vol <= 1655) basket = "11";
-  else if (vol <= 1919) basket = "12";
-  else if (vol <= 2045) basket = "13";
-  else if (vol <= 2189) basket = "14";
-  else if (vol <= 2405) basket = "15";
-  else if (vol <= 2621) basket = "16";
-  else if (vol <= 2837) basket = "17";
-  else if (vol <= 3053) basket = "18";
-  else if (vol <= 3269) basket = "19";
-  else if (vol <= 3485) basket = "20";
-  else basket = "21";
-
-  return `basket-${basket}.wbbasket.ru`;
+function getWbBasketNumber(vol: number): number {
+  // Verified ranges for older products (baskets 01-21)
+  if (vol <= 143) return 1;
+  if (vol <= 287) return 2;
+  if (vol <= 431) return 3;
+  if (vol <= 719) return 4;
+  if (vol <= 1007) return 5;
+  if (vol <= 1061) return 6;
+  if (vol <= 1115) return 7;
+  if (vol <= 1169) return 8;
+  if (vol <= 1313) return 9;
+  if (vol <= 1601) return 10;
+  if (vol <= 1655) return 11;
+  if (vol <= 1919) return 12;
+  if (vol <= 2045) return 13;
+  if (vol <= 2189) return 14;
+  if (vol <= 2405) return 15;
+  if (vol <= 2621) return 16;
+  if (vol <= 2837) return 17;
+  if (vol <= 3053) return 18;
+  if (vol <= 3269) return 19;
+  if (vol <= 3485) return 20;
+  if (vol <= 3701) return 21;
+  // For newer products, estimate (will be refined by probing)
+  return 21 + Math.ceil((vol - 3701) / 260);
 }
 
-function getWbImageUrl(id: number, photoIndex: number = 1): string {
-  const vol = Math.floor(id / 100000);
-  const part = Math.floor(id / 1000);
-  const host = getWbBasketHost(id);
-  return `https://${host}/vol${vol}/part${part}/${id}/images/big/${photoIndex}.webp`;
+function basketHost(n: number): string {
+  return `basket-${String(n).padStart(2, "0")}.wbbasket.ru`;
 }
 
-function getWbCardInfoUrl(id: number): string {
-  const vol = Math.floor(id / 100000);
-  const part = Math.floor(id / 1000);
-  const host = getWbBasketHost(id);
-  return `https://${host}/vol${vol}/part${part}/${id}/info/ru/card.json`;
+function wbCdnPath(vol: number, part: number, nmId: number): string {
+  return `/vol${vol}/part${part}/${nmId}`;
 }
 
 interface ProductData {
@@ -63,6 +56,81 @@ interface ProductData {
   quantity: number | null;
 }
 
+function fetchWithTimeout(
+  url: string,
+  opts: RequestInit = {},
+  timeoutMs = 15000
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...opts, signal: controller.signal }).finally(() =>
+    clearTimeout(timer)
+  );
+}
+
+// --- Find the correct WB basket and fetch card.json ---
+// WB basket ranges change over time. For older products (vol <= 3701)
+// we use verified hardcoded ranges. For newer products, we estimate
+// the basket number and probe nearby baskets in parallel.
+
+async function fetchWbCardJson(
+  nmId: number
+): Promise<{ card: any; host: string }> {
+  const vol = Math.floor(nmId / 100000);
+  const part = Math.floor(nmId / 1000);
+  const path = wbCdnPath(vol, part, nmId);
+
+  async function tryBasket(basketNum: number): Promise<{ card: any; host: string }> {
+    const host = basketHost(basketNum);
+    const url = `https://${host}${path}/info/ru/card.json`;
+    const res = await fetchWithTimeout(url, { headers: { Accept: "application/json" } }, 8000);
+    if (!res.ok) throw new Error(`basket-${basketNum}: ${res.status}`);
+    const card = await res.json();
+    if (!card.imt_name) throw new Error("empty card");
+    return { card, host };
+  }
+
+  const estimate = getWbBasketNumber(vol);
+
+  // For older products with verified ranges, try directly
+  if (vol <= 3701) {
+    try {
+      return await tryBasket(estimate);
+    } catch {
+      // If hardcoded range fails, fall through to probing
+    }
+  }
+
+  // Probe multiple baskets in parallel — first 200 wins
+  const candidates = new Set<number>();
+  for (let offset = 0; offset <= 5; offset++) {
+    candidates.add(estimate + offset);
+    if (estimate - offset >= 22) candidates.add(estimate - offset);
+  }
+  // Also try ±6..8 for extra safety
+  for (let offset = 6; offset <= 8; offset++) {
+    candidates.add(estimate + offset);
+    if (estimate - offset >= 22) candidates.add(estimate - offset);
+  }
+
+  const promises = [...candidates].map((n) => tryBasket(n));
+
+  try {
+    return await Promise.any(promises);
+  } catch {
+    throw new Error(
+      "Товар не найден на WB. Проверьте ссылку — возможно товар удалён."
+    );
+  }
+}
+
+// ==========================================================
+// WB PARSER
+// Uses: basket CDN card.json (product info)
+//       search.wb.ru (price, rating)
+//       product-order-qnt.wildberries.ru (stock quantity)
+// ==========================================================
+
 async function parseWildberries(url: string): Promise<ProductData> {
   const match = url.match(/wildberries\.ru\/catalog\/(\d+)/);
   if (!match) throw new Error("Не удалось извлечь ID товара из ссылки WB");
@@ -70,143 +138,184 @@ async function parseWildberries(url: string): Promise<ProductData> {
   const productId = match[1];
   const nmId = parseInt(productId, 10);
 
-  // Fetch main product details
-  const detailUrl = `https://card.wb.ru/cards/v2/detail?appType=1&curr=rub&dest=-1257786&nm=${productId}`;
-  const detailRes = await fetch(detailUrl, {
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-      Accept: "application/json",
-    },
-  });
+  // ---- 1. Basket CDN card.json — product info ----
+  const { card, host } = await fetchWbCardJson(nmId);
 
-  if (!detailRes.ok) {
-    throw new Error(`WB API вернул ошибку: ${detailRes.status}`);
+  const name = card.imt_name || "";
+  const brand = card.selling?.brand_name || "";
+  const category = card.subj_root_name || "";
+  const subcategory = card.subj_name || "";
+  const photoCount = card.media?.photo_count || 1;
+
+  if (!name) {
+    throw new Error("Не удалось получить название товара с WB.");
   }
 
-  const detailData = await detailRes.json();
-  const products = detailData?.data?.products;
-
-  if (!products || products.length === 0) {
-    throw new Error("Товар не найден на WB");
-  }
-
-  const product = products[0];
-
-  // Extract price (WB returns price in kopecks * 100)
-  const salePriceU = product.salePriceU || product.priceU;
-  const priceU = product.priceU;
-  const price = Math.round(salePriceU / 100);
-  const originalPrice = Math.round(priceU / 100);
-  const discount = product.sale || 0;
-
-  // Generate image URLs
-  const picCount = product.pics || 1;
+  // Generate image URLs using the found basket host
+  const vol = Math.floor(nmId / 100000);
+  const part = Math.floor(nmId / 1000);
+  const path = wbCdnPath(vol, part, nmId);
   const images: string[] = [];
-  for (let i = 1; i <= Math.min(picCount, 5); i++) {
-    images.push(getWbImageUrl(nmId, i));
+  for (let i = 1; i <= Math.min(photoCount, 5); i++) {
+    images.push(`https://${host}${path}/images/big/${i}.jpg`);
   }
 
-  // Try to fetch card info for category and details
-  let category = "";
-  let subcategory = "";
+  // Extract weight and dimensions from options
   let weight: number | null = null;
   let dimensions: { length: number; width: number; height: number } | null =
     null;
 
-  try {
-    const cardInfoUrl = getWbCardInfoUrl(nmId);
-    const cardInfoRes = await fetch(cardInfoUrl, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        Accept: "application/json",
-      },
-    });
+  if (card.options && Array.isArray(card.options)) {
+    let dimL: number | null = null;
+    let dimW: number | null = null;
+    let dimH: number | null = null;
 
-    if (cardInfoRes.ok) {
-      const cardInfo = await cardInfoRes.json();
-      category = cardInfo.subj_root_name || "";
-      subcategory = cardInfo.subj_name || "";
+    for (const opt of card.options) {
+      const optName = (opt.name || "").toLowerCase();
+      const value = opt.value || "";
 
-      // Extract weight and dimensions from options
-      if (cardInfo.options && Array.isArray(cardInfo.options)) {
-        let dimL: number | null = null;
-        let dimW: number | null = null;
-        let dimH: number | null = null;
-
-        for (const opt of cardInfo.options) {
-          const name = (opt.name || "").toLowerCase();
-          const value = opt.value || "";
-
-          // Weight: "Вес товара", "Вес с упаковкой", "Вес, г" etc.
-          if (
-            (name.includes("вес") || name === "weight") &&
-            !weight
-          ) {
-            // Try "123 г", "1.5 кг", "0,3 кг", or just a number (grams)
-            const weightMatch = value.match(/([\d.,]+)\s*(кг|г|гр|kg|g)?/i);
-            if (weightMatch) {
-              const num = parseFloat(weightMatch[1].replace(",", "."));
-              const unit = (weightMatch[2] || "г").toLowerCase();
-              if (unit === "кг" || unit === "kg") {
-                weight = num * 1000;
-              } else {
-                weight = num;
-              }
-            }
-          }
-
-          // Dimensions: "ДxШxВ" in a single field
-          if (
-            name.includes("габарит") ||
-            name.includes("размер упаковки") ||
-            name.includes("размеры")
-          ) {
-            const dimMatch = value.match(
-              /([\d.,]+)\s*[xхXХ×*]\s*([\d.,]+)\s*[xхXХ×*]\s*([\d.,]+)/
-            );
-            if (dimMatch) {
-              dimensions = {
-                length: parseFloat(dimMatch[1].replace(",", ".")),
-                width: parseFloat(dimMatch[2].replace(",", ".")),
-                height: parseFloat(dimMatch[3].replace(",", ".")),
-              };
-            }
-          }
-
-          // Individual dimension fields
-          if (name.includes("длина") && !name.includes("рукав")) {
-            const m = value.match(/([\d.,]+)/);
-            if (m) dimL = parseFloat(m[1].replace(",", "."));
-          }
-          if (name.includes("ширина")) {
-            const m = value.match(/([\d.,]+)/);
-            if (m) dimW = parseFloat(m[1].replace(",", "."));
-          }
-          if (name.includes("высота") || name.includes("глубина")) {
-            const m = value.match(/([\d.,]+)/);
-            if (m) dimH = parseFloat(m[1].replace(",", "."));
-          }
+      if ((optName.includes("вес") || optName === "weight") && !weight) {
+        const wm = value.match(/([\d.,]+)\s*(кг|г|гр|kg|g)?/i);
+        if (wm) {
+          const num = parseFloat(wm[1].replace(",", "."));
+          const unit = (wm[2] || "г").toLowerCase();
+          weight = unit === "кг" || unit === "kg" ? num * 1000 : num;
         }
+      }
 
-        // Assemble dimensions from individual fields if not already found
-        if (!dimensions && dimL && dimW) {
+      if (
+        optName.includes("габарит") ||
+        optName.includes("размер упаковки") ||
+        optName.includes("размеры")
+      ) {
+        const dm = value.match(
+          /([\d.,]+)\s*[xхXХ×*]\s*([\d.,]+)\s*[xхXХ×*]\s*([\d.,]+)/
+        );
+        if (dm) {
           dimensions = {
-            length: dimL,
-            width: dimW,
-            height: dimH || 1,
+            length: parseFloat(dm[1].replace(",", ".")),
+            width: parseFloat(dm[2].replace(",", ".")),
+            height: parseFloat(dm[3].replace(",", ".")),
           };
+        }
+      }
+
+      if (optName.includes("длина") && !optName.includes("рукав")) {
+        const m = value.match(/([\d.,]+)/);
+        if (m) dimL = parseFloat(m[1].replace(",", "."));
+      }
+      if (optName.includes("ширина")) {
+        const m = value.match(/([\d.,]+)/);
+        if (m) dimW = parseFloat(m[1].replace(",", "."));
+      }
+      if (optName.includes("высота") || optName.includes("глубина")) {
+        const m = value.match(/([\d.,]+)/);
+        if (m) dimH = parseFloat(m[1].replace(",", "."));
+      }
+    }
+
+    if (!dimensions && dimL && dimW) {
+      dimensions = { length: dimL, width: dimW, height: dimH || 1 };
+    }
+  }
+
+  // ---- 2. Price from basket CDN price-history.json ----
+  let price = 0;
+  let originalPrice = 0;
+  let discount = 0;
+  let rating: number | null = null;
+  let reviewCount: number | null = null;
+  let quantity: number | null = null;
+
+  try {
+    const priceUrl = `https://${host}${path}/info/price-history.json`;
+    const priceRes = await fetchWithTimeout(
+      priceUrl,
+      { headers: { Accept: "application/json" } },
+      8000
+    );
+
+    if (priceRes.ok) {
+      const priceHistory = await priceRes.json();
+      if (Array.isArray(priceHistory) && priceHistory.length > 0) {
+        // Last entry = current price, first entry = original/starting price
+        const current = priceHistory[priceHistory.length - 1];
+        const first = priceHistory[0];
+        price = Math.round((current.price?.RUB || 0) / 100);
+        originalPrice = Math.round((first.price?.RUB || 0) / 100);
+        // Find the max historical price as "original" for discount calc
+        const maxHistorical = Math.max(
+          ...priceHistory.map((e: any) => e.price?.RUB || 0)
+        );
+        if (maxHistorical > 0) {
+          originalPrice = Math.round(maxHistorical / 100);
         }
       }
     }
   } catch {
-    // Card info is optional, continue without it
+    // Price history unavailable
   }
 
+  // Fallback: try search API for price + rating
+  if (!price) {
+    try {
+      const searchUrl = `https://search.wb.ru/exactmatch/ru/common/v9/search?appType=1&curr=rub&dest=-1257786&query=${productId}&resultset=catalog&spp=30`;
+      const searchRes = await fetchWithTimeout(
+        searchUrl,
+        {
+          headers: {
+            Accept: "application/json",
+            Origin: "https://www.wildberries.ru",
+            Referer: "https://www.wildberries.ru/",
+          },
+        },
+        10000
+      );
+
+      if (searchRes.ok) {
+        const searchData = await searchRes.json();
+        const products = searchData?.data?.products;
+        if (products && products.length > 0) {
+          const found =
+            products.find((p: any) => p.id === nmId) || products[0];
+          const salePriceU = found.salePriceU || found.priceU;
+          const priceU = found.priceU;
+          if (salePriceU) price = Math.round(salePriceU / 100);
+          if (priceU) originalPrice = Math.round(priceU / 100);
+          discount = found.sale || 0;
+          rating = found.reviewRating || found.rating || null;
+          reviewCount = found.feedbacks || null;
+        }
+      }
+    } catch {
+      // Search API unavailable
+    }
+  }
+
+  // ---- 3. Product quantity API ----
+  try {
+    const qntUrl = `https://product-order-qnt.wildberries.ru/by-nm/?nm=${productId}`;
+    const qntRes = await fetchWithTimeout(
+      qntUrl,
+      { headers: { Accept: "application/json" } },
+      5000
+    );
+
+    if (qntRes.ok) {
+      const qntData = await qntRes.json();
+      if (Array.isArray(qntData) && qntData.length > 0) {
+        quantity = qntData[0].qnt ?? null;
+      }
+    }
+  } catch {
+    // Quantity is optional
+  }
+
+  if (!originalPrice) originalPrice = price;
+
   return {
-    name: product.name || "",
-    brand: product.brand || "",
+    name,
+    brand,
     price,
     originalPrice,
     discount,
@@ -218,42 +327,53 @@ async function parseWildberries(url: string): Promise<ProductData> {
     source: "wb",
     sourceUrl: url,
     productId,
-    rating: product.reviewRating || product.rating || null,
-    reviewCount: product.feedbacks || null,
-    quantity: product.totalQuantity || null,
+    rating,
+    reviewCount,
+    quantity,
   };
 }
 
-async function parseOzon(url: string): Promise<ProductData> {
-  // Extract product ID from Ozon URL
-  // Formats: /product/slug-123456789/ or /product/123456789/
-  const match = url.match(/ozon\.ru\/product\/(?:.*?-)?(\d+)\/?/);
-  if (!match) throw new Error("Не удалось извлечь ID товара из ссылки Ozon");
+// ==========================================================
+// OZON PARSER — HTML page parsing (JSON-LD + meta tags)
+// ==========================================================
 
-  const productId = match[1];
-
-  // Try to fetch the Ozon page and extract data from meta tags / JSON-LD
-  const pageRes = await fetch(url, {
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      Accept:
-        "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-      "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
-    },
-    redirect: "follow",
-  });
-
-  if (!pageRes.ok) {
-    throw new Error(`Ozon вернул ошибку: ${pageRes.status}`);
-  }
-
-  const html = await pageRes.text();
-
-  // Extract data from JSON-LD (schema.org Product)
-  const jsonLdMatch = html.match(
+function extractJsonLd(html: string): any[] {
+  const results: any[] = [];
+  const matches = html.match(
     /<script type="application\/ld\+json">([\s\S]*?)<\/script>/g
   );
+  if (!matches) return results;
+  for (const tag of matches) {
+    try {
+      const json = tag
+        .replace(/<script type="application\/ld\+json">/, "")
+        .replace(/<\/script>/, "");
+      results.push(JSON.parse(json));
+    } catch {
+      /* skip */
+    }
+  }
+  return results;
+}
+
+function extractMeta(html: string, property: string): string | null {
+  const re = new RegExp(
+    `<meta\\s+(?:property|name)="${property}"\\s+content="([^"]*)"` +
+      `|<meta\\s+content="([^"]*)"\\s+(?:property|name)="${property}"`,
+    "i"
+  );
+  const m = html.match(re);
+  return m ? m[1] || m[2] || null : null;
+}
+
+async function parseOzon(url: string): Promise<ProductData> {
+  const match = url.match(/ozon\.ru\/product\/((?:.*?-)?\d+)\/?/);
+  if (!match) throw new Error("Не удалось извлечь ID товара из ссылки Ozon");
+
+  const fullSlug = match[1];
+  const idMatch = fullSlug.match(/(\d+)$/);
+  if (!idMatch) throw new Error("Не удалось извлечь ID товара из ссылки Ozon");
+  const productId = idMatch[1];
 
   let name = "";
   let price = 0;
@@ -264,86 +384,80 @@ async function parseOzon(url: string): Promise<ProductData> {
   let rating: number | null = null;
   let reviewCount: number | null = null;
 
-  if (jsonLdMatch) {
-    for (const scriptTag of jsonLdMatch) {
-      try {
-        const jsonStr = scriptTag
-          .replace(/<script type="application\/ld\+json">/, "")
-          .replace(/<\/script>/, "");
-        const jsonData = JSON.parse(jsonStr);
+  try {
+    const pageRes = await fetchWithTimeout(
+      url,
+      {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          Accept:
+            "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
+        },
+        redirect: "follow",
+      },
+      15000
+    );
 
-        if (jsonData["@type"] === "Product") {
-          name = jsonData.name || "";
-          brand = jsonData.brand?.name || "";
-          images = jsonData.image
-            ? Array.isArray(jsonData.image)
-              ? jsonData.image.slice(0, 5)
-              : [jsonData.image]
-            : [];
+    if (pageRes.ok) {
+      const html = await pageRes.text();
 
-          if (jsonData.offers) {
-            const offers = Array.isArray(jsonData.offers)
-              ? jsonData.offers[0]
-              : jsonData.offers;
-            price = parseFloat(offers.price) || 0;
-            originalPrice = price;
+      for (const ld of extractJsonLd(html)) {
+        if (ld["@type"] === "Product") {
+          name = ld.name || name;
+          brand = ld.brand?.name || brand;
+          if (ld.image && !images.length) {
+            images = (Array.isArray(ld.image) ? ld.image : [ld.image]).slice(
+              0,
+              5
+            );
           }
-
-          if (jsonData.aggregateRating) {
-            rating = parseFloat(jsonData.aggregateRating.ratingValue) || null;
+          if (ld.offers) {
+            const offers = Array.isArray(ld.offers) ? ld.offers[0] : ld.offers;
+            if (!price) price = parseFloat(offers.price) || 0;
+            if (!originalPrice) originalPrice = price;
+          }
+          if (ld.aggregateRating) {
+            rating =
+              rating || parseFloat(ld.aggregateRating.ratingValue) || null;
             reviewCount =
-              parseInt(jsonData.aggregateRating.reviewCount) || null;
+              reviewCount ||
+              parseInt(ld.aggregateRating.reviewCount) ||
+              null;
           }
-
-          if (jsonData.category) {
-            category = jsonData.category;
+          if (ld.category) category = category || ld.category;
+        }
+        if (ld["@type"] === "BreadcrumbList" && ld.itemListElement) {
+          const items = ld.itemListElement;
+          if (items.length > 1 && !category) {
+            category = items[items.length - 1]?.name || "";
           }
         }
+      }
 
-        if (
-          jsonData["@type"] === "BreadcrumbList" &&
-          jsonData.itemListElement
-        ) {
-          const items = jsonData.itemListElement;
-          if (items.length > 1) {
-            category = items[items.length - 1]?.name || category;
-          }
-        }
-      } catch {
-        // JSON parse error, continue
+      if (!name) {
+        const ogTitle = extractMeta(html, "og:title");
+        if (ogTitle) name = ogTitle;
+      }
+      if (!images.length) {
+        const ogImage = extractMeta(html, "og:image");
+        if (ogImage) images = [ogImage];
+      }
+      if (!price) {
+        const priceMeta = extractMeta(html, "product:price:amount");
+        if (priceMeta) price = parseFloat(priceMeta) || 0;
       }
     }
+  } catch {
+    // Ozon blocked the request
   }
 
-  // Fallback: try meta tags
-  if (!name) {
-    const ogTitle = html.match(
-      /<meta\s+property="og:title"\s+content="([^"]+)"/
-    );
-    if (ogTitle) name = ogTitle[1];
-  }
-
-  if (images.length === 0) {
-    const ogImage = html.match(
-      /<meta\s+property="og:image"\s+content="([^"]+)"/
-    );
-    if (ogImage) images = [ogImage[1]];
-  }
-
-  if (!price) {
-    // Try to find price in meta tags
-    const priceMatch = html.match(
-      /<meta\s+property="product:price:amount"\s+content="([^"]+)"/
-    );
-    if (priceMatch) {
-      price = parseFloat(priceMatch[1]) || 0;
-      originalPrice = price;
-    }
-  }
+  if (!originalPrice) originalPrice = price;
 
   if (!name) {
     throw new Error(
-      "Не удалось получить данные товара с Ozon. Попробуйте ссылку на WB."
+      "Не удалось получить данные с Ozon. Сайт блокирует запросы с сервера. Используйте ссылку на Wildberries."
     );
   }
 
@@ -394,8 +508,7 @@ export async function POST(request: NextRequest) {
     } else {
       return NextResponse.json(
         {
-          error:
-            "Поддерживаются только ссылки на Wildberries и Ozon",
+          error: "Поддерживаются только ссылки на Wildberries и Ozon",
         },
         { status: 400 }
       );
