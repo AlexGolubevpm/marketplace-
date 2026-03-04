@@ -180,16 +180,175 @@ async function searchOTAPI(
   return { products: parseOTAPIItems(data, source), error: "" };
 }
 
+// ─── OTAPI text search (by ItemTitle) ────────────────────────────────────────
+
+async function searchOTAPIByText(
+  host: string,
+  query: string,
+  source: "1688" | "taobao"
+): Promise<{ products: DetailedProduct[]; error: string }> {
+  const xmlParameters = `<SearchItemsParameters><ItemTitle>${escapeXml(query)}</ItemTitle></SearchItemsParameters>`;
+
+  const params = new URLSearchParams({
+    language: "ru",
+    framePosition: "0",
+    frameSize: "20",
+    xmlParameters,
+  });
+
+  const url = `https://${host}/BatchSearchItemsFrame?${params.toString()}`;
+  console.log(`[search-china] ${source} text search →`, url);
+
+  const headers: Record<string, string> = {
+    "x-rapidapi-key": RAPIDAPI_KEY,
+    "x-rapidapi-host": host,
+  };
+
+  const res = await proxyFetch(url, { method: "GET", headers });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.error(`[search-china] ${source} text HTTP error:`, res.status, body);
+    return { products: [], error: `HTTP ${res.status}: ${body.slice(0, 200)}` };
+  }
+
+  const data = await res.json();
+  console.log(
+    `[search-china] ${source} text response: ErrorCode=`,
+    data.ErrorCode,
+    "items=",
+    data.Result?.Items?.Content?.length ?? 0
+  );
+
+  if (data.ErrorCode !== "Ok" || !data.Result?.Items?.Content) {
+    return {
+      products: [],
+      error: data.ErrorCode
+        ? `API ErrorCode: ${data.ErrorCode} - ${data.ErrorDescription || ""}`
+        : "Empty response",
+    };
+  }
+
+  return { products: parseOTAPIItems(data, source), error: "" };
+}
+
+// ─── Check if image URL is accessible ────────────────────────────────────────
+
+async function isImageAccessible(imageUrl: string): Promise<boolean> {
+  try {
+    const res = await proxyFetch(imageUrl, { method: "HEAD" }, 5000);
+    const ok = res.ok;
+    console.log(`[search-china] Image accessibility check: ${ok ? "OK" : res.status} → ${imageUrl}`);
+    return ok;
+  } catch (e) {
+    console.log(`[search-china] Image not accessible: ${e} → ${imageUrl}`);
+    return false;
+  }
+}
+
+// ─── Diagnostic GET endpoint ─────────────────────────────────────────────────
+
+export async function GET() {
+  const diagnostics: Record<string, any> = {
+    timestamp: new Date().toISOString(),
+    config: {
+      taobaoHost: TAOBAO_HOST,
+      ali1688Host: ALI1688_HOST,
+      rapidApiKeySet: !!RAPIDAPI_KEY,
+      rapidApiKeyLen: RAPIDAPI_KEY.length,
+      proxyConfigured: !!PROXY_URL,
+    },
+    tests: {} as Record<string, any>,
+  };
+
+  // Test 1: Taobao API connectivity (simple text search)
+  try {
+    const testXml = `<SearchItemsParameters><ItemTitle>test</ItemTitle></SearchItemsParameters>`;
+    const params = new URLSearchParams({
+      language: "en",
+      framePosition: "0",
+      frameSize: "1",
+      xmlParameters: testXml,
+    });
+    const url = `https://${TAOBAO_HOST}/BatchSearchItemsFrame?${params.toString()}`;
+    const res = await proxyFetch(url, {
+      method: "GET",
+      headers: {
+        "x-rapidapi-key": RAPIDAPI_KEY,
+        "x-rapidapi-host": TAOBAO_HOST,
+      },
+    }, 15000);
+    const body = await res.text().catch(() => "");
+    let parsed: any = null;
+    try { parsed = JSON.parse(body); } catch { /* not json */ }
+    diagnostics.tests.taobao = {
+      status: res.ok ? "OK" : "FAIL",
+      httpStatus: res.status,
+      errorCode: parsed?.ErrorCode || null,
+      itemsFound: parsed?.Result?.Items?.Content?.length ?? 0,
+    };
+  } catch (e) {
+    diagnostics.tests.taobao = { status: "ERROR", message: String(e) };
+  }
+
+  // Test 2: 1688 API connectivity
+  try {
+    const testXml = `<SearchItemsParameters><ItemTitle>test</ItemTitle></SearchItemsParameters>`;
+    const params = new URLSearchParams({
+      language: "en",
+      framePosition: "0",
+      frameSize: "1",
+      xmlParameters: testXml,
+    });
+    const url = `https://${ALI1688_HOST}/BatchSearchItemsFrame?${params.toString()}`;
+    const res = await proxyFetch(url, {
+      method: "GET",
+      headers: {
+        "x-rapidapi-key": RAPIDAPI_KEY,
+        "x-rapidapi-host": ALI1688_HOST,
+      },
+    }, 15000);
+    const body = await res.text().catch(() => "");
+    let parsed: any = null;
+    try { parsed = JSON.parse(body); } catch { /* not json */ }
+    diagnostics.tests.ali1688 = {
+      status: res.ok ? "OK" : "FAIL",
+      httpStatus: res.status,
+      errorCode: parsed?.ErrorCode || null,
+      itemsFound: parsed?.Result?.Items?.Content?.length ?? 0,
+    };
+  } catch (e) {
+    diagnostics.tests.ali1688 = { status: "ERROR", message: String(e) };
+  }
+
+  // Test 3: WB image accessibility
+  try {
+    const testImageUrl = "https://basket-01.wbbasket.ru/vol1/part1/1/images/big/1.jpg";
+    const accessible = await isImageAccessible(testImageUrl);
+    diagnostics.tests.wbImageAccess = {
+      status: accessible ? "ACCESSIBLE" : "BLOCKED",
+      testUrl: testImageUrl,
+      note: accessible
+        ? "WB CDN images are accessible from this server"
+        : "WB CDN blocks external access — image search will use text fallback",
+    };
+  } catch (e) {
+    diagnostics.tests.wbImageAccess = { status: "ERROR", message: String(e) };
+  }
+
+  return NextResponse.json(diagnostics);
+}
+
 // ─── Main Handler ───────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { imageUrl } = body;
+    const { imageUrl, productTitle } = body;
 
-    if (!imageUrl) {
+    if (!imageUrl && !productTitle) {
       return NextResponse.json(
-        { error: "Не передана ссылка на изображение" },
+        { error: "Не передана ссылка на изображение или название товара" },
         { status: 400 }
       );
     }
@@ -201,6 +360,7 @@ export async function POST(request: NextRequest) {
         products: [],
         debug: {
           imageUrl,
+          productTitle,
           host: TAOBAO_HOST,
           keySet: false,
           keyLen: 0,
@@ -213,22 +373,76 @@ export async function POST(request: NextRequest) {
     }
 
     console.log("[search-china] imageUrl:", imageUrl);
+    console.log("[search-china] productTitle:", productTitle);
     console.log("[search-china] TAOBAO_HOST:", TAOBAO_HOST);
     console.log("[search-china] ALI1688_HOST:", ALI1688_HOST);
     console.log("[search-china] RAPIDAPI_KEY len:", RAPIDAPI_KEY.length);
     console.log("[search-china] PROXY:", PROXY_URL ? "configured" : "not set");
 
-    // Search both Taobao and 1688 by image in parallel
-    const [taobaoResult, ali1688Result] = await Promise.all([
-      searchOTAPI(TAOBAO_HOST, imageUrl, "taobao").catch((e) => ({
-        products: [] as DetailedProduct[],
-        error: String(e),
-      })),
-      searchOTAPI(ALI1688_HOST, imageUrl, "1688").catch((e) => ({
-        products: [] as DetailedProduct[],
-        error: String(e),
-      })),
-    ]);
+    // Step 1: Try image search on both platforms
+    let taobaoResult: { products: DetailedProduct[]; error: string } = { products: [], error: "" };
+    let ali1688Result: { products: DetailedProduct[]; error: string } = { products: [], error: "" };
+    let searchMethod: "image" | "text" | "image+text" = "image";
+
+    if (imageUrl) {
+      [taobaoResult, ali1688Result] = await Promise.all([
+        searchOTAPI(TAOBAO_HOST, imageUrl, "taobao").catch((e) => ({
+          products: [] as DetailedProduct[],
+          error: String(e),
+        })),
+        searchOTAPI(ALI1688_HOST, imageUrl, "1688").catch((e) => ({
+          products: [] as DetailedProduct[],
+          error: String(e),
+        })),
+      ]);
+
+      console.log(
+        "[search-china] image results: 1688=",
+        ali1688Result.products.length,
+        "taobao=",
+        taobaoResult.products.length
+      );
+    }
+
+    // Step 2: Fallback to text search if image search failed and productTitle is provided
+    const imageSearchFailed =
+      taobaoResult.products.length === 0 && ali1688Result.products.length === 0;
+
+    if (imageSearchFailed && productTitle) {
+      console.log("[search-china] Image search returned 0 results, trying text search with:", productTitle);
+      searchMethod = imageUrl ? "image+text" : "text";
+
+      const [taobaoText, ali1688Text] = await Promise.all([
+        searchOTAPIByText(TAOBAO_HOST, productTitle, "taobao").catch((e) => ({
+          products: [] as DetailedProduct[],
+          error: String(e),
+        })),
+        searchOTAPIByText(ALI1688_HOST, productTitle, "1688").catch((e) => ({
+          products: [] as DetailedProduct[],
+          error: String(e),
+        })),
+      ]);
+
+      // Use text results as fallback
+      if (taobaoText.products.length > 0) {
+        taobaoResult = taobaoText;
+      } else if (taobaoText.error && !taobaoResult.error) {
+        taobaoResult.error = `Text fallback: ${taobaoText.error}`;
+      }
+
+      if (ali1688Text.products.length > 0) {
+        ali1688Result = ali1688Text;
+      } else if (ali1688Text.error && !ali1688Result.error) {
+        ali1688Result.error = `Text fallback: ${ali1688Text.error}`;
+      }
+
+      console.log(
+        "[search-china] text fallback results: 1688=",
+        ali1688Result.products.length,
+        "taobao=",
+        taobaoResult.products.length
+      );
+    }
 
     // Combine: 1688 first, then Taobao
     const allProducts = [
@@ -236,20 +450,14 @@ export async function POST(request: NextRequest) {
       ...taobaoResult.products.slice(0, 10),
     ];
 
-    console.log(
-      "[search-china] image results: 1688=",
-      ali1688Result.products.length,
-      "taobao=",
-      taobaoResult.products.length
-    );
-
     if (allProducts.length === 0) {
       return NextResponse.json({
-        searchMethod: "image",
+        searchMethod,
         totalFound: 0,
         products: [],
         debug: {
           imageUrl,
+          productTitle: productTitle || null,
           host: `${TAOBAO_HOST} / ${ALI1688_HOST}`,
           keySet: !!RAPIDAPI_KEY,
           keyLen: RAPIDAPI_KEY.length,
@@ -263,7 +471,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-      searchMethod: "image",
+      searchMethod,
       totalFound: allProducts.length,
       products: allProducts,
     });

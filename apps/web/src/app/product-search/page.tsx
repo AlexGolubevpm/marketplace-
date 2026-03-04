@@ -44,15 +44,17 @@ interface ChinaProduct {
 }
 
 interface ChinaSearchResult {
-  searchMethod: "image";
+  searchMethod: "image" | "text" | "image+text";
   totalFound: number;
   products: ChinaProduct[];
   debug?: {
     imageUrl?: string;
+    productTitle?: string;
     query?: string;
     host?: string;
     keySet?: boolean;
     keyLen?: number;
+    proxy?: string;
     error1688?: string | null;
     errorTaobao?: string | null;
     found1688?: number;
@@ -635,21 +637,20 @@ export default function ProductSearchPage() {
 
       const firstImage = prod.images[0] || null;
 
-      // Search by image only (no text fallback)
-      if (firstImage) {
-        const chinaRes = await fetch("/api/search-china", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ imageUrl: firstImage }),
-        });
-        const chinaData = await chinaRes.json();
+      // Search by image + text fallback using product title
+      const chinaRes = await fetch("/api/search-china", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          imageUrl: firstImage,
+          productTitle: prod.name,
+        }),
+      });
+      const chinaData = await chinaRes.json();
 
-        setChinaResults(chinaData);
-        if (chinaRes.ok && chinaData.products && chinaData.products.length > 0) {
-          setSelectedChinaIndex(0);
-        }
-      } else {
-        setChinaResults({ searchMethod: "image", totalFound: 0, products: [] });
+      setChinaResults(chinaData);
+      if (chinaRes.ok && chinaData.products && chinaData.products.length > 0) {
+        setSelectedChinaIndex(0);
       }
 
       setStep(4);
@@ -841,15 +842,21 @@ export default function ProductSearchPage() {
               >
                 <p className="text-amber-700 font-medium mb-1">Аналоги на 1688 и Taobao не найдены</p>
                 <p className="text-sm text-amber-600">
-                  Поиск выполнен по фото товара. Попробуйте другой товар.
+                  {chinaResults.searchMethod === "image+text"
+                    ? "Поиск выполнен по фото и названию товара. Попробуйте другой товар."
+                    : chinaResults.searchMethod === "text"
+                      ? "Поиск выполнен по названию товара. Попробуйте другой товар."
+                      : "Поиск выполнен по фото товара. Попробуйте другой товар."}
                 </p>
                 {chinaResults.debug && (
                   <div className="mt-3 text-left bg-white/60 rounded-lg p-3 text-xs text-gray-500 font-mono">
                     <p>API host: {chinaResults.debug.host}</p>
                     <p>API key: {chinaResults.debug.keySet ? `задан (${chinaResults.debug.keyLen} симв.)` : "НЕ ЗАДАН"}</p>
+                    {chinaResults.debug.proxy && <p>Proxy: {chinaResults.debug.proxy}</p>}
                     {chinaResults.debug.imageUrl && <p>Фото: {chinaResults.debug.imageUrl}</p>}
+                    {chinaResults.debug.productTitle && <p>Название: {chinaResults.debug.productTitle}</p>}
                     {chinaResults.debug.query && <p>Запрос: {chinaResults.debug.query}</p>}
-                    <p>Метод: поиск по фото</p>
+                    <p>Метод: {chinaResults.searchMethod === "image+text" ? "фото → текст (fallback)" : chinaResults.searchMethod === "text" ? "текст" : "фото"}</p>
                     <p>1688: {chinaResults.debug.error1688 || `найдено ${chinaResults.debug.found1688}`}</p>
                     <p>Taobao: {chinaResults.debug.errorTaobao || `найдено ${chinaResults.debug.foundTaobao}`}</p>
                   </div>
