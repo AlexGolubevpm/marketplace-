@@ -44,7 +44,7 @@ interface ChinaProduct {
 }
 
 interface ChinaSearchResult {
-  searchMethod: "image" | "text";
+  searchMethod: "image";
   totalFound: number;
   products: ChinaProduct[];
   debug?: {
@@ -634,9 +634,8 @@ export default function ProductSearchPage() {
       setLoadingStage("Ищем аналоги на 1688 и Taobao по фото…");
 
       const firstImage = prod.images[0] || null;
-      let chinaFound = false;
 
-      // 3a: Try image search first
+      // Search by image only (no text fallback)
       if (firstImage) {
         const chinaRes = await fetch("/api/search-china", {
           method: "POST",
@@ -645,44 +644,11 @@ export default function ProductSearchPage() {
         });
         const chinaData = await chinaRes.json();
 
+        setChinaResults(chinaData);
         if (chinaRes.ok && chinaData.products && chinaData.products.length > 0) {
-          setChinaResults(chinaData);
           setSelectedChinaIndex(0);
-          chinaFound = true;
         }
-      }
-
-      // 3b: Fallback to text search by product name
-      if (!chinaFound && prod.name) {
-        setLoadingStage("Ищем по названию товара…");
-        const textRes = await fetch("/api/search-china", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query: prod.name }),
-        });
-        const textData = await textRes.json();
-
-        if (textRes.ok && textData.products && textData.products.length > 0) {
-          setChinaResults(textData);
-          setSelectedChinaIndex(0);
-          chinaFound = true;
-        } else {
-          setChinaResults({
-            searchMethod: "text",
-            totalFound: 0,
-            products: [],
-            debug: textData.debug || {
-              imageUrl: firstImage,
-              query: prod.name,
-              error1688: textData.error || (!textRes.ok ? `HTTP ${textRes.status}` : null),
-              errorTaobao: textData.error || (!textRes.ok ? `HTTP ${textRes.status}` : null),
-            },
-          });
-        }
-      }
-
-      // If no image and no name, show empty
-      if (!chinaFound && !prod.name) {
+      } else {
         setChinaResults({ searchMethod: "image", totalFound: 0, products: [] });
       }
 
@@ -858,11 +824,6 @@ export default function ProductSearchPage() {
             {/* China results */}
             {chinaResults && chinaResults.products.length > 0 && (
               <>
-                {chinaResults.searchMethod === "text" && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-2 text-sm text-blue-700">
-                    По фото аналоги не найдены — результаты по текстовому запросу
-                  </div>
-                )}
                 <ChinaProductCards
                   products={chinaResults.products}
                   selectedIndex={selectedChinaIndex}
@@ -880,7 +841,7 @@ export default function ProductSearchPage() {
               >
                 <p className="text-amber-700 font-medium mb-1">Аналоги на 1688 и Taobao не найдены</p>
                 <p className="text-sm text-amber-600">
-                  Поиск выполнен по фото и по названию товара. Попробуйте другой товар.
+                  Поиск выполнен по фото товара. Попробуйте другой товар.
                 </p>
                 {chinaResults.debug && (
                   <div className="mt-3 text-left bg-white/60 rounded-lg p-3 text-xs text-gray-500 font-mono">
@@ -888,7 +849,7 @@ export default function ProductSearchPage() {
                     <p>API key: {chinaResults.debug.keySet ? `задан (${chinaResults.debug.keyLen} симв.)` : "НЕ ЗАДАН"}</p>
                     {chinaResults.debug.imageUrl && <p>Фото: {chinaResults.debug.imageUrl}</p>}
                     {chinaResults.debug.query && <p>Запрос: {chinaResults.debug.query}</p>}
-                    <p>Метод: {chinaResults.searchMethod === "text" ? "текстовый поиск" : "поиск по фото"}</p>
+                    <p>Метод: поиск по фото</p>
                     <p>1688: {chinaResults.debug.error1688 || `найдено ${chinaResults.debug.found1688}`}</p>
                     <p>Taobao: {chinaResults.debug.errorTaobao || `найдено ${chinaResults.debug.foundTaobao}`}</p>
                   </div>
