@@ -49,6 +49,7 @@ interface ChinaSearchResult {
   products: ChinaProduct[];
   debug?: {
     imageUrl?: string;
+    query?: string;
     host?: string;
     keySet?: boolean;
     keyLen?: number;
@@ -345,6 +346,7 @@ function ChinaProductCards({
         <h3 className="font-semibold text-gray-900">Найдено на 1688 / Taobao</h3>
         <span className="text-xs text-gray-400">{products.length} товаров</span>
       </div>
+
       <div className="grid gap-3">
         {products.map((p, i) => {
           const bestPrice = getBestPrice(p.price_tiers, qty);
@@ -627,15 +629,15 @@ export default function ProductSearchPage() {
       const prod: ProductData = parseData.product;
       setProduct(prod);
 
-      // Step 3: Search on 1688
+      // Step 3: Search on 1688 / Taobao
       setStep(3);
-      setLoadingStage("Ищем аналоги на 1688 и Taobao…");
+      setLoadingStage("Ищем аналоги на 1688 и Taobao по фото…");
 
       const firstImage = prod.images[0] || null;
-      if (!firstImage) {
-        setChinaResults({ searchMethod: "image", totalFound: 0, products: [] });
-        setStep(4);
-      } else {
+      let chinaFound = false;
+
+      // 3a: Try image search first
+      if (firstImage) {
         const chinaRes = await fetch("/api/search-china", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -645,21 +647,46 @@ export default function ProductSearchPage() {
 
         if (chinaRes.ok && chinaData.products && chinaData.products.length > 0) {
           setChinaResults(chinaData);
-          setSelectedChinaIndex(0); // Auto-select first result
+          setSelectedChinaIndex(0);
+          chinaFound = true;
+        }
+      }
+
+      // 3b: Fallback to text search by product name
+      if (!chinaFound && prod.name) {
+        setLoadingStage("Ищем по названию товара…");
+        const textRes = await fetch("/api/search-china", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: prod.name }),
+        });
+        const textData = await textRes.json();
+
+        if (textRes.ok && textData.products && textData.products.length > 0) {
+          setChinaResults(textData);
+          setSelectedChinaIndex(0);
+          chinaFound = true;
         } else {
           setChinaResults({
-            searchMethod: "image",
+            searchMethod: "text",
             totalFound: 0,
             products: [],
-            debug: chinaData.debug || {
+            debug: textData.debug || {
               imageUrl: firstImage,
-              error1688: chinaData.error || (!chinaRes.ok ? `HTTP ${chinaRes.status}` : null),
-              errorTaobao: chinaData.error || (!chinaRes.ok ? `HTTP ${chinaRes.status}` : null),
+              query: prod.name,
+              error1688: textData.error || (!textRes.ok ? `HTTP ${textRes.status}` : null),
+              errorTaobao: textData.error || (!textRes.ok ? `HTTP ${textRes.status}` : null),
             },
           });
         }
-        setStep(4);
       }
+
+      // If no image and no name, show empty
+      if (!chinaFound && !prod.name) {
+        setChinaResults({ searchMethod: "image", totalFound: 0, products: [] });
+      }
+
+      setStep(4);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Произошла ошибка";
       setError(msg === "fetch failed" || msg === "Failed to fetch"
@@ -830,12 +857,19 @@ export default function ProductSearchPage() {
 
             {/* China results */}
             {chinaResults && chinaResults.products.length > 0 && (
-              <ChinaProductCards
-                products={chinaResults.products}
-                selectedIndex={selectedChinaIndex}
-                onSelect={setSelectedChinaIndex}
-                qty={qtyNum}
-              />
+              <>
+                {chinaResults.searchMethod === "text" && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-2 text-sm text-blue-700">
+                    По фото аналоги не найдены — результаты по текстовому запросу
+                  </div>
+                )}
+                <ChinaProductCards
+                  products={chinaResults.products}
+                  selectedIndex={selectedChinaIndex}
+                  onSelect={setSelectedChinaIndex}
+                  qty={qtyNum}
+                />
+              </>
             )}
 
             {chinaResults && chinaResults.products.length === 0 && (
@@ -846,13 +880,15 @@ export default function ProductSearchPage() {
               >
                 <p className="text-amber-700 font-medium mb-1">Аналоги на 1688 и Taobao не найдены</p>
                 <p className="text-sm text-amber-600">
-                  Попробуйте другой товар или проверьте, что фото товара доступно по прямой ссылке
+                  Поиск выполнен по фото и по названию товара. Попробуйте другой товар.
                 </p>
                 {chinaResults.debug && (
                   <div className="mt-3 text-left bg-white/60 rounded-lg p-3 text-xs text-gray-500 font-mono">
                     <p>API host: {chinaResults.debug.host}</p>
                     <p>API key: {chinaResults.debug.keySet ? `задан (${chinaResults.debug.keyLen} симв.)` : "НЕ ЗАДАН"}</p>
-                    <p>Фото: {chinaResults.debug.imageUrl}</p>
+                    {chinaResults.debug.imageUrl && <p>Фото: {chinaResults.debug.imageUrl}</p>}
+                    {chinaResults.debug.query && <p>Запрос: {chinaResults.debug.query}</p>}
+                    <p>Метод: {chinaResults.searchMethod === "text" ? "текстовый поиск" : "поиск по фото"}</p>
                     <p>1688: {chinaResults.debug.error1688 || `найдено ${chinaResults.debug.found1688}`}</p>
                     <p>Taobao: {chinaResults.debug.errorTaobao || `найдено ${chinaResults.debug.foundTaobao}`}</p>
                   </div>
