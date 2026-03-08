@@ -40,7 +40,7 @@ interface ChinaProduct {
   moq: number;
   attributes: Record<string, string>;
   detail_url: string;
-  source?: "1688" | "taobao";
+  source?: "aliexpress";
 }
 
 interface ChinaSearchResult {
@@ -55,10 +55,8 @@ interface ChinaSearchResult {
     keySet?: boolean;
     keyLen?: number;
     proxy?: string;
-    error1688?: string | null;
-    errorTaobao?: string | null;
-    found1688?: number;
-    foundTaobao?: number;
+    errorAliexpress?: string | null;
+    foundAliexpress?: number;
   };
 }
 
@@ -68,14 +66,14 @@ function fmt(n: number): string {
   return n.toLocaleString("ru-RU");
 }
 
-function fmtCny(n: number): string {
-  return `¥${n.toFixed(2)}`;
+function fmtUsd(n: number): string {
+  return `$${n.toFixed(2)}`;
 }
 
-const CNY_TO_RUB = 12.5; // approximate rate
+const USD_TO_RUB = 92; // approximate rate
 
-function cnyToRub(cny: number): number {
-  return Math.round(cny * CNY_TO_RUB);
+function usdToRub(usd: number): number {
+  return Math.round(usd * USD_TO_RUB);
 }
 
 function detectPlatform(url: string): "wb" | "ozon" | null {
@@ -345,7 +343,7 @@ function ChinaProductCards({
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="font-semibold text-gray-900">Найдено на 1688 / Taobao</h3>
+        <h3 className="font-semibold text-gray-900">Найдено на AliExpress</h3>
         <span className="text-xs text-gray-400">{products.length} товаров</span>
       </div>
 
@@ -372,19 +370,15 @@ function ChinaProductCards({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 mb-1">
                     {p.source && (
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                        p.source === "taobao"
-                          ? "bg-orange-100 text-orange-700"
-                          : "bg-red-100 text-red-700"
-                      }`}>
-                        {p.source === "taobao" ? "Taobao" : "1688"}
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-orange-100 text-orange-700">
+                        AliExpress
                       </span>
                     )}
                     <p className="text-sm font-medium text-gray-900 line-clamp-2">{p.title}</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                    <span className="font-bold text-red-600">{fmtCny(bestPrice)}</span>
-                    <span className="text-gray-400">≈ {fmt(cnyToRub(bestPrice))} ₽</span>
+                    <span className="font-bold text-red-600">{fmtUsd(bestPrice)}</span>
+                    <span className="text-gray-400">≈ {fmt(usdToRub(bestPrice))} ₽</span>
                     {p.unit_weight_kg != null && (
                       <span className="text-gray-400">{p.unit_weight_kg} кг</span>
                     )}
@@ -404,7 +398,7 @@ function ChinaProductCards({
                               : "bg-gray-100 text-gray-500"
                           }`}
                         >
-                          от {t.min_qty} шт: {fmtCny(t.price)}
+                          от {t.min_qty} шт: {fmtUsd(t.price)}
                         </span>
                       ))}
                     </div>
@@ -444,7 +438,7 @@ function ComparisonTable({
 }) {
   const chinaUnitPrice = getBestPrice(chinaProduct.price_tiers, qty);
   const chinaTotal = chinaUnitPrice * qty;
-  const chinaTotalRub = cnyToRub(chinaTotal);
+  const chinaTotalRub = usdToRub(chinaTotal);
   const russiaTotal = russiaProduct.price * qty;
   const difference = russiaTotal - chinaTotalRub;
   const marginPercent = russiaTotal > 0 ? ((difference / russiaTotal) * 100) : 0;
@@ -482,7 +476,7 @@ function ComparisonTable({
           </div>
           <div className="text-center">
             <span className="inline-block px-2 py-0.5 text-xs font-bold rounded bg-orange-100 text-orange-700">
-              1688
+              AliExpress
             </span>
           </div>
 
@@ -490,14 +484,14 @@ function ComparisonTable({
           <div className="text-sm text-gray-500">Цена за шт</div>
           <div className="text-center font-semibold text-gray-900">{fmt(russiaProduct.price)} ₽</div>
           <div className="text-center font-semibold text-gray-900">
-            {fmtCny(chinaUnitPrice)} <span className="text-gray-400 font-normal">≈ {fmt(cnyToRub(chinaUnitPrice))} ₽</span>
+            {fmtUsd(chinaUnitPrice)} <span className="text-gray-400 font-normal">≈ {fmt(usdToRub(chinaUnitPrice))} ₽</span>
           </div>
 
           {/* Total */}
           <div className="text-sm text-gray-500">Итого ({fmt(qty)} шт)</div>
           <div className="text-center font-bold text-lg text-gray-900">{fmt(russiaTotal)} ₽</div>
           <div className="text-center font-bold text-lg text-gray-900">
-            {fmtCny(chinaTotal)} <span className="text-gray-400 font-normal text-sm">≈ {fmt(chinaTotalRub)} ₽</span>
+            {fmtUsd(chinaTotal)} <span className="text-gray-400 font-normal text-sm">≈ {fmt(chinaTotalRub)} ₽</span>
           </div>
         </div>
 
@@ -530,7 +524,7 @@ function ComparisonTable({
         {/* Price tiers */}
         {chinaProduct.price_tiers.length > 1 && (
           <div className="bg-gray-50 rounded-xl p-4 mb-4">
-            <div className="text-sm font-medium text-gray-700 mb-2">Оптовые цены на 1688</div>
+            <div className="text-sm font-medium text-gray-700 mb-2">Оптовые цены на AliExpress</div>
             <div className="flex flex-wrap gap-2">
               {chinaProduct.price_tiers.map((t, i) => (
                 <div
@@ -542,7 +536,7 @@ function ComparisonTable({
                       : "bg-white border border-gray-200 text-gray-600"
                   }`}
                 >
-                  от {t.min_qty} шт — {fmtCny(t.price)} (≈{fmt(cnyToRub(t.price))} ₽)
+                  от {t.min_qty} шт — {fmtUsd(t.price)} (≈{fmt(usdToRub(t.price))} ₽)
                 </div>
               ))}
             </div>
@@ -556,13 +550,13 @@ function ComparisonTable({
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 text-sm text-red-600 hover:text-red-700 font-medium"
         >
-          Открыть товар на 1688
+          Открыть товар на AliExpress
           <ExternalLinkIcon className="w-3.5 h-3.5" />
         </a>
 
         {/* Disclaimer */}
         <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-700">
-          Курс ¥1 ≈ {CNY_TO_RUB} ₽. Расчёт не включает пошлины, НДС, логистику и маркировку.
+          Курс $1 ≈ {USD_TO_RUB} ₽. Расчёт не включает пошлины, НДС, логистику и маркировку.
           Точный расчёт себестоимости — в следующей версии.
         </div>
       </div>
@@ -631,9 +625,9 @@ export default function ProductSearchPage() {
       const prod: ProductData = parseData.product;
       setProduct(prod);
 
-      // Step 3: Search on 1688 / Taobao
+      // Step 3: Search on AliExpress
       setStep(3);
-      setLoadingStage("Ищем аналоги на 1688 и Taobao по фото…");
+      setLoadingStage("Ищем аналоги на AliExpress по фото…");
 
       const firstImage = prod.images[0] || null;
 
@@ -688,7 +682,7 @@ export default function ProductSearchPage() {
       <div className="text-center mb-6">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Поиск товара для импорта</h1>
         <p className="text-gray-500 max-w-xl mx-auto">
-          Вставьте ссылку на товар с WB или Ozon — система найдёт его на 1688 и рассчитает стоимость партии
+          Вставьте ссылку на товар с WB или Ozon — система найдёт его на AliExpress и рассчитает стоимость партии
         </p>
       </div>
 
@@ -840,7 +834,7 @@ export default function ProductSearchPage() {
                 animate={{ opacity: 1, y: 0 }}
                 className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center"
               >
-                <p className="text-amber-700 font-medium mb-1">Аналоги на 1688 и Taobao не найдены</p>
+                <p className="text-amber-700 font-medium mb-1">Аналоги на AliExpress не найдены</p>
                 <p className="text-sm text-amber-600">
                   {chinaResults.searchMethod === "image+text"
                     ? "Поиск выполнен по фото и названию товара. Попробуйте другой товар."
@@ -857,8 +851,7 @@ export default function ProductSearchPage() {
                     {chinaResults.debug.productTitle && <p>Название: {chinaResults.debug.productTitle}</p>}
                     {chinaResults.debug.query && <p>Запрос: {chinaResults.debug.query}</p>}
                     <p>Метод: {chinaResults.searchMethod === "image+text" ? "фото → текст (fallback)" : chinaResults.searchMethod === "text" ? "текст" : "фото"}</p>
-                    <p>1688: {chinaResults.debug.error1688 || `найдено ${chinaResults.debug.found1688}`}</p>
-                    <p>Taobao: {chinaResults.debug.errorTaobao || `найдено ${chinaResults.debug.foundTaobao}`}</p>
+                    <p>AliExpress: {chinaResults.debug.errorAliexpress || `найдено ${chinaResults.debug.foundAliexpress}`}</p>
                   </div>
                 )}
               </motion.div>
