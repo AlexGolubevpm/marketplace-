@@ -1,7 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   transpilePackages: ["@cargo/api", "@cargo/db", "@cargo/shared"],
-  serverExternalPackages: ["undici"],
+  serverExternalPackages: [
+    "undici",
+    "puppeteer-core",
+    "puppeteer-extra",
+    "puppeteer-extra-plugin-stealth",
+  ],
   async rewrites() {
     return [
       {
