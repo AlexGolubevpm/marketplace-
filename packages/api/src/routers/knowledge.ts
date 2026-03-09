@@ -8,6 +8,7 @@ import {
   knowledgeTags,
   knowledgeArticleTags,
   knowledgeRedirects,
+  knowledgeQuestions,
 } from "@cargo/db";
 
 // ── Zod schemas ────────────────────────────────────────────────────────────────
@@ -689,6 +690,73 @@ export const knowledgeRouter = router({
       await ctx.db
         .delete(knowledgeRedirects)
         .where(eq(knowledgeRedirects.id, input.id));
+      return { success: true };
+    }),
+
+  // ── Questions (public) ──────────────────────────────────────────────────────
+  submitQuestion: publicProcedure
+    .input(
+      z.object({
+        name: z.string().min(1).max(255),
+        email: z.string().email().max(255).optional(),
+        question: z.string().min(5).max(2000),
+        topic: z.string().max(255).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const [q] = await ctx.db
+        .insert(knowledgeQuestions)
+        .values(input)
+        .returning({ id: knowledgeQuestions.id });
+      return { success: true, id: q.id };
+    }),
+
+  // ── Questions (admin) ───────────────────────────────────────────────────────
+  adminListQuestions: protectedProcedure
+    .input(
+      z.object({
+        status: z.enum(["new", "reviewed", "published", "rejected"]).optional(),
+      }).optional()
+    )
+    .query(async ({ ctx, input }) => {
+      const conditions = input?.status
+        ? [eq(knowledgeQuestions.status, input.status)]
+        : [];
+
+      return ctx.db
+        .select()
+        .from(knowledgeQuestions)
+        .where(conditions.length ? and(...conditions) : undefined)
+        .orderBy(desc(knowledgeQuestions.created_at));
+    }),
+
+  adminUpdateQuestion: protectedProcedure
+    .use(withRole("super_admin", "content_manager"))
+    .input(
+      z.object({
+        id: z.string().uuid(),
+        status: z.enum(["new", "reviewed", "published", "rejected"]).optional(),
+        admin_notes: z.string().optional(),
+        article_id: z.string().uuid().nullable().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { id, ...data } = input;
+      const [q] = await ctx.db
+        .update(knowledgeQuestions)
+        .set({ ...data, updated_at: new Date() })
+        .where(eq(knowledgeQuestions.id, id))
+        .returning();
+      return q;
+    }),
+
+  adminDeleteQuestion: protectedProcedure
+    .use(withRole("super_admin", "content_manager"))
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db
+        .delete(knowledgeQuestions)
+        .where(eq(knowledgeQuestions.id, input.id));
       return { success: true };
     }),
 });

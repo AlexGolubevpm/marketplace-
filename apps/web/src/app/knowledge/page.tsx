@@ -8,6 +8,7 @@ import {
   getRecentArticles,
 } from "@/lib/knowledge-queries";
 import { CargoRequestForm } from "@/components/knowledge/cargo-request-form";
+import { KnowledgeQuestionForm } from "@/components/knowledge/question-form";
 
 // Force dynamic rendering so data is always fetched from DB at request time.
 // During docker build, the DB is unavailable, so ISR would cache an empty page.
@@ -335,6 +336,11 @@ export default async function KnowledgePage() {
                 FAQ скоро появится.
               </p>
             )}
+          </section>
+
+          {/* ── Question Form ────────────────────────────────────────── */}
+          <section className="mb-14">
+            <KnowledgeQuestionForm />
           </section>
 
           {/* ── Cargo Request Form ────────────────────────────────────── */}

@@ -94,6 +94,29 @@ export const knowledgeArticleTags = pgTable(
   })
 );
 
+// ── Questions (user-submitted) ────────────────────────────────────────────────
+export const knowledgeQuestionStatusEnum = pgEnum("knowledge_question_status", [
+  "new",
+  "reviewed",
+  "published",
+  "rejected",
+]);
+
+export const knowledgeQuestions = pgTable("knowledge_questions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: varchar("name", { length: 255 }).notNull(),
+  email: varchar("email", { length: 255 }),
+  question: text("question").notNull(),
+  topic: varchar("topic", { length: 255 }),
+  status: knowledgeQuestionStatusEnum("status").notNull().default("new"),
+  admin_notes: text("admin_notes"),
+  article_id: uuid("article_id").references(() => knowledgeArticles.id, {
+    onDelete: "set null",
+  }),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // ── Redirects ──────────────────────────────────────────────────────────────────
 export const knowledgeRedirects = pgTable("knowledge_redirects", {
   id: uuid("id").primaryKey().defaultRandom(),
