@@ -58,8 +58,18 @@ RUN if [ -L /app/apps/web/node_modules/.bin/next ]; then \
 # ============================================
 FROM node:20-alpine AS runner
 
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat \
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+
+# Puppeteer config: use system Chromium, skip download
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
 WORKDIR /app
 

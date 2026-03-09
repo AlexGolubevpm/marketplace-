@@ -37,9 +37,7 @@ services:
       - SMTP_USER=${SMTP_USER:-}
       - SMTP_PASS=${SMTP_PASS:-}
       - SMTP_FROM=${SMTP_FROM:-}
-      - RAPIDAPI_KEY=${RAPIDAPI_KEY:-}
-      - RAPIDAPI_HOST_ALIEXPRESS=${RAPIDAPI_HOST_ALIEXPRESS:-aliexpress-datahub.p.rapidapi.com}
-      - RAPIDAPI_PROXY=${RAPIDAPI_PROXY:-}
+      - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
     volumes:
       - uploads_data:/app/apps/web/public/uploads
     depends_on:

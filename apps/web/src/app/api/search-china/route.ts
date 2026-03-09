@@ -1,4 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import puppeteer from "puppeteer-extra";
+import StealthPlugin from "puppeteer-extra-plugin-stealth";
+import type { Browser, Page, HTTPResponse } from "puppeteer-core";
+
+puppeteer.use(StealthPlugin());
+
+// ─── Config ─────────────────────────────────────────────────────────────────
+
+const CHROME_PATH =
+  process.env.PUPPETEER_EXECUTABLE_PATH ||
+  process.env.CHROME_PATH ||
+  "/usr/bin/chromium-browser";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -21,153 +33,161 @@ interface DetailedProduct {
   source: "aliexpress";
 }
 
-// ─── Common headers to mimic a real browser ─────────────────────────────────
+// ─── Launch browser ─────────────────────────────────────────────────────────
 
-const BROWSER_HEADERS = {
-  "User-Agent":
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-  Accept:
-    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-  "Accept-Language": "en-US,en;q=0.9",
-  "Cache-Control": "no-cache",
-  Referer: "https://www.aliexpress.com/",
-};
+async function launchBrowser(): Promise<Browser> {
+  const browser = await (puppeteer as any).launch({
+    headless: "new",
+    executablePath: CHROME_PATH,
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-gpu",
+      "--disable-extensions",
+      "--disable-background-networking",
+      "--disable-default-apps",
+      "--no-first-run",
+      "--window-size=1920,1080",
+    ],
+    defaultViewport: { width: 1920, height: 1080 },
+    timeout: 30000,
+  });
 
-// ─── Fetch with timeout ─────────────────────────────────────────────────────
-
-function fetchWithTimeout(
-  url: string,
-  opts: RequestInit = {},
-  timeoutMs = 25000
-): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  return fetch(url, { ...opts, signal: controller.signal }).finally(() =>
-    clearTimeout(timer)
-  );
+  return browser as Browser;
 }
 
-// ─── Search AliExpress by image URL ─────────────────────────────────────────
+// ─── Search AliExpress by image ─────────────────────────────────────────────
 
-async function searchByImage(
+async function searchAliExpressByImage(
   imageUrl: string
 ): Promise<{ products: DetailedProduct[]; error: string; debug?: any }> {
-  console.log("[search-china] Image search for:", imageUrl);
-
-  // AliExpress image search URL — pass image URL as query param
-  const encodedImg = encodeURIComponent(imageUrl);
-  const searchUrl = `https://www.aliexpress.com/wholesale?SearchText=&catId=0&initiative_id=SB_${Date.now()}&isPremium=y&imgUrl=${encodedImg}`;
-
-  console.log("[search-china] Fetching search page:", searchUrl);
+  let browser: Browser | null = null;
 
   try {
-    const res = await fetchWithTimeout(
-      searchUrl,
-      {
-        headers: BROWSER_HEADERS,
-        redirect: "follow",
-      },
-      30000
+    console.log("[search-china] Launching browser...");
+    browser = await launchBrowser();
+    const page = await browser.newPage();
+
+    // Realistic browser fingerprint
+    await page.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
     );
+    await page.setExtraHTTPHeaders({
+      "Accept-Language": "en-US,en;q=0.9",
+    });
 
-    if (!res.ok) {
-      console.error("[search-china] HTTP error:", res.status);
-      return {
-        products: [],
-        error: `AliExpress вернул HTTP ${res.status}`,
-        debug: { url: searchUrl, status: res.status },
-      };
+    // Intercept API responses that contain product data
+    const apiProducts: any[] = [];
+    page.on("response", async (response: HTTPResponse) => {
+      const url = response.url();
+      // AliExpress internal search API endpoints
+      if (
+        (url.includes("/fn/search-pc/") ||
+          url.includes("/aer-api/") ||
+          url.includes("searchImageResult") ||
+          url.includes("image_search") ||
+          url.includes("/glosearch/")) &&
+        response.status() === 200
+      ) {
+        try {
+          const json = await response.json();
+          console.log("[search-china] Intercepted API:", url.slice(0, 120));
+          apiProducts.push(json);
+        } catch {
+          // not JSON, ignore
+        }
+      }
+    });
+
+    // Navigate to AliExpress image search
+    const encodedImg = encodeURIComponent(imageUrl);
+    const searchUrl = `https://www.aliexpress.com/wholesale?SearchText=&catId=0&initiative_id=SB_${Date.now()}&isPremium=y&imgUrl=${encodedImg}`;
+
+    console.log("[search-china] Navigating to:", searchUrl);
+    await page.goto(searchUrl, {
+      waitUntil: "domcontentloaded",
+      timeout: 30000,
+    });
+
+    // Wait for products to load
+    console.log("[search-china] Waiting for products to load...");
+    try {
+      await page.waitForSelector(
+        'a[href*="/item/"], [class*="manhattan--container"], [class*="search-card-item"], [class*="product-card"]',
+        { timeout: 15000 }
+      );
+    } catch {
+      console.log("[search-china] Timeout waiting for product selectors");
     }
 
-    const html = await res.text();
-    console.log("[search-china] Got HTML, length:", html.length);
+    // Give extra time for API responses and lazy-loaded content
+    await new Promise((r) => setTimeout(r, 3000));
 
-    // Try to extract products from SSR data
-    let products = extractFromSSRData(html);
+    // Strategy 1: Parse intercepted API responses
+    let products: DetailedProduct[] = [];
+    if (apiProducts.length > 0) {
+      console.log("[search-china] Parsing", apiProducts.length, "API responses...");
+      for (const data of apiProducts) {
+        const items = findProductItems(data);
+        if (items.length > 0) {
+          products = parseApiItems(items);
+          console.log("[search-china] Got", products.length, "products from API");
+          break;
+        }
+      }
+    }
 
-    // Fallback: parse product links from HTML
+    // Strategy 2: Extract from page SSR data
     if (products.length === 0) {
-      console.log("[search-china] SSR extraction empty, trying link parsing...");
-      products = extractFromLinks(html);
+      console.log("[search-china] Trying SSR data extraction...");
+      products = await extractSSRProducts(page);
     }
 
-    console.log("[search-china] Found products:", products.length);
+    // Strategy 3: Scrape DOM directly
+    if (products.length === 0) {
+      console.log("[search-china] Trying DOM scraping...");
+      products = await scrapeDOMProducts(page);
+    }
+
+    const finalUrl = page.url();
+    console.log("[search-china] Final URL:", finalUrl);
+    console.log("[search-china] Total products found:", products.length);
 
     return {
-      products,
-      error: products.length === 0 ? "Товары не найдены в HTML" : "",
+      products: products.slice(0, 15),
+      error: products.length === 0 ? "Товары не найдены" : "",
       debug: {
-        url: searchUrl,
-        htmlLength: html.length,
-        ssrDataFound: html.includes("__INIT_DATA__") || html.includes("runParams"),
-        method: "image-url",
+        finalUrl,
+        apiResponsesIntercepted: apiProducts.length,
+        productsFound: products.length,
       },
     };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    console.error("[search-china] Fetch error:", msg);
+    console.error("[search-china] Error:", msg);
     return { products: [], error: msg };
+  } finally {
+    if (browser) {
+      await browser.close().catch(() => {});
+    }
   }
 }
 
-// ─── Extract products from AliExpress SSR/embedded JSON data ────────────────
-
-function extractFromSSRData(html: string): DetailedProduct[] {
-  // AliExpress embeds data in various global variables
-  const patterns = [
-    // window.__INIT_DATA__ — most common in modern AliExpress
-    /window\.__INIT_DATA__\s*=\s*(\{.+?\})\s*;\s*<\/script>/s,
-    // window.runParams — older format
-    /window\.runParams\s*=\s*(\{.+?\})\s*;\s*<\/script>/s,
-    // _dida_config_
-    /_dida_config_\s*=\s*(\{.+?\})\s*;\s*<\/script>/s,
-  ];
-
-  for (const pattern of patterns) {
-    const match = html.match(pattern);
-    if (!match) continue;
-
-    try {
-      const data = JSON.parse(match[1]);
-      const items = findProductItems(data);
-      if (items.length > 0) {
-        console.log("[search-china] Found", items.length, "items in SSR data");
-        return parseItems(items).slice(0, 15);
-      }
-    } catch (e) {
-      console.log("[search-china] JSON parse failed for SSR pattern");
-    }
-  }
-
-  // Also try to find JSON blocks with product data
-  const jsonBlockPattern = /"itemList"\s*:\s*(\[[^\]]*\{[^}]*"productId"[^}]*\}[^\]]*\])/s;
-  const jsonMatch = html.match(jsonBlockPattern);
-  if (jsonMatch) {
-    try {
-      const items = JSON.parse(jsonMatch[1]);
-      if (items.length > 0) {
-        console.log("[search-china] Found", items.length, "items in itemList block");
-        return parseItems(items).slice(0, 15);
-      }
-    } catch {
-      // ignore
-    }
-  }
-
-  return [];
-}
-
-// ─── Recursively find product item arrays in nested data ────────────────────
+// ─── Find product items in nested API response ─────────────────────────────
 
 function findProductItems(obj: any, depth = 0): any[] {
   if (depth > 10 || !obj || typeof obj !== "object") return [];
 
-  // Check known keys for product arrays
   const keys = ["items", "itemList", "productList", "products", "resultList"];
   for (const key of keys) {
     if (Array.isArray(obj[key]) && obj[key].length > 0) {
       const first = obj[key][0];
-      if (first && typeof first === "object" && hasProductFields(first)) {
+      if (
+        first &&
+        typeof first === "object" &&
+        (first.title || first.productId || first.product_id || first.itemId || first.prices)
+      ) {
         return obj[key];
       }
     }
@@ -178,14 +198,14 @@ function findProductItems(obj: any, depth = 0): any[] {
     for (const modKey of Object.keys(obj.mods)) {
       const mod = obj.mods[modKey];
       if (mod?.content && Array.isArray(mod.content) && mod.content.length > 0) {
-        if (hasProductFields(mod.content[0])) {
+        const first = mod.content[0];
+        if (first && (first.title || first.productId || first.prices)) {
           return mod.content;
         }
       }
     }
   }
 
-  // Recurse
   for (const key of Object.keys(obj)) {
     if (typeof obj[key] === "object" && obj[key] !== null) {
       const found = findProductItems(obj[key], depth + 1);
@@ -196,21 +216,9 @@ function findProductItems(obj: any, depth = 0): any[] {
   return [];
 }
 
-function hasProductFields(obj: any): boolean {
-  return !!(
-    obj.title ||
-    obj.productTitle ||
-    obj.product_title ||
-    obj.productId ||
-    obj.product_id ||
-    obj.itemId ||
-    obj.prices
-  );
-}
+// ─── Parse API response items ───────────────────────────────────────────────
 
-// ─── Parse product items into DetailedProduct[] ─────────────────────────────
-
-function parseItems(items: any[]): DetailedProduct[] {
+function parseApiItems(items: any[]): DetailedProduct[] {
   return items
     .map((item: any): DetailedProduct | null => {
       const productId = String(
@@ -236,10 +244,6 @@ function parseItems(items: any[]): DetailedProduct[] {
         if (sp) {
           price = parseFloat(sp.minPrice || sp.formattedPrice?.replace(/[^0-9.]/g, "") || "0") || 0;
           maxPrice = parseFloat(sp.maxPrice || "0") || price;
-        }
-        const op = item.prices.originalPrice;
-        if (op && !maxPrice) {
-          maxPrice = parseFloat(op.minPrice || op.formattedPrice?.replace(/[^0-9.]/g, "") || "0") || price;
         }
       } else {
         const raw = item.price || item.salePrice || item.sale_price || item.min_price || "0";
@@ -276,6 +280,8 @@ function parseItems(items: any[]): DetailedProduct[] {
       const location =
         item.logistics?.shipFrom || item.ship_from || item.shipFrom || item.location || "";
 
+      if (!title && price === 0) return null;
+
       return {
         product_id: productId,
         title,
@@ -294,88 +300,163 @@ function parseItems(items: any[]): DetailedProduct[] {
         detail_url:
           item.productDetailUrl ||
           item.product_detail_url ||
-          item.detail_url ||
           `https://www.aliexpress.com/item/${productId}.html`,
         source: "aliexpress" as const,
       };
     })
-    .filter(
-      (p: DetailedProduct | null): p is DetailedProduct =>
-        p !== null && (!!p.title || p.min_price > 0)
-    );
+    .filter((p): p is DetailedProduct => p !== null);
 }
 
-// ─── Extract products from <a> links in HTML (fallback) ─────────────────────
+// ─── Extract products from SSR data embedded in page ────────────────────────
 
-function extractFromLinks(html: string): DetailedProduct[] {
-  const products: DetailedProduct[] = [];
-  const seenIds = new Set<string>();
-
-  const linkPattern =
-    /<a[^>]+href=["']([^"']*\/item\/(\d+)\.html[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi;
-
-  let match;
-  while ((match = linkPattern.exec(html)) !== null && products.length < 15) {
-    const [, href, productId, inner] = match;
-    if (seenIds.has(productId)) continue;
-    seenIds.add(productId);
-
-    // Title from alt/title attributes or text content
-    const titleMatch = inner.match(
-      /(?:title|alt)=["']([^"']+)["']|<(?:h[1-6]|span|div)[^>]*>([^<]{10,})<\//i
+async function extractSSRProducts(page: Page): Promise<DetailedProduct[]> {
+  const ssrData = await page.evaluate(() => {
+    // Try to access global SSR variables
+    const w = window as any;
+    return (
+      w.__INIT_DATA__ ||
+      w.runParams ||
+      w._dida_config_ ||
+      null
     );
-    const title = titleMatch ? (titleMatch[1] || titleMatch[2] || "").trim() : "";
+  });
 
-    // Price
-    const priceMatch = inner.match(
-      /(?:US\s*\$|USD\s*)\s*([\d,.]+)|(\d+[.,]\d{2})\s*(?:USD|\$)/i
-    );
-    const price = priceMatch
-      ? parseFloat((priceMatch[1] || priceMatch[2]).replace(",", "."))
-      : 0;
-
-    // Image
-    const imgMatch = inner.match(
-      /(?:src|data-src)=["']((?:https?:)?\/\/[^"']+\.(?:jpg|jpeg|png|webp)[^"']*)["']/i
-    );
-    let imgSrc = imgMatch ? imgMatch[1] : "";
-    if (imgSrc.startsWith("//")) imgSrc = "https:" + imgSrc;
-
-    if (title || price > 0) {
-      products.push({
-        product_id: productId,
-        title,
-        brand: "",
-        price_range: price > 0 ? `$${price.toFixed(2)}` : "N/A",
-        min_price: price,
-        max_price: price,
-        price_tiers: price > 0 ? [{ price, min_qty: 1 }] : [],
-        unit_weight_kg: null,
-        images: imgSrc ? [imgSrc] : [],
-        sale_quantity: "",
-        company_name: "",
-        location: "",
-        moq: 1,
-        attributes: {},
-        detail_url: href.startsWith("http")
-          ? href
-          : `https://www.aliexpress.com/item/${productId}.html`,
-        source: "aliexpress",
-      });
+  if (ssrData) {
+    const items = findProductItems(ssrData);
+    if (items.length > 0) {
+      console.log("[search-china] Found", items.length, "items in SSR data");
+      return parseApiItems(items);
     }
   }
 
-  return products;
+  return [];
+}
+
+// ─── Scrape products directly from DOM ──────────────────────────────────────
+
+async function scrapeDOMProducts(page: Page): Promise<DetailedProduct[]> {
+  return page.evaluate(() => {
+    const results: any[] = [];
+    const seenIds = new Set<string>();
+
+    // Find all product links
+    const links = document.querySelectorAll(
+      'a[href*="/item/"], a[href*="aliexpress.com/item"]'
+    );
+
+    links.forEach((link) => {
+      if (results.length >= 15) return;
+
+      const href = (link as HTMLAnchorElement).href || "";
+      const idMatch = href.match(/\/item\/(\d+)\.html/) || href.match(/\/(\d+)\.html/);
+      if (!idMatch) return;
+
+      const productId = idMatch[1];
+      if (seenIds.has(productId)) return;
+      seenIds.add(productId);
+
+      // Walk up to find the card container
+      let card: Element = link;
+      for (let i = 0; i < 6; i++) {
+        if (card.parentElement) card = card.parentElement;
+      }
+
+      // Title
+      const titleEl =
+        card.querySelector('[class*="title" i], [class*="name" i], h1, h3') ||
+        link.querySelector('[class*="title" i], h1, h3');
+      const title = titleEl?.textContent?.trim() || "";
+
+      // Price — try multiple patterns
+      const priceEl = card.querySelector('[class*="price" i]');
+      const priceText = priceEl?.textContent?.trim() || "";
+      // Match patterns like "$1.23", "US $1.23", "1,23", "12.34"
+      const priceMatch = priceText.match(
+        /(?:US\s*\$|USD\s*|\$)\s*([\d,]+\.?\d*)|(\d+[.,]\d{2})/
+      );
+      const price = priceMatch
+        ? parseFloat((priceMatch[1] || priceMatch[2]).replace(",", "."))
+        : 0;
+
+      // Image
+      const imgEl = card.querySelector("img") || link.querySelector("img");
+      let imgSrc = imgEl?.src || imgEl?.getAttribute("data-src") || "";
+      if (imgSrc.startsWith("//")) imgSrc = "https:" + imgSrc;
+
+      // Sold count
+      const soldEl = card.querySelector(
+        '[class*="sold" i], [class*="order" i], [class*="trade" i]'
+      );
+      const soldText = soldEl?.textContent?.trim() || "";
+
+      // Store
+      const storeEl = card.querySelector('[class*="store" i], [class*="shop" i]');
+      const storeName = storeEl?.textContent?.trim() || "";
+
+      if (title || price > 0 || imgSrc) {
+        results.push({
+          product_id: productId,
+          title,
+          price,
+          imgSrc,
+          soldText,
+          storeName,
+          detail_url: href.startsWith("http")
+            ? href
+            : `https://www.aliexpress.com/item/${productId}.html`,
+        });
+      }
+    });
+
+    return results;
+  }).then((raw) =>
+    raw.map(
+      (p: any): DetailedProduct => ({
+        product_id: p.product_id,
+        title: p.title,
+        brand: "",
+        price_range: p.price > 0 ? `$${p.price.toFixed(2)}` : "N/A",
+        min_price: p.price,
+        max_price: p.price,
+        price_tiers: p.price > 0 ? [{ price: p.price, min_qty: 1 }] : [],
+        unit_weight_kg: null,
+        images: p.imgSrc ? [p.imgSrc] : [],
+        sale_quantity: p.soldText,
+        company_name: p.storeName,
+        location: "",
+        moq: 1,
+        attributes: {},
+        detail_url: p.detail_url,
+        source: "aliexpress" as const,
+      })
+    )
+  );
 }
 
 // ─── Diagnostic GET endpoint ─────────────────────────────────────────────────
 
 export async function GET() {
+  // Quick check that Chromium is available
+  let chromiumOk = false;
+  let chromiumError = "";
+  try {
+    const browser = await launchBrowser();
+    const version = await browser.version();
+    await browser.close();
+    chromiumOk = true;
+    chromiumError = version;
+  } catch (e) {
+    chromiumError = e instanceof Error ? e.message : String(e);
+  }
+
   return NextResponse.json({
     timestamp: new Date().toISOString(),
-    method: "image-search-scraping",
-    status: "ready",
-    description: "Поиск по фото на AliExpress через парсинг HTML",
+    method: "puppeteer-image-search",
+    chromePath: CHROME_PATH,
+    chromiumOk,
+    chromiumVersion: chromiumOk ? chromiumError : undefined,
+    chromiumError: !chromiumOk ? chromiumError : undefined,
+    status: chromiumOk ? "ready" : "error",
   });
 }
 
@@ -393,10 +474,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log("[search-china] Starting image search...");
+    console.log("[search-china] === Image search start ===");
     console.log("[search-china] imageUrl:", imageUrl);
 
-    const result = await searchByImage(imageUrl);
+    const result = await searchAliExpressByImage(imageUrl);
+
+    console.log("[search-china] === Result:", result.products.length, "products ===");
 
     return NextResponse.json({
       searchMethod: "image" as const,
@@ -406,7 +489,7 @@ export async function POST(request: NextRequest) {
         ? {
             debug: {
               imageUrl,
-              method: "image-url-scraping",
+              method: "puppeteer",
               errorAliexpress: result.error || "Товары не найдены",
               foundAliexpress: 0,
               ...result.debug,
