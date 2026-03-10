@@ -460,35 +460,166 @@ export async function GET() {
   });
 }
 
+// ─── Search AliExpress by text query ────────────────────────────────────────
+
+async function searchAliExpressByText(
+  query: string
+): Promise<{ products: DetailedProduct[]; error: string; debug?: any }> {
+  let browser: Browser | null = null;
+
+  try {
+    console.log("[search-china] Text search, launching browser...");
+    browser = await launchBrowser();
+    const page = await browser.newPage();
+
+    await page.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+    );
+    await page.setExtraHTTPHeaders({ "Accept-Language": "en-US,en;q=0.9" });
+
+    const apiProducts: any[] = [];
+    page.on("response", async (response: HTTPResponse) => {
+      const url = response.url();
+      if (
+        (url.includes("/fn/search-pc/") ||
+          url.includes("/aer-api/") ||
+          url.includes("/glosearch/")) &&
+        response.status() === 200
+      ) {
+        try {
+          const json = await response.json();
+          console.log("[search-china] Intercepted text API:", url.slice(0, 120));
+          apiProducts.push(json);
+        } catch {
+          // not JSON
+        }
+      }
+    });
+
+    const encodedQuery = encodeURIComponent(query);
+    const searchUrl = `https://www.aliexpress.com/wholesale?SearchText=${encodedQuery}&sortType=total_tranpro_desc`;
+
+    console.log("[search-china] Text search URL:", searchUrl);
+    await page.goto(searchUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
+
+    try {
+      await page.waitForSelector(
+        'a[href*="/item/"], [class*="manhattan--container"], [class*="search-card-item"], [class*="product-card"]',
+        { timeout: 15000 }
+      );
+    } catch {
+      console.log("[search-china] Timeout waiting for text search selectors");
+    }
+
+    await new Promise((r) => setTimeout(r, 3000));
+
+    let products: DetailedProduct[] = [];
+    if (apiProducts.length > 0) {
+      for (const data of apiProducts) {
+        const items = findProductItems(data);
+        if (items.length > 0) {
+          products = parseApiItems(items);
+          break;
+        }
+      }
+    }
+    if (products.length === 0) products = await extractSSRProducts(page);
+    if (products.length === 0) products = await scrapeDOMProducts(page);
+
+    const finalUrl = page.url();
+    console.log("[search-china] Text search found:", products.length, "products");
+
+    return {
+      products: products.slice(0, 15),
+      error: products.length === 0 ? "Товары не найдены" : "",
+      debug: { finalUrl, query, productsFound: products.length },
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[search-china] Text search error:", msg);
+    return { products: [], error: msg };
+  } finally {
+    if (browser) await browser.close().catch(() => {});
+  }
+}
+
+// ─── Verify image URL is accessible ────────────────────────────────────────
+
+async function isImageAccessible(url: string): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(url, { method: "HEAD", signal: controller.signal });
+    clearTimeout(timer);
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 // ─── Main POST Handler ──────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { imageUrl } = body;
+    const { imageUrl, productTitle } = body;
 
-    if (!imageUrl) {
+    if (!imageUrl && !productTitle) {
       return NextResponse.json(
-        { error: "Не передана ссылка на изображение" },
+        { error: "Не передана ссылка на изображение или название товара" },
         { status: 400 }
       );
     }
 
-    console.log("[search-china] === Image search start ===");
+    console.log("[search-china] === Search start ===");
     console.log("[search-china] imageUrl:", imageUrl);
+    console.log("[search-china] productTitle:", productTitle);
 
-    const result = await searchAliExpressByImage(imageUrl);
+    let result: { products: DetailedProduct[]; error: string; debug?: any };
+    let searchMethod: "image" | "text" | "image+text" = "image";
 
-    console.log("[search-china] === Result:", result.products.length, "products ===");
+    // Try image search first if we have a valid image URL
+    if (imageUrl) {
+      const imageOk = await isImageAccessible(imageUrl);
+      console.log("[search-china] Image accessible:", imageOk);
+
+      if (imageOk) {
+        result = await searchAliExpressByImage(imageUrl);
+
+        // If image search found nothing and we have a title, try text search
+        if (result.products.length === 0 && productTitle) {
+          console.log("[search-china] Image search empty, falling back to text...");
+          result = await searchAliExpressByText(productTitle);
+          searchMethod = "image+text";
+        }
+      } else {
+        // Image is 404, go straight to text search
+        console.log("[search-china] Image URL is 404, using text search...");
+        if (productTitle) {
+          result = await searchAliExpressByText(productTitle);
+          searchMethod = "text";
+        } else {
+          result = { products: [], error: "Фото товара недоступно (404) и не указано название" };
+          searchMethod = "image";
+        }
+      }
+    } else {
+      // No image, text search only
+      result = await searchAliExpressByText(productTitle);
+      searchMethod = "text";
+    }
+
+    console.log("[search-china] === Result:", result.products.length, "products, method:", searchMethod, "===");
 
     return NextResponse.json({
-      searchMethod: "image" as const,
+      searchMethod,
       totalFound: result.products.length,
       products: result.products,
       ...(result.products.length === 0
         ? {
             debug: {
               imageUrl,
+              productTitle,
               method: "puppeteer",
               errorAliexpress: result.error || "Товары не найдены",
               foundAliexpress: 0,

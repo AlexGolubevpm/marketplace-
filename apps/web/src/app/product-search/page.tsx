@@ -51,12 +51,10 @@ interface ChinaSearchResult {
     imageUrl?: string;
     productTitle?: string;
     query?: string;
-    host?: string;
-    keySet?: boolean;
-    keyLen?: number;
-    proxy?: string;
     errorAliexpress?: string | null;
     foundAliexpress?: number;
+    finalUrl?: string;
+    productsFound?: number;
   };
 }
 
@@ -844,9 +842,6 @@ export default function ProductSearchPage() {
                 </p>
                 {chinaResults.debug && (
                   <div className="mt-3 text-left bg-white/60 rounded-lg p-3 text-xs text-gray-500 font-mono">
-                    <p>API host: {chinaResults.debug.host}</p>
-                    <p>API key: {chinaResults.debug.keySet ? `задан (${chinaResults.debug.keyLen} симв.)` : "НЕ ЗАДАН"}</p>
-                    {chinaResults.debug.proxy && <p>Proxy: {chinaResults.debug.proxy}</p>}
                     {chinaResults.debug.imageUrl && <p>Фото: {chinaResults.debug.imageUrl}</p>}
                     {chinaResults.debug.productTitle && <p>Название: {chinaResults.debug.productTitle}</p>}
                     {chinaResults.debug.query && <p>Запрос: {chinaResults.debug.query}</p>}
