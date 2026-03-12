@@ -74,8 +74,25 @@ function getWbBasketNumber(vol: number): number {
   if (vol <= 3269) return 19;
   if (vol <= 3485) return 20;
   if (vol <= 3701) return 21;
-  // For newer products, estimate (will be refined by probing)
-  return 21 + Math.ceil((vol - 3701) / 260);
+  // Newer products: step ~216 per basket
+  if (vol <= 3917) return 22;
+  if (vol <= 4133) return 23;
+  if (vol <= 4349) return 24;
+  if (vol <= 4565) return 25;
+  if (vol <= 4781) return 26;
+  if (vol <= 4997) return 27;
+  if (vol <= 5213) return 28;
+  if (vol <= 5429) return 29;
+  if (vol <= 5645) return 30;
+  if (vol <= 5861) return 31;
+  if (vol <= 6077) return 32;
+  if (vol <= 6293) return 33;
+  if (vol <= 6509) return 34;
+  if (vol <= 6725) return 35;
+  if (vol <= 6941) return 36;
+  if (vol <= 7157) return 37;
+  // Future baskets: estimate with step 216
+  return 37 + Math.ceil((vol - 7157) / 216);
 }
 
 function basketHost(n: number): string {
@@ -203,58 +220,57 @@ async function parseWildberries(url: string): Promise<ProductData> {
   // Generate image URLs using the found basket host, with verification
   const vol = Math.floor(nmId / 100000);
   const part = Math.floor(nmId / 1000);
-  const path = wbCdnPath(vol, part, nmId);
+  const cdnPath = wbCdnPath(vol, part, nmId);
   let images: string[] = [];
 
-  // Try to find a working image host — wbbasket.ru may not match wbcontent.net
-  const candidateHosts = [host];
-  // Also try wbcontent.net variant
-  const basketNum = host.match(/basket-(\d+)/)?.[1];
-  if (basketNum) {
-    candidateHosts.push(`basket-${basketNum}.wbcontent.net`);
+  // Find a working image host + extension by probing
+  const basketNumFromHost = host.match(/basket-(\d+)/)?.[1];
+  const correctBasket = getWbBasketNumber(vol);
+  const correctPadded = String(correctBasket).padStart(2, "0");
+
+  // Build candidate list: correct basket first, then host basket, then neighbors
+  const candidateNums = new Set<number>();
+  candidateNums.add(correctBasket);
+  if (basketNumFromHost) candidateNums.add(parseInt(basketNumFromHost, 10));
+  for (let offset = -2; offset <= 2; offset++) {
+    candidateNums.add(correctBasket + offset);
+    if (basketNumFromHost) candidateNums.add(parseInt(basketNumFromHost, 10) + offset);
   }
 
   let workingHost = "";
-  for (const h of candidateHosts) {
-    const testUrl = `https://${h}${path}/images/big/1.jpg`;
-    try {
-      const res = await fetchWithTimeout(testUrl, { method: "HEAD" }, 5000);
-      if (res.ok) {
-        workingHost = h;
-        break;
-      }
-    } catch {
-      // try next
-    }
-  }
+  let workingExt = "jpg";
 
-  // If primary host didn't work, probe nearby basket numbers on both domains
-  if (!workingHost) {
-    const baseNum = parseInt(basketNum || "21", 10);
-    const probePromises: Promise<string>[] = [];
-    for (let offset = -3; offset <= 3; offset++) {
-      const n = baseNum + offset;
-      if (n < 1) continue;
-      const padded = String(n).padStart(2, "0");
-      for (const domain of ["wbbasket.ru", "wbcontent.net"]) {
+  // Try all combinations in parallel: host × domain × extension
+  const probePromises: Promise<{ host: string; ext: string }>[] = [];
+  for (const num of candidateNums) {
+    if (num < 1) continue;
+    const padded = String(num).padStart(2, "0");
+    for (const domain of ["wbbasket.ru", "wbcontent.net"]) {
+      for (const ext of ["jpg", "webp"]) {
         const h = `basket-${padded}.${domain}`;
+        const testUrl = `https://${h}${cdnPath}/images/big/1.${ext}`;
         probePromises.push(
-          fetchWithTimeout(`https://${h}${path}/images/big/1.jpg`, { method: "HEAD" }, 5000)
-            .then((r) => (r.ok ? h : Promise.reject()))
+          fetchWithTimeout(testUrl, { method: "HEAD" }, 5000)
+            .then((r) => (r.ok ? { host: h, ext } : Promise.reject()))
             .catch(() => Promise.reject())
         );
       }
     }
-    try {
-      workingHost = await Promise.any(probePromises);
-    } catch {
-      // Fall back to original host — images may still be accessible externally
-      workingHost = host;
-    }
+  }
+
+  try {
+    const found = await Promise.any(probePromises);
+    workingHost = found.host;
+    workingExt = found.ext;
+    console.log(`[parse-product] Found working image host: ${workingHost}, ext: ${workingExt}`);
+  } catch {
+    // All probes failed — use best guess
+    workingHost = `basket-${correctPadded}.wbbasket.ru`;
+    console.log(`[parse-product] All image probes failed, using guess: ${workingHost}`);
   }
 
   for (let i = 1; i <= Math.min(photoCount, 5); i++) {
-    images.push(`https://${workingHost}${path}/images/big/${i}.jpg`);
+    images.push(`https://${workingHost}${cdnPath}/images/big/${i}.${workingExt}`);
   }
 
   // Extract weight and dimensions from options
@@ -325,7 +341,7 @@ async function parseWildberries(url: string): Promise<ProductData> {
   let quantity: number | null = null;
 
   try {
-    const priceUrl = `https://${host}${path}/info/price-history.json`;
+    const priceUrl = `https://${host}${cdnPath}/info/price-history.json`;
     const priceRes = await fetchWithTimeout(
       priceUrl,
       { headers: { Accept: "application/json" } },
