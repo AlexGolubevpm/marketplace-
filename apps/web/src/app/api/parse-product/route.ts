@@ -151,13 +151,61 @@ async function parseWildberries(url: string): Promise<ProductData> {
     throw new Error("Не удалось получить название товара с WB.");
   }
 
-  // Generate image URLs using the found basket host
+  // Generate image URLs using the found basket host, with verification
   const vol = Math.floor(nmId / 100000);
   const part = Math.floor(nmId / 1000);
   const path = wbCdnPath(vol, part, nmId);
-  const images: string[] = [];
+  let images: string[] = [];
+
+  // Try to find a working image host — wbbasket.ru may not match wbcontent.net
+  const candidateHosts = [host];
+  // Also try wbcontent.net variant
+  const basketNum = host.match(/basket-(\d+)/)?.[1];
+  if (basketNum) {
+    candidateHosts.push(`basket-${basketNum}.wbcontent.net`);
+  }
+
+  let workingHost = "";
+  for (const h of candidateHosts) {
+    const testUrl = `https://${h}${path}/images/big/1.jpg`;
+    try {
+      const res = await fetchWithTimeout(testUrl, { method: "HEAD" }, 5000);
+      if (res.ok) {
+        workingHost = h;
+        break;
+      }
+    } catch {
+      // try next
+    }
+  }
+
+  // If primary host didn't work, probe nearby basket numbers on both domains
+  if (!workingHost) {
+    const baseNum = parseInt(basketNum || "21", 10);
+    const probePromises: Promise<string>[] = [];
+    for (let offset = -3; offset <= 3; offset++) {
+      const n = baseNum + offset;
+      if (n < 1) continue;
+      const padded = String(n).padStart(2, "0");
+      for (const domain of ["wbbasket.ru", "wbcontent.net"]) {
+        const h = `basket-${padded}.${domain}`;
+        probePromises.push(
+          fetchWithTimeout(`https://${h}${path}/images/big/1.jpg`, { method: "HEAD" }, 5000)
+            .then((r) => (r.ok ? h : Promise.reject()))
+            .catch(() => Promise.reject())
+        );
+      }
+    }
+    try {
+      workingHost = await Promise.any(probePromises);
+    } catch {
+      // Fall back to original host — images may still be accessible externally
+      workingHost = host;
+    }
+  }
+
   for (let i = 1; i <= Math.min(photoCount, 5); i++) {
-    images.push(`https://${host}${path}/images/big/${i}.jpg`);
+    images.push(`https://${workingHost}${path}/images/big/${i}.jpg`);
   }
 
   // Extract weight and dimensions from options

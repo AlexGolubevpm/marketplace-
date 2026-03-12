@@ -1,186 +1,387 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ProxyAgent, fetch as undiciFetch } from "undici";
+import { chromium, type Browser, type Page } from "playwright";
 
 // ─── Config ─────────────────────────────────────────────────────────────────
-// OTAPI via RapidAPI: taobao-tmall1 for Taobao, otapi-1688 for 1688
-const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || "";
-const TAOBAO_HOST = process.env.RAPIDAPI_HOST || "taobao-tmall1.p.rapidapi.com";
-const ALI1688_HOST = process.env.RAPIDAPI_HOST_1688 || "otapi-1688.p.rapidapi.com";
-// HTTP/HTTPS proxy to bypass geo-restrictions (e.g. "http://user:pass@proxy:8080")
-const PROXY_URL = process.env.RAPIDAPI_PROXY || "";
 
-// Create a reusable proxy agent if configured
-const proxyAgent = PROXY_URL ? new ProxyAgent(PROXY_URL) : null;
-
-if (proxyAgent) {
-  const masked = PROXY_URL.replace(/\/\/([^:]+):([^@]+)@/, "//$1:***@");
-  console.log("[search-china] Proxy agent created:", masked);
-} else {
-  console.log("[search-china] No proxy configured (RAPIDAPI_PROXY is empty)");
-}
+const LOGIN_1688 = process.env.ALI_1688_LOGIN || "";
+const PASSWORD_1688 = process.env.ALI_1688_PASSWORD || "";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-interface DetailedProduct {
+interface Product1688 {
   product_id: string;
   title: string;
-  brand: string;
   price_range: string;
   min_price: number;
   max_price: number;
-  price_tiers: { price: number; min_qty: number }[];
-  unit_weight_kg: number | null;
   images: string[];
   sale_quantity: string;
   company_name: string;
   location: string;
   moq: number;
-  attributes: Record<string, string>;
   detail_url: string;
-  source: "1688" | "taobao";
+  source: "1688";
 }
 
-// ─── Fetch with proxy + timeout ─────────────────────────────────────────────
+// ─── Launch browser ─────────────────────────────────────────────────────────
 
-async function proxyFetch(
-  url: string,
-  opts: Record<string, any> = {},
-  timeoutMs = 20000
-): Promise<{ ok: boolean; status: number; text: () => Promise<string>; json: () => Promise<any> }> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+async function launchBrowser(): Promise<Browser> {
+  return chromium.launch({
+    headless: true,
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-gpu",
+      "--disable-extensions",
+      "--disable-background-networking",
+      "--no-first-run",
+      "--window-size=1920,1080",
+    ],
+  });
+}
+
+// ─── Login to 1688 ──────────────────────────────────────────────────────────
+
+async function login1688(page: Page): Promise<boolean> {
+  if (!LOGIN_1688 || !PASSWORD_1688) {
+    console.log("[search-china] 1688 credentials not set, skipping login");
+    return false;
+  }
 
   try {
-    if (proxyAgent) {
-      console.log("[search-china] Fetching via proxy...");
-      const res = await undiciFetch(url, {
-        ...opts,
-        signal: controller.signal,
-        dispatcher: proxyAgent,
-      });
-      return res as any;
+    console.log("[search-china] Navigating to 1688 login...");
+    await page.goto("https://login.1688.com/member/signin.htm", {
+      waitUntil: "domcontentloaded",
+      timeout: 30000,
+    });
+
+    // Wait for the login form to appear
+    await page.waitForTimeout(2000);
+
+    // Switch to password login tab if needed
+    const passwordTab = page.locator(
+      'div[data-loginmode="password"], [class*="password-login"], text=密码登录'
+    );
+    if (await passwordTab.first().isVisible({ timeout: 3000 }).catch(() => false)) {
+      await passwordTab.first().click();
+      await page.waitForTimeout(1000);
     }
-    console.log("[search-china] Fetching directly (no proxy)...");
-    return await fetch(url, { ...opts, signal: controller.signal });
-  } finally {
-    clearTimeout(timer);
-  }
-}
 
-// ─── Parse OTAPI response into DetailedProduct[] ────────────────────────────
+    // 1688 login form can be inside an iframe
+    let loginFrame: Page | import("playwright").Frame = page;
 
-function parseOTAPIItems(
-  data: any,
-  source: "1688" | "taobao"
-): DetailedProduct[] {
-  const items: any[] = data.Result?.Items?.Content || [];
-  return items.map((item) => {
-    const price = parseFloat(item.Price?.OriginalPrice) || 0;
-    const promoPrice = item.PromotionPrice
-      ? parseFloat(item.PromotionPrice?.OriginalPrice) || 0
-      : 0;
-    const effectivePrice = promoPrice > 0 ? promoPrice : price;
-
-    const images: string[] = [];
-    if (item.MainPictureUrl) images.push(item.MainPictureUrl);
-    if (item.Pictures) {
-      for (const pic of item.Pictures) {
-        const picUrl = pic.Url || pic.Medium?.Url || pic.Large?.Url || "";
-        if (picUrl && !images.includes(picUrl)) images.push(picUrl);
+    const iframeEl = page.locator('iframe[id*="login"], iframe[src*="login"]');
+    if (await iframeEl.first().isVisible({ timeout: 3000 }).catch(() => false)) {
+      const frameHandle = await iframeEl.first().elementHandle();
+      const frame = frameHandle ? await frameHandle.contentFrame() : null;
+      if (frame) {
+        loginFrame = frame;
+        console.log("[search-china] Found login iframe");
       }
     }
 
+    // Fill login and password
+    const loginInput = loginFrame.locator(
+      'input[name="loginId"], input[name="username"], input[id*="login"], input[placeholder*="邮箱"], input[placeholder*="手机"], input[type="text"]'
+    );
+    const passwordInput = loginFrame.locator(
+      'input[name="password"], input[type="password"]'
+    );
+
+    await loginInput.first().waitFor({ state: "visible", timeout: 10000 });
+    await loginInput.first().fill(LOGIN_1688);
+    await page.waitForTimeout(500);
+
+    await passwordInput.first().waitFor({ state: "visible", timeout: 5000 });
+    await passwordInput.first().fill(PASSWORD_1688);
+    await page.waitForTimeout(500);
+
+    // Click submit
+    const submitBtn = loginFrame.locator(
+      'button[type="submit"], [class*="login-btn"], [class*="submit"], button:has-text("登录")'
+    );
+    await submitBtn.first().click();
+
+    // Wait for redirect after login
+    await page.waitForTimeout(5000);
+
+    // Check if login succeeded — should redirect away from login page
+    const currentUrl = page.url();
+    const isLoggedIn = !currentUrl.includes("login.1688.com");
+    console.log("[search-china] Login result:", isLoggedIn ? "success" : "failed", "url:", currentUrl);
+
+    return isLoggedIn;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[search-china] Login error:", msg);
+    return false;
+  }
+}
+
+// ─── Search 1688 by image ───────────────────────────────────────────────────
+
+async function search1688ByImage(
+  imageUrl: string
+): Promise<{ products: Product1688[]; error: string; debug?: any }> {
+  let browser: Browser | null = null;
+
+  try {
+    console.log("[search-china] Launching Playwright browser...");
+    browser = await launchBrowser();
+    const context = await browser.newContext({
+      userAgent:
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+      viewport: { width: 1920, height: 1080 },
+      locale: "zh-CN",
+      extraHTTPHeaders: {
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+      },
+    });
+    const page = await context.newPage();
+
+    // Login first
+    const loggedIn = await login1688(page);
+    console.log("[search-china] Logged in:", loggedIn);
+
+    // Navigate to 1688 image search
+    const encodedImg = encodeURIComponent(imageUrl);
+    const searchUrl = `https://s.1688.com/youyuan/index.htm?tab=imageSearch&imageUrl=${encodedImg}&imageType=oss`;
+
+    console.log("[search-china] Navigating to image search:", searchUrl.slice(0, 120));
+    await page.goto(searchUrl, {
+      waitUntil: "domcontentloaded",
+      timeout: 30000,
+    });
+
+    // Wait for results to load
+    console.log("[search-china] Waiting for results...");
+    try {
+      await page.waitForSelector(
+        '[class*="offer-card"], [class*="card-container"], [class*="img-item"], [class*="sm-offer"], a[href*="detail.1688.com"]',
+        { timeout: 15000 }
+      );
+    } catch {
+      console.log("[search-china] Timeout waiting for result selectors");
+    }
+
+    // Extra time for lazy loading
+    await page.waitForTimeout(3000);
+
+    // Scroll down to load more items
+    await page.evaluate(() => window.scrollBy(0, 800));
+    await page.waitForTimeout(2000);
+
+    // Extract products from the page
+    const products = await page.evaluate((): any[] => {
+      const results: any[] = [];
+      const seenIds = new Set<string>();
+
+      // Find product cards — 1688 uses various class patterns
+      const cards = document.querySelectorAll(
+        '[class*="offer-card"], [class*="card-container"], [class*="img-item"], [class*="sm-offer-card"]'
+      );
+
+      // Also try finding product links directly
+      const productLinks = document.querySelectorAll(
+        'a[href*="detail.1688.com/offer"], a[href*="offer/"], a[data-href*="detail.1688.com"]'
+      );
+
+      const processElement = (el: Element, link?: HTMLAnchorElement) => {
+        if (results.length >= 5) return;
+
+        // Find product link
+        const anchor =
+          link ||
+          el.querySelector('a[href*="detail.1688.com"], a[href*="offer/"]') as HTMLAnchorElement | null;
+        const href = anchor?.href || anchor?.getAttribute("data-href") || "";
+
+        // Extract product ID
+        const idMatch =
+          href.match(/offer\/(\d+)\.html/) ||
+          href.match(/offerId=(\d+)/) ||
+          href.match(/\/(\d+)\.html/);
+        if (!idMatch) return;
+
+        const productId = idMatch[1];
+        if (seenIds.has(productId)) return;
+        seenIds.add(productId);
+
+        // Title
+        const titleEl = el.querySelector(
+          '[class*="title"], [class*="name"], h4, h3, [class*="subject"]'
+        );
+        const title = titleEl?.textContent?.trim() || "";
+
+        // Price
+        const priceEl = el.querySelector('[class*="price"]');
+        const priceText = priceEl?.textContent?.trim() || "";
+        const priceMatch = priceText.match(/([\d.]+)/);
+        const price = priceMatch ? parseFloat(priceMatch[1]) : 0;
+
+        // Max price (range)
+        const allPrices = priceText.match(/[\d.]+/g);
+        const maxPrice =
+          allPrices && allPrices.length > 1
+            ? parseFloat(allPrices[allPrices.length - 1])
+            : price;
+
+        // Image
+        const imgEl = el.querySelector("img");
+        let imgSrc =
+          imgEl?.src ||
+          imgEl?.getAttribute("data-src") ||
+          imgEl?.getAttribute("data-lazy-src") ||
+          "";
+        if (imgSrc.startsWith("//")) imgSrc = "https:" + imgSrc;
+
+        // Sold / quantity
+        const soldEl = el.querySelector(
+          '[class*="sale"], [class*="sold"], [class*="deal"], [class*="trade"]'
+        );
+        const soldText = soldEl?.textContent?.trim() || "";
+
+        // Company
+        const companyEl = el.querySelector(
+          '[class*="company"], [class*="supplier"], [class*="seller"]'
+        );
+        const companyName = companyEl?.textContent?.trim() || "";
+
+        // Location
+        const locationEl = el.querySelector(
+          '[class*="location"], [class*="address"], [class*="area"]'
+        );
+        const location = locationEl?.textContent?.trim() || "";
+
+        // MOQ
+        const moqEl = el.querySelector('[class*="moq"], [class*="min-order"]');
+        const moqText = moqEl?.textContent?.trim() || "";
+        const moqMatch = moqText.match(/(\d+)/);
+        const moq = moqMatch ? parseInt(moqMatch[1], 10) : 1;
+
+        if (title || price > 0 || imgSrc) {
+          results.push({
+            product_id: productId,
+            title,
+            price,
+            maxPrice: maxPrice || price,
+            imgSrc,
+            soldText,
+            companyName,
+            location,
+            moq,
+            detail_url: href.startsWith("http")
+              ? href
+              : `https://detail.1688.com/offer/${productId}.html`,
+          });
+        }
+      };
+
+      // Process card elements
+      cards.forEach((card) => processElement(card));
+
+      // If no cards found, try processing links
+      if (results.length === 0) {
+        productLinks.forEach((link) => {
+          const anchor = link as HTMLAnchorElement;
+          // Walk up to find a parent container
+          let container: Element = anchor;
+          for (let i = 0; i < 6; i++) {
+            if (container.parentElement) container = container.parentElement;
+          }
+          processElement(container, anchor);
+        });
+      }
+
+      return results;
+    });
+
+    // Map raw results to typed products
+    const typedProducts: Product1688[] = products.map((p) => ({
+      product_id: p.product_id,
+      title: p.title,
+      price_range:
+        p.price > 0
+          ? p.maxPrice > p.price
+            ? `¥${p.price.toFixed(2)} - ¥${p.maxPrice.toFixed(2)}`
+            : `¥${p.price.toFixed(2)}`
+          : "N/A",
+      min_price: p.price,
+      max_price: p.maxPrice || p.price,
+      images: p.imgSrc ? [p.imgSrc] : [],
+      sale_quantity: p.soldText,
+      company_name: p.companyName,
+      location: p.location,
+      moq: p.moq || 1,
+      detail_url: p.detail_url,
+      source: "1688" as const,
+    }));
+
+    const finalUrl = page.url();
+    console.log("[search-china] Final URL:", finalUrl);
+    console.log("[search-china] Total products found:", typedProducts.length);
+
     return {
-      product_id: String(item.Id || ""),
-      title: item.Title || item.OriginalTitle || "",
-      brand: item.BrandName || "",
-      price_range: effectivePrice > 0 ? String(effectivePrice) : String(price),
-      min_price: effectivePrice > 0 ? effectivePrice : price,
-      max_price: price > effectivePrice ? price : effectivePrice,
-      price_tiers: [{ price: effectivePrice > 0 ? effectivePrice : price, min_qty: 1 }],
-      unit_weight_kg: null,
-      images: images.slice(0, 6),
-      sale_quantity: item.Volume != null ? String(item.Volume) : "",
-      company_name: item.VendorDisplayName || item.VendorName || "",
-      location: item.Location?.State || item.Location?.City || "",
-      moq: 1,
-      attributes: {},
-      detail_url:
-        item.ExternalItemUrl ||
-        item.TaobaoItemUrl ||
-        (source === "1688"
-          ? `https://detail.1688.com/offer/${item.Id}.html`
-          : `https://item.taobao.com/item.htm?id=${item.Id}`),
-      source,
+      products: typedProducts.slice(0, 5),
+      error: typedProducts.length === 0 ? "Товары не найдены" : "",
+      debug: {
+        finalUrl,
+        loggedIn,
+        productsFound: typedProducts.length,
+      },
     };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[search-china] Error:", msg);
+    return { products: [], error: msg };
+  } finally {
+    if (browser) {
+      await browser.close().catch(() => {});
+    }
+  }
+}
+
+// ─── Verify image URL is accessible ────────────────────────────────────────
+
+async function isImageAccessible(url: string): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(url, { method: "HEAD", signal: controller.signal });
+    clearTimeout(timer);
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+// ─── Diagnostic GET endpoint ─────────────────────────────────────────────────
+
+export async function GET() {
+  let browserOk = false;
+  let browserError = "";
+  try {
+    const browser = await launchBrowser();
+    const version = browser.version();
+    await browser.close();
+    browserOk = true;
+    browserError = version;
+  } catch (e) {
+    browserError = e instanceof Error ? e.message : String(e);
+  }
+
+  return NextResponse.json({
+    timestamp: new Date().toISOString(),
+    method: "playwright-1688-image-search",
+    browserOk,
+    browserVersion: browserOk ? browserError : undefined,
+    browserError: !browserOk ? browserError : undefined,
+    credentials: LOGIN_1688 ? "set" : "NOT SET",
+    status: browserOk ? "ready" : "error",
   });
 }
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-function escapeXml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
-}
-
-// ─── OTAPI BatchSearchItemsFrame (image search) ────────────────────────────
-
-async function searchOTAPI(
-  host: string,
-  imageUrl: string,
-  source: "1688" | "taobao"
-): Promise<{ products: DetailedProduct[]; error: string }> {
-  // ImageUrl must be inside xmlParameters for Taobao (and works for 1688 too)
-  const xmlParameters = `<SearchItemsParameters><ImageUrl>${escapeXml(imageUrl)}</ImageUrl></SearchItemsParameters>`;
-
-  const params = new URLSearchParams({
-    language: "ru",
-    framePosition: "0",
-    frameSize: "20",
-    xmlParameters,
-  });
-
-  const url = `https://${host}/BatchSearchItemsFrame?${params.toString()}`;
-  console.log(`[search-china] ${source} image search →`, url);
-
-  const headers: Record<string, string> = {
-    "x-rapidapi-key": RAPIDAPI_KEY,
-    "x-rapidapi-host": host,
-  };
-
-  const res = await proxyFetch(url, { method: "GET", headers });
-
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    console.error(`[search-china] ${source} HTTP error:`, res.status, body);
-    return { products: [], error: `HTTP ${res.status}: ${body.slice(0, 200)}` };
-  }
-
-  const data = await res.json();
-  console.log(
-    `[search-china] ${source} response: ErrorCode=`,
-    data.ErrorCode,
-    "items=",
-    data.Result?.Items?.Content?.length ?? 0
-  );
-
-  if (data.ErrorCode !== "Ok" || !data.Result?.Items?.Content) {
-    return {
-      products: [],
-      error: data.ErrorCode
-        ? `API ErrorCode: ${data.ErrorCode} - ${data.ErrorDescription || ""}`
-        : "Empty response",
-    };
-  }
-
-  return { products: parseOTAPIItems(data, source), error: "" };
-}
-
-// ─── Main Handler ───────────────────────────────────────────────────────────
+// ─── Main POST Handler ──────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
   try {
@@ -194,82 +395,50 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!RAPIDAPI_KEY) {
-      return NextResponse.json({
-        searchMethod: "image",
-        totalFound: 0,
-        products: [],
-        debug: {
-          imageUrl,
-          host: TAOBAO_HOST,
-          keySet: false,
-          keyLen: 0,
-          errorTaobao: "RAPIDAPI_KEY не настроен",
-          error1688: "RAPIDAPI_KEY не настроен",
-          found1688: 0,
-          foundTaobao: 0,
-        },
-      });
-    }
-
+    console.log("[search-china] === 1688 image search start ===");
     console.log("[search-china] imageUrl:", imageUrl);
-    console.log("[search-china] TAOBAO_HOST:", TAOBAO_HOST);
-    console.log("[search-china] ALI1688_HOST:", ALI1688_HOST);
-    console.log("[search-china] RAPIDAPI_KEY len:", RAPIDAPI_KEY.length);
-    console.log("[search-china] PROXY:", PROXY_URL ? "configured" : "not set");
 
-    // Search both Taobao and 1688 by image in parallel
-    const [taobaoResult, ali1688Result] = await Promise.all([
-      searchOTAPI(TAOBAO_HOST, imageUrl, "taobao").catch((e) => ({
-        products: [] as DetailedProduct[],
-        error: String(e),
-      })),
-      searchOTAPI(ALI1688_HOST, imageUrl, "1688").catch((e) => ({
-        products: [] as DetailedProduct[],
-        error: String(e),
-      })),
-    ]);
+    // Verify image is accessible
+    const imageOk = await isImageAccessible(imageUrl);
+    console.log("[search-china] Image accessible:", imageOk);
 
-    // Combine: 1688 first, then Taobao
-    const allProducts = [
-      ...ali1688Result.products.slice(0, 10),
-      ...taobaoResult.products.slice(0, 10),
-    ];
-
-    console.log(
-      "[search-china] image results: 1688=",
-      ali1688Result.products.length,
-      "taobao=",
-      taobaoResult.products.length
-    );
-
-    if (allProducts.length === 0) {
+    if (!imageOk) {
       return NextResponse.json({
         searchMethod: "image",
         totalFound: 0,
         products: [],
         debug: {
           imageUrl,
-          host: `${TAOBAO_HOST} / ${ALI1688_HOST}`,
-          keySet: !!RAPIDAPI_KEY,
-          keyLen: RAPIDAPI_KEY.length,
-          proxy: PROXY_URL ? "configured" : "not set (нужен прокси для РФ серверов)",
-          errorTaobao: taobaoResult.error || null,
-          error1688: ali1688Result.error || null,
-          foundTaobao: taobaoResult.products.length,
-          found1688: ali1688Result.products.length,
+          method: "playwright-1688",
+          errorAliexpress: "Фото товара недоступно (404)",
+          foundAliexpress: 0,
         },
       });
     }
+
+    const result = await search1688ByImage(imageUrl);
+
+    console.log("[search-china] === Result:", result.products.length, "products ===");
 
     return NextResponse.json({
-      searchMethod: "image",
-      totalFound: allProducts.length,
-      products: allProducts,
+      searchMethod: "image" as const,
+      totalFound: result.products.length,
+      products: result.products,
+      ...(result.products.length === 0
+        ? {
+            debug: {
+              imageUrl,
+              method: "playwright-1688",
+              error1688: result.error || "Товары не найдены",
+              found1688: 0,
+              ...result.debug,
+            },
+          }
+        : {}),
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Неизвестная ошибка";
+    const message = error instanceof Error ? error.message : "Неизвестная ошибка";
+    console.error("[search-china] Handler error:", message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

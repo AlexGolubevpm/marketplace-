@@ -37,10 +37,9 @@ services:
       - SMTP_USER=${SMTP_USER:-}
       - SMTP_PASS=${SMTP_PASS:-}
       - SMTP_FROM=${SMTP_FROM:-}
-      - RAPIDAPI_KEY=${RAPIDAPI_KEY:-}
-      - RAPIDAPI_HOST=${RAPIDAPI_HOST:-taobao-tmall1.p.rapidapi.com}
-      - RAPIDAPI_HOST_1688=${RAPIDAPI_HOST_1688:-otapi-1688.p.rapidapi.com}
-      - RAPIDAPI_PROXY=${RAPIDAPI_PROXY:-}
+      - ALI_1688_LOGIN=${ALI_1688_LOGIN:-}
+      - ALI_1688_PASSWORD=${ALI_1688_PASSWORD:-}
+      - PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
     volumes:
       - uploads_data:/app/apps/web/public/uploads
     depends_on:

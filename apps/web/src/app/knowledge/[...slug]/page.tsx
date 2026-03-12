@@ -10,6 +10,7 @@ import {
 import { MdxRenderer, extractHeadings } from "@/components/knowledge/mdx-renderer";
 import { KnowledgeToc } from "@/components/knowledge/toc";
 import { CargoRequestForm } from "@/components/knowledge/cargo-request-form";
+import { KnowledgeQuestionForm } from "@/components/knowledge/question-form";
 
 export const dynamic = "force-dynamic";
 
@@ -300,6 +301,11 @@ export default async function ArticlePage({ params }: Props) {
                     👎 Нет
                   </button>
                 </div>
+              </div>
+
+              {/* Question Form */}
+              <div className="mt-8">
+                <KnowledgeQuestionForm />
               </div>
 
               {/* Cargo Request Form */}

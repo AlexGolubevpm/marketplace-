@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Plus, Save, Trash2, ArrowLeft, BookOpen, Tag, FolderOpen,
   ExternalLink, Eye, EyeOff, Star, StarOff, Globe, AlertCircle,
+  HelpCircle,
 } from "lucide-react";
 import { trpc } from "@/trpc/client";
 
@@ -693,6 +694,158 @@ function RedirectsTab() {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
+// QUESTIONS TAB
+// ═════════════════════════════════════════════════════════════════════════════
+type KbQuestion = {
+  id: string; name: string; email: string | null; question: string;
+  topic: string | null; status: "new" | "reviewed" | "published" | "rejected";
+  admin_notes: string | null; article_id: string | null;
+  created_at: Date; updated_at: Date;
+};
+
+const questionStatusLabels: Record<string, { label: string; variant: "default" | "success" | "gray" | "destructive" }> = {
+  new: { label: "Новый", variant: "default" },
+  reviewed: { label: "Рассмотрен", variant: "gray" },
+  published: { label: "Опубликован", variant: "success" },
+  rejected: { label: "Отклонён", variant: "destructive" },
+};
+
+function QuestionsTab() {
+  const utils = trpc.useUtils();
+  const [selected, setSelected] = useState<KbQuestion | null>(null);
+  const [notes, setNotes] = useState("");
+  const [filter, setFilter] = useState<string>("all");
+
+  const { data: questions = [] } = trpc.knowledge.adminListQuestions.useQuery(
+    filter !== "all" ? { status: filter as any } : {}
+  );
+
+  const updateQ = trpc.knowledge.adminUpdateQuestion.useMutation({
+    onSuccess: () => { utils.knowledge.adminListQuestions.invalidate(); setSelected(null); },
+  });
+  const deleteQ = trpc.knowledge.adminDeleteQuestion.useMutation({
+    onSuccess: () => { utils.knowledge.adminListQuestions.invalidate(); setSelected(null); },
+  });
+
+  if (selected) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <button onClick={() => setSelected(null)} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-3">
+            <ArrowLeft className="h-4 w-4" /> Назад
+          </button>
+          <PageHeader title="Вопрос от пользователя" />
+        </div>
+        <Card><CardContent className="pt-6 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label className="text-xs text-muted-foreground">Имя</Label>
+              <p className="font-medium mt-1">{selected.name}</p>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">Email</Label>
+              <p className="font-medium mt-1">{selected.email || "—"}</p>
+            </div>
+          </div>
+          {selected.topic && (
+            <div>
+              <Label className="text-xs text-muted-foreground">Тема</Label>
+              <p className="mt-1">{selected.topic}</p>
+            </div>
+          )}
+          <div>
+            <Label className="text-xs text-muted-foreground">Вопрос</Label>
+            <p className="mt-1 whitespace-pre-wrap bg-gray-50 rounded-lg p-4 text-sm">{selected.question}</p>
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground">Дата</Label>
+            <p className="mt-1 text-sm text-muted-foreground">{new Date(selected.created_at).toLocaleString("ru-RU")}</p>
+          </div>
+          <div className="border-t pt-4">
+            <Label>Заметки администратора</Label>
+            <Textarea className="mt-1" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Внутренние заметки..." />
+          </div>
+          <div className="flex items-center gap-2">
+            <Label className="text-xs text-muted-foreground shrink-0">Статус:</Label>
+            <div className="flex gap-2 flex-wrap">
+              {(["new", "reviewed", "published", "rejected"] as const).map((s) => (
+                <Button
+                  key={s}
+                  size="sm"
+                  variant={selected.status === s ? "default" : "outline"}
+                  className="text-xs"
+                  onClick={() => {
+                    updateQ.mutate({ id: selected.id, status: s, admin_notes: notes || undefined });
+                  }}
+                  disabled={updateQ.isPending}
+                >
+                  {questionStatusLabels[s].label}
+                </Button>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 pt-4 border-t">
+            <Button onClick={() => updateQ.mutate({ id: selected.id, admin_notes: notes || undefined })} disabled={updateQ.isPending}>
+              <Save className="h-4 w-4 mr-2" /> Сохранить заметки
+            </Button>
+            <Button variant="outline" onClick={() => setSelected(null)}>Отмена</Button>
+            <Button variant="destructive" className="ml-auto" onClick={() => { if (confirm("Удалить вопрос?")) deleteQ.mutate({ id: selected.id }); }}>
+              <Trash2 className="h-4 w-4 mr-2" /> Удалить
+            </Button>
+          </div>
+        </CardContent></Card>
+      </div>
+    );
+  }
+
+  const newCount = questions.filter((q) => q.status === "new").length;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <p className="text-sm text-muted-foreground">
+          {questions.length} вопросов{newCount > 0 ? ` (${newCount} новых)` : ""}
+        </p>
+        <div className="flex gap-1">
+          {[{ value: "all", label: "Все" }, { value: "new", label: "Новые" }, { value: "reviewed", label: "Рассмотрены" }, { value: "rejected", label: "Отклонены" }].map((f) => (
+            <Button key={f.value} size="sm" variant={filter === f.value ? "default" : "outline"} className="text-xs" onClick={() => setFilter(f.value)}>
+              {f.label}
+            </Button>
+          ))}
+        </div>
+      </div>
+      <div className="space-y-2">
+        {questions.map((q) => {
+          const st = questionStatusLabels[q.status];
+          return (
+            <Card key={q.id} className="hover:border-primary/30 cursor-pointer transition-colors" onClick={() => { setSelected(q as KbQuestion); setNotes(q.admin_notes || ""); }}>
+              <CardContent className="flex items-start justify-between p-4 gap-4">
+                <div className="flex items-start gap-3 min-w-0">
+                  <HelpCircle className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="font-medium line-clamp-2">{q.question}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {q.name}{q.topic ? ` · ${q.topic}` : ""} · {new Date(q.created_at).toLocaleDateString("ru-RU")}
+                    </p>
+                  </div>
+                </div>
+                <Badge variant={st.variant as any}>{st.label}</Badge>
+              </CardContent>
+            </Card>
+          );
+        })}
+        {questions.length === 0 && (
+          <Card><CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+            <HelpCircle className="h-12 w-12 mb-3 opacity-30" />
+            <p>Вопросов пока нет</p>
+          </CardContent></Card>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
 // MAIN PAGE
 // ═════════════════════════════════════════════════════════════════════════════
 export default function KnowledgeAdminPage() {
@@ -708,11 +861,13 @@ export default function KnowledgeAdminPage() {
           <TabsTrigger value="categories"><FolderOpen className="h-4 w-4 mr-2" />Категории</TabsTrigger>
           <TabsTrigger value="tags"><Tag className="h-4 w-4 mr-2" />Теги</TabsTrigger>
           <TabsTrigger value="redirects"><Globe className="h-4 w-4 mr-2" />Редиректы</TabsTrigger>
+          <TabsTrigger value="questions"><HelpCircle className="h-4 w-4 mr-2" />Вопросы</TabsTrigger>
         </TabsList>
         <TabsContent value="articles" className="mt-6"><ArticlesTab /></TabsContent>
         <TabsContent value="categories" className="mt-6"><CategoriesTab /></TabsContent>
         <TabsContent value="tags" className="mt-6"><TagsTab /></TabsContent>
         <TabsContent value="redirects" className="mt-6"><RedirectsTab /></TabsContent>
+        <TabsContent value="questions" className="mt-6"><QuestionsTab /></TabsContent>
       </Tabs>
     </div>
   );

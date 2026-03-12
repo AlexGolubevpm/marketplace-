@@ -1,8 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: "standalone",
   transpilePackages: ["@cargo/api", "@cargo/db", "@cargo/shared"],
-  serverExternalPackages: ["undici"],
+  serverExternalPackages: [
+    "undici",
+    "playwright",
+  ],
   async rewrites() {
     return [
       {
