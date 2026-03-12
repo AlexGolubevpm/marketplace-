@@ -1,44 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
-import puppeteer from "puppeteer-extra";
-import StealthPlugin from "puppeteer-extra-plugin-stealth";
-import type { Browser, Page, HTTPResponse } from "puppeteer-core";
-
-puppeteer.use(StealthPlugin());
+import { chromium, type Browser, type Page } from "playwright";
 
 // ─── Config ─────────────────────────────────────────────────────────────────
 
-const CHROME_PATH =
-  process.env.PUPPETEER_EXECUTABLE_PATH ||
-  process.env.CHROME_PATH ||
-  "/usr/bin/chromium-browser";
+const LOGIN_1688 = process.env.ALI_1688_LOGIN || "";
+const PASSWORD_1688 = process.env.ALI_1688_PASSWORD || "";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-interface DetailedProduct {
+interface Product1688 {
   product_id: string;
   title: string;
-  brand: string;
   price_range: string;
   min_price: number;
   max_price: number;
-  price_tiers: { price: number; min_qty: number }[];
-  unit_weight_kg: number | null;
   images: string[];
   sale_quantity: string;
   company_name: string;
   location: string;
   moq: number;
-  attributes: Record<string, string>;
   detail_url: string;
-  source: "aliexpress";
+  source: "1688";
 }
 
 // ─── Launch browser ─────────────────────────────────────────────────────────
 
 async function launchBrowser(): Promise<Browser> {
-  const browser = await (puppeteer as any).launch({
-    headless: "new",
-    executablePath: CHROME_PATH,
+  return chromium.launch({
+    headless: true,
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
@@ -46,121 +35,299 @@ async function launchBrowser(): Promise<Browser> {
       "--disable-gpu",
       "--disable-extensions",
       "--disable-background-networking",
-      "--disable-default-apps",
       "--no-first-run",
       "--window-size=1920,1080",
     ],
-    defaultViewport: { width: 1920, height: 1080 },
-    timeout: 30000,
   });
-
-  return browser as Browser;
 }
 
-// ─── Search AliExpress by image ─────────────────────────────────────────────
+// ─── Login to 1688 ──────────────────────────────────────────────────────────
 
-async function searchAliExpressByImage(
+async function login1688(page: Page): Promise<boolean> {
+  if (!LOGIN_1688 || !PASSWORD_1688) {
+    console.log("[search-china] 1688 credentials not set, skipping login");
+    return false;
+  }
+
+  try {
+    console.log("[search-china] Navigating to 1688 login...");
+    await page.goto("https://login.1688.com/member/signin.htm", {
+      waitUntil: "domcontentloaded",
+      timeout: 30000,
+    });
+
+    // Wait for the login form to appear
+    await page.waitForTimeout(2000);
+
+    // Switch to password login tab if needed
+    const passwordTab = page.locator(
+      'div[data-loginmode="password"], [class*="password-login"], text=密码登录'
+    );
+    if (await passwordTab.first().isVisible({ timeout: 3000 }).catch(() => false)) {
+      await passwordTab.first().click();
+      await page.waitForTimeout(1000);
+    }
+
+    // 1688 login form can be inside an iframe
+    let loginFrame: Page | import("playwright").Frame = page;
+
+    const iframeEl = page.locator('iframe[id*="login"], iframe[src*="login"]');
+    if (await iframeEl.first().isVisible({ timeout: 3000 }).catch(() => false)) {
+      const frameHandle = await iframeEl.first().elementHandle();
+      const frame = frameHandle ? await frameHandle.contentFrame() : null;
+      if (frame) {
+        loginFrame = frame;
+        console.log("[search-china] Found login iframe");
+      }
+    }
+
+    // Fill login and password
+    const loginInput = loginFrame.locator(
+      'input[name="loginId"], input[name="username"], input[id*="login"], input[placeholder*="邮箱"], input[placeholder*="手机"], input[type="text"]'
+    );
+    const passwordInput = loginFrame.locator(
+      'input[name="password"], input[type="password"]'
+    );
+
+    await loginInput.first().waitFor({ state: "visible", timeout: 10000 });
+    await loginInput.first().fill(LOGIN_1688);
+    await page.waitForTimeout(500);
+
+    await passwordInput.first().waitFor({ state: "visible", timeout: 5000 });
+    await passwordInput.first().fill(PASSWORD_1688);
+    await page.waitForTimeout(500);
+
+    // Click submit
+    const submitBtn = loginFrame.locator(
+      'button[type="submit"], [class*="login-btn"], [class*="submit"], button:has-text("登录")'
+    );
+    await submitBtn.first().click();
+
+    // Wait for redirect after login
+    await page.waitForTimeout(5000);
+
+    // Check if login succeeded — should redirect away from login page
+    const currentUrl = page.url();
+    const isLoggedIn = !currentUrl.includes("login.1688.com");
+    console.log("[search-china] Login result:", isLoggedIn ? "success" : "failed", "url:", currentUrl);
+
+    return isLoggedIn;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[search-china] Login error:", msg);
+    return false;
+  }
+}
+
+// ─── Search 1688 by image ───────────────────────────────────────────────────
+
+async function search1688ByImage(
   imageUrl: string
-): Promise<{ products: DetailedProduct[]; error: string; debug?: any }> {
+): Promise<{ products: Product1688[]; error: string; debug?: any }> {
   let browser: Browser | null = null;
 
   try {
-    console.log("[search-china] Launching browser...");
+    console.log("[search-china] Launching Playwright browser...");
     browser = await launchBrowser();
-    const page = await browser.newPage();
-
-    // Realistic browser fingerprint
-    await page.setUserAgent(
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-    );
-    await page.setExtraHTTPHeaders({
-      "Accept-Language": "en-US,en;q=0.9",
+    const context = await browser.newContext({
+      userAgent:
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+      viewport: { width: 1920, height: 1080 },
+      locale: "zh-CN",
+      extraHTTPHeaders: {
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+      },
     });
+    const page = await context.newPage();
 
-    // Intercept API responses that contain product data
-    const apiProducts: any[] = [];
-    page.on("response", async (response: HTTPResponse) => {
-      const url = response.url();
-      // AliExpress internal search API endpoints
-      if (
-        (url.includes("/fn/search-pc/") ||
-          url.includes("/aer-api/") ||
-          url.includes("searchImageResult") ||
-          url.includes("image_search") ||
-          url.includes("/glosearch/")) &&
-        response.status() === 200
-      ) {
-        try {
-          const json = await response.json();
-          console.log("[search-china] Intercepted API:", url.slice(0, 120));
-          apiProducts.push(json);
-        } catch {
-          // not JSON, ignore
-        }
-      }
-    });
+    // Login first
+    const loggedIn = await login1688(page);
+    console.log("[search-china] Logged in:", loggedIn);
 
-    // Navigate to AliExpress image search
+    // Navigate to 1688 image search
     const encodedImg = encodeURIComponent(imageUrl);
-    const searchUrl = `https://www.aliexpress.com/wholesale?SearchText=&catId=0&initiative_id=SB_${Date.now()}&isPremium=y&imgUrl=${encodedImg}`;
+    const searchUrl = `https://s.1688.com/youyuan/index.htm?tab=imageSearch&imageUrl=${encodedImg}&imageType=oss`;
 
-    console.log("[search-china] Navigating to:", searchUrl);
+    console.log("[search-china] Navigating to image search:", searchUrl.slice(0, 120));
     await page.goto(searchUrl, {
       waitUntil: "domcontentloaded",
       timeout: 30000,
     });
 
-    // Wait for products to load
-    console.log("[search-china] Waiting for products to load...");
+    // Wait for results to load
+    console.log("[search-china] Waiting for results...");
     try {
       await page.waitForSelector(
-        'a[href*="/item/"], [class*="manhattan--container"], [class*="search-card-item"], [class*="product-card"]',
+        '[class*="offer-card"], [class*="card-container"], [class*="img-item"], [class*="sm-offer"], a[href*="detail.1688.com"]',
         { timeout: 15000 }
       );
     } catch {
-      console.log("[search-china] Timeout waiting for product selectors");
+      console.log("[search-china] Timeout waiting for result selectors");
     }
 
-    // Give extra time for API responses and lazy-loaded content
-    await new Promise((r) => setTimeout(r, 3000));
+    // Extra time for lazy loading
+    await page.waitForTimeout(3000);
 
-    // Strategy 1: Parse intercepted API responses
-    let products: DetailedProduct[] = [];
-    if (apiProducts.length > 0) {
-      console.log("[search-china] Parsing", apiProducts.length, "API responses...");
-      for (const data of apiProducts) {
-        const items = findProductItems(data);
-        if (items.length > 0) {
-          products = parseApiItems(items);
-          console.log("[search-china] Got", products.length, "products from API");
-          break;
+    // Scroll down to load more items
+    await page.evaluate(() => window.scrollBy(0, 800));
+    await page.waitForTimeout(2000);
+
+    // Extract products from the page
+    const products = await page.evaluate((): any[] => {
+      const results: any[] = [];
+      const seenIds = new Set<string>();
+
+      // Find product cards — 1688 uses various class patterns
+      const cards = document.querySelectorAll(
+        '[class*="offer-card"], [class*="card-container"], [class*="img-item"], [class*="sm-offer-card"]'
+      );
+
+      // Also try finding product links directly
+      const productLinks = document.querySelectorAll(
+        'a[href*="detail.1688.com/offer"], a[href*="offer/"], a[data-href*="detail.1688.com"]'
+      );
+
+      const processElement = (el: Element, link?: HTMLAnchorElement) => {
+        if (results.length >= 5) return;
+
+        // Find product link
+        const anchor =
+          link ||
+          el.querySelector('a[href*="detail.1688.com"], a[href*="offer/"]') as HTMLAnchorElement | null;
+        const href = anchor?.href || anchor?.getAttribute("data-href") || "";
+
+        // Extract product ID
+        const idMatch =
+          href.match(/offer\/(\d+)\.html/) ||
+          href.match(/offerId=(\d+)/) ||
+          href.match(/\/(\d+)\.html/);
+        if (!idMatch) return;
+
+        const productId = idMatch[1];
+        if (seenIds.has(productId)) return;
+        seenIds.add(productId);
+
+        // Title
+        const titleEl = el.querySelector(
+          '[class*="title"], [class*="name"], h4, h3, [class*="subject"]'
+        );
+        const title = titleEl?.textContent?.trim() || "";
+
+        // Price
+        const priceEl = el.querySelector('[class*="price"]');
+        const priceText = priceEl?.textContent?.trim() || "";
+        const priceMatch = priceText.match(/([\d.]+)/);
+        const price = priceMatch ? parseFloat(priceMatch[1]) : 0;
+
+        // Max price (range)
+        const allPrices = priceText.match(/[\d.]+/g);
+        const maxPrice =
+          allPrices && allPrices.length > 1
+            ? parseFloat(allPrices[allPrices.length - 1])
+            : price;
+
+        // Image
+        const imgEl = el.querySelector("img");
+        let imgSrc =
+          imgEl?.src ||
+          imgEl?.getAttribute("data-src") ||
+          imgEl?.getAttribute("data-lazy-src") ||
+          "";
+        if (imgSrc.startsWith("//")) imgSrc = "https:" + imgSrc;
+
+        // Sold / quantity
+        const soldEl = el.querySelector(
+          '[class*="sale"], [class*="sold"], [class*="deal"], [class*="trade"]'
+        );
+        const soldText = soldEl?.textContent?.trim() || "";
+
+        // Company
+        const companyEl = el.querySelector(
+          '[class*="company"], [class*="supplier"], [class*="seller"]'
+        );
+        const companyName = companyEl?.textContent?.trim() || "";
+
+        // Location
+        const locationEl = el.querySelector(
+          '[class*="location"], [class*="address"], [class*="area"]'
+        );
+        const location = locationEl?.textContent?.trim() || "";
+
+        // MOQ
+        const moqEl = el.querySelector('[class*="moq"], [class*="min-order"]');
+        const moqText = moqEl?.textContent?.trim() || "";
+        const moqMatch = moqText.match(/(\d+)/);
+        const moq = moqMatch ? parseInt(moqMatch[1], 10) : 1;
+
+        if (title || price > 0 || imgSrc) {
+          results.push({
+            product_id: productId,
+            title,
+            price,
+            maxPrice: maxPrice || price,
+            imgSrc,
+            soldText,
+            companyName,
+            location,
+            moq,
+            detail_url: href.startsWith("http")
+              ? href
+              : `https://detail.1688.com/offer/${productId}.html`,
+          });
         }
+      };
+
+      // Process card elements
+      cards.forEach((card) => processElement(card));
+
+      // If no cards found, try processing links
+      if (results.length === 0) {
+        productLinks.forEach((link) => {
+          const anchor = link as HTMLAnchorElement;
+          // Walk up to find a parent container
+          let container: Element = anchor;
+          for (let i = 0; i < 6; i++) {
+            if (container.parentElement) container = container.parentElement;
+          }
+          processElement(container, anchor);
+        });
       }
-    }
 
-    // Strategy 2: Extract from page SSR data
-    if (products.length === 0) {
-      console.log("[search-china] Trying SSR data extraction...");
-      products = await extractSSRProducts(page);
-    }
+      return results;
+    });
 
-    // Strategy 3: Scrape DOM directly
-    if (products.length === 0) {
-      console.log("[search-china] Trying DOM scraping...");
-      products = await scrapeDOMProducts(page);
-    }
+    // Map raw results to typed products
+    const typedProducts: Product1688[] = products.map((p) => ({
+      product_id: p.product_id,
+      title: p.title,
+      price_range:
+        p.price > 0
+          ? p.maxPrice > p.price
+            ? `¥${p.price.toFixed(2)} - ¥${p.maxPrice.toFixed(2)}`
+            : `¥${p.price.toFixed(2)}`
+          : "N/A",
+      min_price: p.price,
+      max_price: p.maxPrice || p.price,
+      images: p.imgSrc ? [p.imgSrc] : [],
+      sale_quantity: p.soldText,
+      company_name: p.companyName,
+      location: p.location,
+      moq: p.moq || 1,
+      detail_url: p.detail_url,
+      source: "1688" as const,
+    }));
 
     const finalUrl = page.url();
     console.log("[search-china] Final URL:", finalUrl);
-    console.log("[search-china] Total products found:", products.length);
+    console.log("[search-china] Total products found:", typedProducts.length);
 
     return {
-      products: products.slice(0, 15),
-      error: products.length === 0 ? "Товары не найдены" : "",
+      products: typedProducts.slice(0, 5),
+      error: typedProducts.length === 0 ? "Товары не найдены" : "",
       debug: {
         finalUrl,
-        apiResponsesIntercepted: apiProducts.length,
-        productsFound: products.length,
+        loggedIn,
+        productsFound: typedProducts.length,
       },
     };
   } catch (e) {
@@ -171,375 +338,6 @@ async function searchAliExpressByImage(
     if (browser) {
       await browser.close().catch(() => {});
     }
-  }
-}
-
-// ─── Find product items in nested API response ─────────────────────────────
-
-function findProductItems(obj: any, depth = 0): any[] {
-  if (depth > 10 || !obj || typeof obj !== "object") return [];
-
-  const keys = ["items", "itemList", "productList", "products", "resultList"];
-  for (const key of keys) {
-    if (Array.isArray(obj[key]) && obj[key].length > 0) {
-      const first = obj[key][0];
-      if (
-        first &&
-        typeof first === "object" &&
-        (first.title || first.productId || first.product_id || first.itemId || first.prices)
-      ) {
-        return obj[key];
-      }
-    }
-  }
-
-  // AliExpress "mods" structure
-  if (obj.mods && typeof obj.mods === "object") {
-    for (const modKey of Object.keys(obj.mods)) {
-      const mod = obj.mods[modKey];
-      if (mod?.content && Array.isArray(mod.content) && mod.content.length > 0) {
-        const first = mod.content[0];
-        if (first && (first.title || first.productId || first.prices)) {
-          return mod.content;
-        }
-      }
-    }
-  }
-
-  for (const key of Object.keys(obj)) {
-    if (typeof obj[key] === "object" && obj[key] !== null) {
-      const found = findProductItems(obj[key], depth + 1);
-      if (found.length > 0) return found;
-    }
-  }
-
-  return [];
-}
-
-// ─── Parse API response items ───────────────────────────────────────────────
-
-function parseApiItems(items: any[]): DetailedProduct[] {
-  return items
-    .map((item: any): DetailedProduct | null => {
-      const productId = String(
-        item.productId || item.product_id || item.itemId || item.item_id || item.id || ""
-      );
-      if (!productId) return null;
-
-      // Title
-      const title =
-        item.title?.displayTitle ||
-        item.title?.seoTitle ||
-        (typeof item.title === "string" ? item.title : "") ||
-        item.product_title ||
-        item.productTitle ||
-        item.name ||
-        "";
-
-      // Price
-      let price = 0;
-      let maxPrice = 0;
-      if (item.prices) {
-        const sp = item.prices.salePrice;
-        if (sp) {
-          price = parseFloat(sp.minPrice || sp.formattedPrice?.replace(/[^0-9.]/g, "") || "0") || 0;
-          maxPrice = parseFloat(sp.maxPrice || "0") || price;
-        }
-      } else {
-        const raw = item.price || item.salePrice || item.sale_price || item.min_price || "0";
-        price = typeof raw === "string" ? parseFloat(raw.replace(/[^0-9.]/g, "")) || 0 : parseFloat(raw) || 0;
-        maxPrice = price;
-      }
-
-      // Image
-      const images: string[] = [];
-      const imgUrl =
-        item.image?.imgUrl ||
-        item.imageUrl ||
-        item.image_url ||
-        item.product_main_image_url ||
-        (typeof item.image === "string" ? item.image : "") ||
-        "";
-      if (imgUrl) {
-        images.push(imgUrl.startsWith("//") ? "https:" + imgUrl : imgUrl);
-      }
-
-      // Sales
-      const salesCount =
-        item.trade?.tradeDesc ||
-        item.trade?.sold ||
-        (item.lastest_volume != null ? String(item.lastest_volume) : "") ||
-        (item.orders != null ? String(item.orders) : "") ||
-        "";
-
-      // Store
-      const storeName =
-        item.store?.storeName || item.shop_name || item.shopName || item.seller_name || "";
-
-      // Location
-      const location =
-        item.logistics?.shipFrom || item.ship_from || item.shipFrom || item.location || "";
-
-      if (!title && price === 0) return null;
-
-      return {
-        product_id: productId,
-        title,
-        brand: item.brand || "",
-        price_range: price > 0 ? `$${price.toFixed(2)}` : "N/A",
-        min_price: price,
-        max_price: maxPrice || price,
-        price_tiers: price > 0 ? [{ price, min_qty: 1 }] : [],
-        unit_weight_kg: null,
-        images,
-        sale_quantity: salesCount,
-        company_name: storeName,
-        location,
-        moq: 1,
-        attributes: {},
-        detail_url:
-          item.productDetailUrl ||
-          item.product_detail_url ||
-          `https://www.aliexpress.com/item/${productId}.html`,
-        source: "aliexpress" as const,
-      };
-    })
-    .filter((p): p is DetailedProduct => p !== null);
-}
-
-// ─── Extract products from SSR data embedded in page ────────────────────────
-
-async function extractSSRProducts(page: Page): Promise<DetailedProduct[]> {
-  const ssrData = await page.evaluate(() => {
-    // Try to access global SSR variables
-    const w = window as any;
-    return (
-      w.__INIT_DATA__ ||
-      w.runParams ||
-      w._dida_config_ ||
-      null
-    );
-  });
-
-  if (ssrData) {
-    const items = findProductItems(ssrData);
-    if (items.length > 0) {
-      console.log("[search-china] Found", items.length, "items in SSR data");
-      return parseApiItems(items);
-    }
-  }
-
-  return [];
-}
-
-// ─── Scrape products directly from DOM ──────────────────────────────────────
-
-async function scrapeDOMProducts(page: Page): Promise<DetailedProduct[]> {
-  return page.evaluate(() => {
-    const results: any[] = [];
-    const seenIds = new Set<string>();
-
-    // Find all product links
-    const links = document.querySelectorAll(
-      'a[href*="/item/"], a[href*="aliexpress.com/item"]'
-    );
-
-    links.forEach((link) => {
-      if (results.length >= 15) return;
-
-      const href = (link as HTMLAnchorElement).href || "";
-      const idMatch = href.match(/\/item\/(\d+)\.html/) || href.match(/\/(\d+)\.html/);
-      if (!idMatch) return;
-
-      const productId = idMatch[1];
-      if (seenIds.has(productId)) return;
-      seenIds.add(productId);
-
-      // Walk up to find the card container
-      let card: Element = link;
-      for (let i = 0; i < 6; i++) {
-        if (card.parentElement) card = card.parentElement;
-      }
-
-      // Title
-      const titleEl =
-        card.querySelector('[class*="title" i], [class*="name" i], h1, h3') ||
-        link.querySelector('[class*="title" i], h1, h3');
-      const title = titleEl?.textContent?.trim() || "";
-
-      // Price — try multiple patterns
-      const priceEl = card.querySelector('[class*="price" i]');
-      const priceText = priceEl?.textContent?.trim() || "";
-      // Match patterns like "$1.23", "US $1.23", "1,23", "12.34"
-      const priceMatch = priceText.match(
-        /(?:US\s*\$|USD\s*|\$)\s*([\d,]+\.?\d*)|(\d+[.,]\d{2})/
-      );
-      const price = priceMatch
-        ? parseFloat((priceMatch[1] || priceMatch[2]).replace(",", "."))
-        : 0;
-
-      // Image
-      const imgEl = card.querySelector("img") || link.querySelector("img");
-      let imgSrc = imgEl?.src || imgEl?.getAttribute("data-src") || "";
-      if (imgSrc.startsWith("//")) imgSrc = "https:" + imgSrc;
-
-      // Sold count
-      const soldEl = card.querySelector(
-        '[class*="sold" i], [class*="order" i], [class*="trade" i]'
-      );
-      const soldText = soldEl?.textContent?.trim() || "";
-
-      // Store
-      const storeEl = card.querySelector('[class*="store" i], [class*="shop" i]');
-      const storeName = storeEl?.textContent?.trim() || "";
-
-      if (title || price > 0 || imgSrc) {
-        results.push({
-          product_id: productId,
-          title,
-          price,
-          imgSrc,
-          soldText,
-          storeName,
-          detail_url: href.startsWith("http")
-            ? href
-            : `https://www.aliexpress.com/item/${productId}.html`,
-        });
-      }
-    });
-
-    return results;
-  }).then((raw) =>
-    raw.map(
-      (p: any): DetailedProduct => ({
-        product_id: p.product_id,
-        title: p.title,
-        brand: "",
-        price_range: p.price > 0 ? `$${p.price.toFixed(2)}` : "N/A",
-        min_price: p.price,
-        max_price: p.price,
-        price_tiers: p.price > 0 ? [{ price: p.price, min_qty: 1 }] : [],
-        unit_weight_kg: null,
-        images: p.imgSrc ? [p.imgSrc] : [],
-        sale_quantity: p.soldText,
-        company_name: p.storeName,
-        location: "",
-        moq: 1,
-        attributes: {},
-        detail_url: p.detail_url,
-        source: "aliexpress" as const,
-      })
-    )
-  );
-}
-
-// ─── Diagnostic GET endpoint ─────────────────────────────────────────────────
-
-export async function GET() {
-  // Quick check that Chromium is available
-  let chromiumOk = false;
-  let chromiumError = "";
-  try {
-    const browser = await launchBrowser();
-    const version = await browser.version();
-    await browser.close();
-    chromiumOk = true;
-    chromiumError = version;
-  } catch (e) {
-    chromiumError = e instanceof Error ? e.message : String(e);
-  }
-
-  return NextResponse.json({
-    timestamp: new Date().toISOString(),
-    method: "puppeteer-image-search",
-    chromePath: CHROME_PATH,
-    chromiumOk,
-    chromiumVersion: chromiumOk ? chromiumError : undefined,
-    chromiumError: !chromiumOk ? chromiumError : undefined,
-    status: chromiumOk ? "ready" : "error",
-  });
-}
-
-// ─── Search AliExpress by text query ────────────────────────────────────────
-
-async function searchAliExpressByText(
-  query: string
-): Promise<{ products: DetailedProduct[]; error: string; debug?: any }> {
-  let browser: Browser | null = null;
-
-  try {
-    console.log("[search-china] Text search, launching browser...");
-    browser = await launchBrowser();
-    const page = await browser.newPage();
-
-    await page.setUserAgent(
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-    );
-    await page.setExtraHTTPHeaders({ "Accept-Language": "en-US,en;q=0.9" });
-
-    const apiProducts: any[] = [];
-    page.on("response", async (response: HTTPResponse) => {
-      const url = response.url();
-      if (
-        (url.includes("/fn/search-pc/") ||
-          url.includes("/aer-api/") ||
-          url.includes("/glosearch/")) &&
-        response.status() === 200
-      ) {
-        try {
-          const json = await response.json();
-          console.log("[search-china] Intercepted text API:", url.slice(0, 120));
-          apiProducts.push(json);
-        } catch {
-          // not JSON
-        }
-      }
-    });
-
-    const encodedQuery = encodeURIComponent(query);
-    const searchUrl = `https://www.aliexpress.com/wholesale?SearchText=${encodedQuery}&sortType=total_tranpro_desc`;
-
-    console.log("[search-china] Text search URL:", searchUrl);
-    await page.goto(searchUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
-
-    try {
-      await page.waitForSelector(
-        'a[href*="/item/"], [class*="manhattan--container"], [class*="search-card-item"], [class*="product-card"]',
-        { timeout: 15000 }
-      );
-    } catch {
-      console.log("[search-china] Timeout waiting for text search selectors");
-    }
-
-    await new Promise((r) => setTimeout(r, 3000));
-
-    let products: DetailedProduct[] = [];
-    if (apiProducts.length > 0) {
-      for (const data of apiProducts) {
-        const items = findProductItems(data);
-        if (items.length > 0) {
-          products = parseApiItems(items);
-          break;
-        }
-      }
-    }
-    if (products.length === 0) products = await extractSSRProducts(page);
-    if (products.length === 0) products = await scrapeDOMProducts(page);
-
-    const finalUrl = page.url();
-    console.log("[search-china] Text search found:", products.length, "products");
-
-    return {
-      products: products.slice(0, 15),
-      error: products.length === 0 ? "Товары не найдены" : "",
-      debug: { finalUrl, query, productsFound: products.length },
-    };
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.error("[search-china] Text search error:", msg);
-    return { products: [], error: msg };
-  } finally {
-    if (browser) await browser.close().catch(() => {});
   }
 }
 
@@ -557,72 +355,82 @@ async function isImageAccessible(url: string): Promise<boolean> {
   }
 }
 
+// ─── Diagnostic GET endpoint ─────────────────────────────────────────────────
+
+export async function GET() {
+  let browserOk = false;
+  let browserError = "";
+  try {
+    const browser = await launchBrowser();
+    const version = browser.version();
+    await browser.close();
+    browserOk = true;
+    browserError = version;
+  } catch (e) {
+    browserError = e instanceof Error ? e.message : String(e);
+  }
+
+  return NextResponse.json({
+    timestamp: new Date().toISOString(),
+    method: "playwright-1688-image-search",
+    browserOk,
+    browserVersion: browserOk ? browserError : undefined,
+    browserError: !browserOk ? browserError : undefined,
+    credentials: LOGIN_1688 ? "set" : "NOT SET",
+    status: browserOk ? "ready" : "error",
+  });
+}
+
 // ─── Main POST Handler ──────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { imageUrl, productTitle } = body;
+    const { imageUrl } = body;
 
-    if (!imageUrl && !productTitle) {
+    if (!imageUrl) {
       return NextResponse.json(
-        { error: "Не передана ссылка на изображение или название товара" },
+        { error: "Не передана ссылка на изображение" },
         { status: 400 }
       );
     }
 
-    console.log("[search-china] === Search start ===");
+    console.log("[search-china] === 1688 image search start ===");
     console.log("[search-china] imageUrl:", imageUrl);
-    console.log("[search-china] productTitle:", productTitle);
 
-    let result: { products: DetailedProduct[]; error: string; debug?: any };
-    let searchMethod: "image" | "text" | "image+text" = "image";
+    // Verify image is accessible
+    const imageOk = await isImageAccessible(imageUrl);
+    console.log("[search-china] Image accessible:", imageOk);
 
-    // Try image search first if we have a valid image URL
-    if (imageUrl) {
-      const imageOk = await isImageAccessible(imageUrl);
-      console.log("[search-china] Image accessible:", imageOk);
-
-      if (imageOk) {
-        result = await searchAliExpressByImage(imageUrl);
-
-        // If image search found nothing and we have a title, try text search
-        if (result.products.length === 0 && productTitle) {
-          console.log("[search-china] Image search empty, falling back to text...");
-          result = await searchAliExpressByText(productTitle);
-          searchMethod = "image+text";
-        }
-      } else {
-        // Image is 404, go straight to text search
-        console.log("[search-china] Image URL is 404, using text search...");
-        if (productTitle) {
-          result = await searchAliExpressByText(productTitle);
-          searchMethod = "text";
-        } else {
-          result = { products: [], error: "Фото товара недоступно (404) и не указано название" };
-          searchMethod = "image";
-        }
-      }
-    } else {
-      // No image, text search only
-      result = await searchAliExpressByText(productTitle);
-      searchMethod = "text";
+    if (!imageOk) {
+      return NextResponse.json({
+        searchMethod: "image",
+        totalFound: 0,
+        products: [],
+        debug: {
+          imageUrl,
+          method: "playwright-1688",
+          errorAliexpress: "Фото товара недоступно (404)",
+          foundAliexpress: 0,
+        },
+      });
     }
 
-    console.log("[search-china] === Result:", result.products.length, "products, method:", searchMethod, "===");
+    const result = await search1688ByImage(imageUrl);
+
+    console.log("[search-china] === Result:", result.products.length, "products ===");
 
     return NextResponse.json({
-      searchMethod,
+      searchMethod: "image" as const,
       totalFound: result.products.length,
       products: result.products,
       ...(result.products.length === 0
         ? {
             debug: {
               imageUrl,
-              productTitle,
-              method: "puppeteer",
-              errorAliexpress: result.error || "Товары не найдены",
-              foundAliexpress: 0,
+              method: "playwright-1688",
+              error1688: result.error || "Товары не найдены",
+              found1688: 0,
               ...result.debug,
             },
           }

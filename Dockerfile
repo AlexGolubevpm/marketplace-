@@ -56,20 +56,32 @@ RUN if [ -L /app/apps/web/node_modules/.bin/next ]; then \
 # ============================================
 # Stage 3: Production runner
 # ============================================
-FROM node:20-alpine AS runner
+FROM node:20-slim AS runner
 
-RUN apk add --no-cache libc6-compat \
-    chromium \
-    nss \
-    freetype \
-    harfbuzz \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
-    ttf-freefont
+    fonts-liberation \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libatk1.0-0 \
+    libcups2 \
+    libdbus-1-3 \
+    libdrm2 \
+    libgbm1 \
+    libgtk-3-0 \
+    libnspr4 \
+    libnss3 \
+    libx11-xcb1 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
+    xdg-utils \
+    && rm -rf /var/lib/apt/lists/*
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 
-# Puppeteer config: use system Chromium, skip download
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+# Install Playwright browsers (chromium only)
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN npx playwright@1.52.0 install chromium
 
 WORKDIR /app
 

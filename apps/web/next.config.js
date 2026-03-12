@@ -3,9 +3,7 @@ const nextConfig = {
   transpilePackages: ["@cargo/api", "@cargo/db", "@cargo/shared"],
   serverExternalPackages: [
     "undici",
-    "puppeteer-core",
-    "puppeteer-extra",
-    "puppeteer-extra-plugin-stealth",
+    "playwright",
   ],
   async rewrites() {
     return [

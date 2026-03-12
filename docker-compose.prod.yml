@@ -37,7 +37,9 @@ services:
       - SMTP_USER=${SMTP_USER:-}
       - SMTP_PASS=${SMTP_PASS:-}
       - SMTP_FROM=${SMTP_FROM:-}
-      - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+      - ALI_1688_LOGIN=${ALI_1688_LOGIN:-}
+      - ALI_1688_PASSWORD=${ALI_1688_PASSWORD:-}
+      - PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
     volumes:
       - uploads_data:/app/apps/web/public/uploads
     depends_on:

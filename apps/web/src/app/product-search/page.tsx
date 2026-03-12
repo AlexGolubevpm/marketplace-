@@ -27,32 +27,26 @@ interface ProductData {
 interface ChinaProduct {
   product_id: string;
   title: string;
-  brand: string;
   price_range: string;
   min_price: number;
   max_price: number;
-  price_tiers: { price: number; min_qty: number }[];
-  unit_weight_kg: number | null;
   images: string[];
   sale_quantity: string;
   company_name: string;
   location: string;
   moq: number;
-  attributes: Record<string, string>;
   detail_url: string;
-  source?: "aliexpress";
+  source?: "1688";
 }
 
 interface ChinaSearchResult {
-  searchMethod: "image" | "text" | "image+text";
+  searchMethod: "image";
   totalFound: number;
   products: ChinaProduct[];
   debug?: {
     imageUrl?: string;
-    productTitle?: string;
-    query?: string;
-    errorAliexpress?: string | null;
-    foundAliexpress?: number;
+    error1688?: string | null;
+    found1688?: number;
     finalUrl?: string;
     productsFound?: number;
   };
@@ -64,14 +58,14 @@ function fmt(n: number): string {
   return n.toLocaleString("ru-RU");
 }
 
-function fmtUsd(n: number): string {
-  return `$${n.toFixed(2)}`;
+function fmtCny(n: number): string {
+  return `¥${n.toFixed(2)}`;
 }
 
-const USD_TO_RUB = 92; // approximate rate
+const CNY_TO_RUB = 12.5; // approximate rate
 
-function usdToRub(usd: number): number {
-  return Math.round(usd * USD_TO_RUB);
+function cnyToRub(cny: number): number {
+  return Math.round(cny * CNY_TO_RUB);
 }
 
 function detectPlatform(url: string): "wb" | "ozon" | null {
@@ -103,16 +97,6 @@ function calcTotalVolume(
   return Math.min(packedVolumeCm3, simpleVolumeCm3) / 1_000_000;
 }
 
-/** Get best price from tiers for given quantity */
-function getBestPrice(tiers: { price: number; min_qty: number }[], qty: number): number {
-  if (tiers.length === 0) return 0;
-  // Sort by min_qty desc, find first tier where qty >= min_qty
-  const sorted = [...tiers].sort((a, b) => b.min_qty - a.min_qty);
-  for (const tier of sorted) {
-    if (qty >= tier.min_qty) return tier.price;
-  }
-  return tiers[0].price;
-}
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -163,7 +147,7 @@ function StepIndicator({ step, loading }: { step: number; loading: boolean }) {
   const steps = [
     { num: 1, label: "Ссылка и количество" },
     { num: 2, label: "Данные товара" },
-    { num: 3, label: "Поиск в Китае" },
+    { num: 3, label: "Поиск на 1688" },
     { num: 4, label: "Сравнение" },
   ];
 
@@ -331,23 +315,20 @@ function ChinaProductCards({
   products,
   selectedIndex,
   onSelect,
-  qty,
 }: {
   products: ChinaProduct[];
   selectedIndex: number | null;
   onSelect: (i: number) => void;
-  qty: number;
 }) {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="font-semibold text-gray-900">Найдено на AliExpress</h3>
+        <h3 className="font-semibold text-gray-900">Найдено на 1688.com</h3>
         <span className="text-xs text-gray-400">{products.length} товаров</span>
       </div>
 
       <div className="grid gap-3">
         {products.map((p, i) => {
-          const bestPrice = getBestPrice(p.price_tiers, qty);
           const isSelected = selectedIndex === i;
           return (
             <button
@@ -367,42 +348,23 @@ function ChinaProductCards({
                 )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 mb-1">
-                    {p.source && (
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-orange-100 text-orange-700">
-                        AliExpress
-                      </span>
-                    )}
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-orange-100 text-orange-700">
+                      1688
+                    </span>
                     <p className="text-sm font-medium text-gray-900 line-clamp-2">{p.title}</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                    <span className="font-bold text-red-600">{fmtUsd(bestPrice)}</span>
-                    <span className="text-gray-400">≈ {fmt(usdToRub(bestPrice))} ₽</span>
-                    {p.unit_weight_kg != null && (
-                      <span className="text-gray-400">{p.unit_weight_kg} кг</span>
+                    <span className="font-bold text-red-600">{p.price_range}</span>
+                    <span className="text-gray-400">≈ {fmt(cnyToRub(p.min_price))} ₽</span>
+                    {p.moq > 1 && (
+                      <span className="text-gray-400">MOQ: {p.moq} шт</span>
                     )}
                     {p.sale_quantity && (
                       <span className="text-gray-400">Продано: {p.sale_quantity}</span>
                     )}
                   </div>
-                  {p.price_tiers.length > 1 && (
-                    <div className="flex gap-2 mt-1.5">
-                      {p.price_tiers.map((t, ti) => (
-                        <span
-                          key={ti}
-                          className={`text-xs px-1.5 py-0.5 rounded ${
-                            qty >= t.min_qty &&
-                            (ti === p.price_tiers.length - 1 || qty < p.price_tiers[ti + 1]?.min_qty)
-                              ? "bg-red-100 text-red-700 font-medium"
-                              : "bg-gray-100 text-gray-500"
-                          }`}
-                        >
-                          от {t.min_qty} шт: {fmtUsd(t.price)}
-                        </span>
-                      ))}
-                    </div>
-                  )}
                   {p.company_name && (
-                    <p className="text-xs text-gray-400 mt-1">{p.company_name} · {p.location}</p>
+                    <p className="text-xs text-gray-400 mt-1">{p.company_name}{p.location ? ` · ${p.location}` : ""}</p>
                   )}
                 </div>
                 <div className="flex-shrink-0 self-center">
@@ -434,18 +396,16 @@ function ComparisonTable({
   chinaProduct: ChinaProduct;
   qty: number;
 }) {
-  const chinaUnitPrice = getBestPrice(chinaProduct.price_tiers, qty);
+  const chinaUnitPrice = chinaProduct.min_price;
   const chinaTotal = chinaUnitPrice * qty;
-  const chinaTotalRub = usdToRub(chinaTotal);
+  const chinaTotalRub = cnyToRub(chinaTotal);
   const russiaTotal = russiaProduct.price * qty;
   const difference = russiaTotal - chinaTotalRub;
   const marginPercent = russiaTotal > 0 ? ((difference / russiaTotal) * 100) : 0;
 
   // Weight
-  const chinaWeightKg = chinaProduct.unit_weight_kg;
   const russiaWeightKg = russiaProduct.weight ? russiaProduct.weight / 1000 : null;
-  const weightPerUnit = chinaWeightKg || russiaWeightKg;
-  const totalWeightKg = weightPerUnit ? weightPerUnit * qty : null;
+  const totalWeightKg = russiaWeightKg ? russiaWeightKg * qty : null;
 
   // Volume
   const volumeM3 = calcTotalVolume(russiaProduct.dimensions, qty);
@@ -474,7 +434,7 @@ function ComparisonTable({
           </div>
           <div className="text-center">
             <span className="inline-block px-2 py-0.5 text-xs font-bold rounded bg-orange-100 text-orange-700">
-              AliExpress
+              1688
             </span>
           </div>
 
@@ -482,14 +442,14 @@ function ComparisonTable({
           <div className="text-sm text-gray-500">Цена за шт</div>
           <div className="text-center font-semibold text-gray-900">{fmt(russiaProduct.price)} ₽</div>
           <div className="text-center font-semibold text-gray-900">
-            {fmtUsd(chinaUnitPrice)} <span className="text-gray-400 font-normal">≈ {fmt(usdToRub(chinaUnitPrice))} ₽</span>
+            {fmtCny(chinaUnitPrice)} <span className="text-gray-400 font-normal">≈ {fmt(cnyToRub(chinaUnitPrice))} ₽</span>
           </div>
 
           {/* Total */}
           <div className="text-sm text-gray-500">Итого ({fmt(qty)} шт)</div>
           <div className="text-center font-bold text-lg text-gray-900">{fmt(russiaTotal)} ₽</div>
           <div className="text-center font-bold text-lg text-gray-900">
-            {fmtUsd(chinaTotal)} <span className="text-gray-400 font-normal text-sm">≈ {fmt(chinaTotalRub)} ₽</span>
+            {fmtCny(chinaTotal)} <span className="text-gray-400 font-normal text-sm">≈ {fmt(chinaTotalRub)} ₽</span>
           </div>
         </div>
 
@@ -519,28 +479,6 @@ function ComparisonTable({
           )}
         </div>
 
-        {/* Price tiers */}
-        {chinaProduct.price_tiers.length > 1 && (
-          <div className="bg-gray-50 rounded-xl p-4 mb-4">
-            <div className="text-sm font-medium text-gray-700 mb-2">Оптовые цены на AliExpress</div>
-            <div className="flex flex-wrap gap-2">
-              {chinaProduct.price_tiers.map((t, i) => (
-                <div
-                  key={i}
-                  className={`px-3 py-1.5 rounded-lg text-sm ${
-                    qty >= t.min_qty &&
-                    (i === chinaProduct.price_tiers.length - 1 || qty < chinaProduct.price_tiers[i + 1]?.min_qty)
-                      ? "bg-red-600 text-white font-medium"
-                      : "bg-white border border-gray-200 text-gray-600"
-                  }`}
-                >
-                  от {t.min_qty} шт — {fmtUsd(t.price)} (≈{fmt(usdToRub(t.price))} ₽)
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Detail link */}
         <a
           href={chinaProduct.detail_url}
@@ -548,13 +486,13 @@ function ComparisonTable({
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 text-sm text-red-600 hover:text-red-700 font-medium"
         >
-          Открыть товар на AliExpress
+          Открыть товар на 1688.com
           <ExternalLinkIcon className="w-3.5 h-3.5" />
         </a>
 
         {/* Disclaimer */}
         <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-700">
-          Курс $1 ≈ {USD_TO_RUB} ₽. Расчёт не включает пошлины, НДС, логистику и маркировку.
+          Курс ¥1 ≈ {CNY_TO_RUB} ₽. Расчёт не включает пошлины, НДС, логистику и маркировку.
           Точный расчёт себестоимости — в следующей версии.
         </div>
       </div>
@@ -623,20 +561,16 @@ export default function ProductSearchPage() {
       const prod: ProductData = parseData.product;
       setProduct(prod);
 
-      // Step 3: Search on AliExpress
+      // Step 3: Search on 1688.com
       setStep(3);
-      setLoadingStage("Ищем аналоги на AliExpress по фото…");
+      setLoadingStage("Ищем аналоги на 1688.com по фото…");
 
       const firstImage = prod.images[0] || null;
 
-      // Search by image + text fallback using product title
       const chinaRes = await fetch("/api/search-china", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          imageUrl: firstImage,
-          productTitle: prod.name,
-        }),
+        body: JSON.stringify({ imageUrl: firstImage }),
       });
       const chinaData = await chinaRes.json();
 
@@ -680,7 +614,7 @@ export default function ProductSearchPage() {
       <div className="text-center mb-6">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Поиск товара для импорта</h1>
         <p className="text-gray-500 max-w-xl mx-auto">
-          Вставьте ссылку на товар с WB или Ozon — система найдёт его на AliExpress и рассчитает стоимость партии
+          Вставьте ссылку на товар с WB или Ozon — система найдёт его на 1688.com и рассчитает стоимость партии
         </p>
       </div>
 
@@ -821,7 +755,6 @@ export default function ProductSearchPage() {
                   products={chinaResults.products}
                   selectedIndex={selectedChinaIndex}
                   onSelect={setSelectedChinaIndex}
-                  qty={qtyNum}
                 />
               </>
             )}
@@ -832,21 +765,15 @@ export default function ProductSearchPage() {
                 animate={{ opacity: 1, y: 0 }}
                 className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center"
               >
-                <p className="text-amber-700 font-medium mb-1">Аналоги на AliExpress не найдены</p>
+                <p className="text-amber-700 font-medium mb-1">Аналоги на 1688.com не найдены</p>
                 <p className="text-sm text-amber-600">
-                  {chinaResults.searchMethod === "image+text"
-                    ? "Поиск выполнен по фото и названию товара. Попробуйте другой товар."
-                    : chinaResults.searchMethod === "text"
-                      ? "Поиск выполнен по названию товара. Попробуйте другой товар."
-                      : "Поиск выполнен по фото товара. Попробуйте другой товар."}
+                  Поиск выполнен по фото товара. Попробуйте другой товар.
                 </p>
                 {chinaResults.debug && (
                   <div className="mt-3 text-left bg-white/60 rounded-lg p-3 text-xs text-gray-500 font-mono">
                     {chinaResults.debug.imageUrl && <p>Фото: {chinaResults.debug.imageUrl}</p>}
-                    {chinaResults.debug.productTitle && <p>Название: {chinaResults.debug.productTitle}</p>}
-                    {chinaResults.debug.query && <p>Запрос: {chinaResults.debug.query}</p>}
-                    <p>Метод: {chinaResults.searchMethod === "image+text" ? "фото → текст (fallback)" : chinaResults.searchMethod === "text" ? "текст" : "фото"}</p>
-                    <p>AliExpress: {chinaResults.debug.errorAliexpress || `найдено ${chinaResults.debug.foundAliexpress}`}</p>
+                    <p>Метод: Playwright + 1688.com</p>
+                    <p>1688: {chinaResults.debug.error1688 || `найдено ${chinaResults.debug.found1688}`}</p>
                   </div>
                 )}
               </motion.div>
