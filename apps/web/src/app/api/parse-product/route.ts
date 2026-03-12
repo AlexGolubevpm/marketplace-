@@ -37,7 +37,7 @@ async function downloadImagesToLocal(
         const buffer = Buffer.from(await res.arrayBuffer());
         await writeFile(filePath, buffer);
         // Return the public URL path
-        localUrls.push(`/tmp/${productId}/${filename}`);
+        localUrls.push(`/api/tmp/${productId}/${filename}`);
       } else {
         console.log(`[parse-product] Image ${i + 1} failed: ${res.status}`);
       }
