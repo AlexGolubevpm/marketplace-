@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { chromium, type Browser, type Page } from "playwright";
+import { stat } from "fs/promises";
+import nodePath from "path";
 
 // ─── Config ─────────────────────────────────────────────────────────────────
 
@@ -119,10 +121,10 @@ async function login1688(page: Page): Promise<boolean> {
   }
 }
 
-// ─── Search 1688 by image ───────────────────────────────────────────────────
+// ─── Search 1688 by image (file upload) ─────────────────────────────────────
 
 async function search1688ByImage(
-  imageUrl: string
+  localFilePath: string
 ): Promise<{ products: Product1688[]; error: string; debug?: any }> {
   let browser: Browser | null = null;
 
@@ -144,22 +146,59 @@ async function search1688ByImage(
     const loggedIn = await login1688(page);
     console.log("[search-china] Logged in:", loggedIn);
 
-    // Navigate to 1688 image search
-    const encodedImg = encodeURIComponent(imageUrl);
-    const searchUrl = `https://s.1688.com/youyuan/index.htm?tab=imageSearch&imageUrl=${encodedImg}&imageType=oss`;
-
-    console.log("[search-china] Navigating to image search:", searchUrl.slice(0, 120));
-    await page.goto(searchUrl, {
+    // Navigate to 1688 image search page
+    console.log("[search-china] Navigating to 1688 image search page...");
+    await page.goto("https://s.1688.com/youyuan/index.htm", {
       waitUntil: "domcontentloaded",
       timeout: 30000,
     });
+    await page.waitForTimeout(2000);
+
+    // Upload image file directly via the file input
+    console.log("[search-china] Uploading image file:", localFilePath);
+    const fileInput = page.locator('input[type="file"]');
+
+    // 1688 may have hidden file inputs — make them all visible and use the first one
+    const fileInputCount = await fileInput.count();
+    console.log("[search-china] Found file inputs:", fileInputCount);
+
+    if (fileInputCount > 0) {
+      await fileInput.first().setInputFiles(localFilePath);
+      console.log("[search-china] File uploaded via input");
+    } else {
+      // Fallback: try clicking the upload area to trigger file dialog
+      // Look for the camera/upload icon area
+      const uploadArea = page.locator(
+        '[class*="upload"], [class*="camera"], [class*="image-search"], [class*="img-upload"]'
+      );
+      if (await uploadArea.first().isVisible({ timeout: 5000 }).catch(() => false)) {
+        // Use fileChooser event
+        const [fileChooser] = await Promise.all([
+          page.waitForEvent("filechooser", { timeout: 10000 }),
+          uploadArea.first().click(),
+        ]);
+        await fileChooser.setFiles(localFilePath);
+        console.log("[search-china] File uploaded via fileChooser");
+      } else {
+        console.log("[search-china] No upload element found, trying URL method as fallback");
+        // Last resort: navigate with imageUrl param pointing to a public URL
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "http://localhost:3000";
+        const relPath = localFilePath.replace(nodePath.join(process.cwd(), "public"), "");
+        const fullUrl = `${appUrl}/api${relPath.replace(/^\/tmp/, "/tmp")}`;
+        const encodedImg = encodeURIComponent(fullUrl);
+        await page.goto(
+          `https://s.1688.com/youyuan/index.htm?tab=imageSearch&imageUrl=${encodedImg}&imageType=oss`,
+          { waitUntil: "domcontentloaded", timeout: 30000 }
+        );
+      }
+    }
 
     // Wait for results to load
-    console.log("[search-china] Waiting for results...");
+    console.log("[search-china] Waiting for search results...");
     try {
       await page.waitForSelector(
         '[class*="offer-card"], [class*="card-container"], [class*="img-item"], [class*="sm-offer"], a[href*="detail.1688.com"]',
-        { timeout: 15000 }
+        { timeout: 20000 }
       );
     } catch {
       console.log("[search-china] Timeout waiting for result selectors");
@@ -341,18 +380,25 @@ async function search1688ByImage(
   }
 }
 
-// ─── Verify image URL is accessible ────────────────────────────────────────
+// ─── Resolve image to local file path ───────────────────────────────────────
 
-async function isImageAccessible(url: string): Promise<boolean> {
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 5000);
-    const res = await fetch(url, { method: "HEAD", signal: controller.signal });
-    clearTimeout(timer);
-    return res.ok;
-  } catch {
-    return false;
+const TMP_DIR = nodePath.join(process.cwd(), "public", "tmp");
+
+async function resolveLocalImage(imageUrl: string): Promise<string | null> {
+  // If it's our /api/tmp/ path, resolve to local file
+  const match = imageUrl.match(/\/api\/tmp\/(.+)/);
+  if (match) {
+    const filePath = nodePath.join(TMP_DIR, match[1]);
+    try {
+      await stat(filePath);
+      return filePath;
+    } catch {
+      return null;
+    }
   }
+
+  // If it's an external URL, not a local file
+  return null;
 }
 
 // ─── Diagnostic GET endpoint ─────────────────────────────────────────────────
@@ -395,34 +441,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Convert relative /tmp/ path to full public URL
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "http://localhost:3000";
-    const fullImageUrl = imageUrl.startsWith("/")
-      ? `${appUrl}${imageUrl}`
-      : imageUrl;
-
     console.log("[search-china] === 1688 image search start ===");
-    console.log("[search-china] imageUrl:", fullImageUrl);
+    console.log("[search-china] imageUrl:", imageUrl);
 
-    // Verify image is accessible
-    const imageOk = await isImageAccessible(fullImageUrl);
-    console.log("[search-china] Image accessible:", imageOk);
+    // Resolve to local file path
+    const localFile = await resolveLocalImage(imageUrl);
+    console.log("[search-china] Local file resolved:", localFile || "NOT FOUND");
 
-    if (!imageOk) {
+    if (!localFile) {
       return NextResponse.json({
         searchMethod: "image",
         totalFound: 0,
         products: [],
         debug: {
-          imageUrl: fullImageUrl,
-          method: "playwright-1688",
-          error1688: "Фото товара недоступно (404)",
+          imageUrl,
+          method: "playwright-1688-upload",
+          error1688: "Фото товара не найдено на диске",
           found1688: 0,
         },
       });
     }
 
-    const result = await search1688ByImage(fullImageUrl);
+    const result = await search1688ByImage(localFile);
 
     console.log("[search-china] === Result:", result.products.length, "products ===");
 
@@ -433,8 +473,8 @@ export async function POST(request: NextRequest) {
       ...(result.products.length === 0
         ? {
             debug: {
-              imageUrl: fullImageUrl,
-              method: "playwright-1688",
+              imageUrl,
+              method: "playwright-1688-upload",
               error1688: result.error || "Товары не найдены",
               found1688: 0,
               ...result.debug,

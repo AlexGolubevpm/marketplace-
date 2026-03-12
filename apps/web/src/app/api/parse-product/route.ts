@@ -17,18 +17,21 @@ async function downloadImagesToLocal(
 
   for (let i = 0; i < imageUrls.length; i++) {
     const url = imageUrls[i];
-    const filename = `${i + 1}.jpg`;
+    const ext = url.match(/\.(webp|png|gif)(\?|$)/i) ? url.match(/\.(webp|png|gif)/i)![1] : "jpg";
+    const filename = `${i + 1}.${ext}`;
     const filePath = path.join(dir, filename);
 
     try {
+      console.log(`[parse-product] Downloading image ${i + 1}: ${url}`);
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 10000);
+      const timer = setTimeout(() => controller.abort(), 15000);
       const res = await fetch(url, {
         signal: controller.signal,
         headers: {
           "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
           Referer: "https://www.wildberries.ru/",
+          Accept: "image/webp,image/apng,image/*,*/*;q=0.8",
         },
       });
       clearTimeout(timer);
@@ -36,10 +39,10 @@ async function downloadImagesToLocal(
       if (res.ok) {
         const buffer = Buffer.from(await res.arrayBuffer());
         await writeFile(filePath, buffer);
-        // Return the public URL path
+        console.log(`[parse-product] Image ${i + 1} saved: ${filePath} (${buffer.length} bytes)`);
         localUrls.push(`/api/tmp/${productId}/${filename}`);
       } else {
-        console.log(`[parse-product] Image ${i + 1} failed: ${res.status}`);
+        console.log(`[parse-product] Image ${i + 1} HTTP ${res.status} from: ${url}`);
       }
     } catch (e) {
       console.log(`[parse-product] Image ${i + 1} download error:`, e instanceof Error ? e.message : e);
