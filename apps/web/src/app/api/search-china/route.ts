@@ -395,11 +395,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Convert relative /tmp/ path to full public URL
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "http://localhost:3000";
+    const fullImageUrl = imageUrl.startsWith("/")
+      ? `${appUrl}${imageUrl}`
+      : imageUrl;
+
     console.log("[search-china] === 1688 image search start ===");
-    console.log("[search-china] imageUrl:", imageUrl);
+    console.log("[search-china] imageUrl:", fullImageUrl);
 
     // Verify image is accessible
-    const imageOk = await isImageAccessible(imageUrl);
+    const imageOk = await isImageAccessible(fullImageUrl);
     console.log("[search-china] Image accessible:", imageOk);
 
     if (!imageOk) {
@@ -408,15 +414,15 @@ export async function POST(request: NextRequest) {
         totalFound: 0,
         products: [],
         debug: {
-          imageUrl,
+          imageUrl: fullImageUrl,
           method: "playwright-1688",
-          errorAliexpress: "Фото товара недоступно (404)",
-          foundAliexpress: 0,
+          error1688: "Фото товара недоступно (404)",
+          found1688: 0,
         },
       });
     }
 
-    const result = await search1688ByImage(imageUrl);
+    const result = await search1688ByImage(fullImageUrl);
 
     console.log("[search-china] === Result:", result.products.length, "products ===");
 
@@ -427,7 +433,7 @@ export async function POST(request: NextRequest) {
       ...(result.products.length === 0
         ? {
             debug: {
-              imageUrl,
+              imageUrl: fullImageUrl,
               method: "playwright-1688",
               error1688: result.error || "Товары не найдены",
               found1688: 0,

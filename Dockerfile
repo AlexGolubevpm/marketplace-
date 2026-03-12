@@ -111,6 +111,8 @@ COPY --chmod=755 docker-entrypoint.sh /app/docker-entrypoint.sh
 # Set ownership for directories that entrypoint needs to write to
 RUN chown -R nextjs:nodejs /app/apps/web/.next
 RUN chown -R nextjs:nodejs /app/packages/db
+# Temp folder for downloaded product images
+RUN mkdir -p /app/apps/web/public/tmp && chown -R nextjs:nodejs /app/apps/web/public/tmp
 
 USER nextjs
 

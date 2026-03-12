@@ -1,4 +1,53 @@
 import { NextRequest, NextResponse } from "next/server";
+import { writeFile, mkdir } from "fs/promises";
+import path from "path";
+
+// --- Image Download Helpers ---
+
+const TMP_DIR = path.join(process.cwd(), "public", "tmp");
+
+async function downloadImagesToLocal(
+  imageUrls: string[],
+  productId: string
+): Promise<string[]> {
+  const dir = path.join(TMP_DIR, productId);
+  await mkdir(dir, { recursive: true });
+
+  const localUrls: string[] = [];
+
+  for (let i = 0; i < imageUrls.length; i++) {
+    const url = imageUrls[i];
+    const filename = `${i + 1}.jpg`;
+    const filePath = path.join(dir, filename);
+
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10000);
+      const res = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          Referer: "https://www.wildberries.ru/",
+        },
+      });
+      clearTimeout(timer);
+
+      if (res.ok) {
+        const buffer = Buffer.from(await res.arrayBuffer());
+        await writeFile(filePath, buffer);
+        // Return the public URL path
+        localUrls.push(`/tmp/${productId}/${filename}`);
+      } else {
+        console.log(`[parse-product] Image ${i + 1} failed: ${res.status}`);
+      }
+    } catch (e) {
+      console.log(`[parse-product] Image ${i + 1} download error:`, e instanceof Error ? e.message : e);
+    }
+  }
+
+  return localUrls;
+}
 
 // --- WB Helpers ---
 
@@ -361,6 +410,11 @@ async function parseWildberries(url: string): Promise<ProductData> {
 
   if (!originalPrice) originalPrice = price;
 
+  // Download images to local tmp folder so they are accessible publicly
+  const localImages = await downloadImagesToLocal(images, productId);
+  // Keep original WB URLs as fallback, but prefer local
+  const finalImages = localImages.length > 0 ? localImages : images;
+
   return {
     name,
     brand,
@@ -371,7 +425,7 @@ async function parseWildberries(url: string): Promise<ProductData> {
     subcategory,
     weight,
     dimensions,
-    images,
+    images: finalImages,
     source: "wb",
     sourceUrl: url,
     productId,
@@ -514,6 +568,10 @@ async function parseOzon(url: string): Promise<ProductData> {
       ? Math.round(((originalPrice - price) / originalPrice) * 100)
       : 0;
 
+  // Download images locally
+  const localImages = await downloadImagesToLocal(images, productId);
+  const finalImages = localImages.length > 0 ? localImages : images;
+
   return {
     name,
     brand,
@@ -524,7 +582,7 @@ async function parseOzon(url: string): Promise<ProductData> {
     subcategory: "",
     weight: null,
     dimensions: null,
-    images,
+    images: finalImages,
     source: "ozon",
     sourceUrl: url,
     productId,
